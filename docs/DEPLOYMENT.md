@@ -21,10 +21,9 @@ Auth.js v5 (JWT) + AI SDK v7 (DeepSeek).
    dengan `prisma db push`. Akibatnya `prisma migrate deploy` di Vercel **belum
    melakukan apa-apa**. Langkah membuat migration ada di Bagian 4.
 
-3. **Upload logo tenant menyimpan berkas ke disk lokal**
-   (`src/lib/logo-storage.ts` → `public/uploads/tenants/...`). Di Vercel
-   filesystem **read-only & efemeral**, jadi fitur "Ganti Logo" (PRO) akan gagal.
-   Solusi ada di Bagian 7.
+3. **Upload logo tenant sudah aman** — logo disimpan sebagai data URI di kolom
+   `Tenant.customLogoUrl` (bukan berkas di disk), jadi fitur white-label PRO
+   berjalan di Vercel tanpa storage eksternal. Detail di Bagian 7.
 
 ---
 
@@ -200,20 +199,21 @@ npx prisma db seed     # data demo (Berkah Haramain PRO + Toko Berkah FREE)
 
 ---
 
-## 7. Perbaikan yang diperlukan agar PRO branding hidup di produksi
+## 7. Upload logo — sudah siap untuk Vercel
 
-`src/lib/logo-storage.ts` menulis ke disk lokal → tidak bisa di Vercel.
-Ganti isi dua fungsi (`simpanLogo`, `hapusLogo`) dengan penyimpanan eksternal:
+Logo tenant **tidak ditulis ke disk**. `src/lib/logo-storage.ts` mengubah berkas
+menjadi **data URI** (`data:image/png;base64,...`) dan menyimpannya di kolom
+`Tenant.customLogoUrl`. Batas ukuran logo 512 KB membuat pendekatan ini wajar,
+dan fitur "Ganti Logo" (PRO) langsung jalan di Vercel tanpa storage eksternal.
 
-- **Paling praktis di Vercel:** *Vercel Blob* (`@vercel/blob`) — satu SDK,
-  satu `BLOB_READ_WRITE_TOKEN`, tidak perlu S3.
-- **Alternatif:** Supabase Storage (sudah punya akun DB), Cloudinary, atau S3.
-
-Setelah pindah ke storage eksternal, bila logo dirender dengan `next/image`,
-tambahkan host-nya ke `images.remotePatterns` di `next.config.ts`.
-
-Sisanya (validasi tipe/ukuran, penyimpanan URL di `Tenant.customLogoUrl`) tidak
-perlu berubah — sudah dirancang agar tinggal ganti dua fungsi itu.
+Kapan sebaiknya pindah ke storage eksternal:
+- Logo menambah ukuran baris tabel `tenants` sekitar 33% dari ukuran berkas
+  (efek base64). Untuk beberapa tenant ini tidak masalah.
+- Bila tenant bertambah banyak atau logo membesar, ganti isi `simpanLogo()`
+  di berkas itu ke **Vercel Blob / S3 / Supabase Storage**. Pemanggil dan
+  komponen tampilan tidak perlu berubah karena keduanya hanya memakai URL.
+- Bila nanti memakai `next/image`, tambahkan host-nya ke `images.remotePatterns`
+  di `next.config.ts`.
 
 ---
 
