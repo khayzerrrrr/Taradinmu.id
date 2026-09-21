@@ -1,0 +1,1444 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TaradinMu: ekosistem perniagaan islami, dari catatan usaha sampai zakat</title>
+<meta name="description" content="TaradinMu adalah ekosistem perniagaan islami: catat stok, invoice, dan piutang, lalu hitung zakat perniagaan dan zakat harta otomatis dari data usaha. Modul menyesuaikan jenis usaha. Dibuat untuk anggota SUMU.">
+<meta name="theme-color" content="#0b4735">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="id_ID">
+<meta property="og:site_name" content="TaradinMu">
+<meta property="og:title" content="TaradinMu: ekosistem perniagaan islami, dari catatan usaha sampai zakat">
+<meta property="og:description" content="Catat stok, invoice, dan piutang, lalu hitung zakat usaha dari data yang sama. Modul menyesuaikan jenis usaha Anda.">
+<meta property="og:image" content="{{ORIGIN}}/opengraph-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="{{ORIGIN}}/twitter-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=Caveat:wght@500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --forest:#0b4735; --night:#062a1e; --emerald:#2d7a61; --mint:#dcece3;
+  --paper:#f6f7f1; --paper2:#eceee5; --white:#fff;
+  --gold:#c38029; --gold-lt:#e5ad55; --ink:#10261d; --muted:#4d6157;
+  --tinta:#b23a2b; --line:#d9ddd0;
+  --display:'Bricolage Grotesque','Inter',system-ui,sans-serif;
+  --body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --hand:'Caveat','Bradley Hand',cursive;
+  --arab:'Amiri','Traditional Arabic',serif;
+  --wrap:1180px; --gut:clamp(20px,4vw,48px);
+}
+*{box-sizing:border-box;margin:0}
+html{overflow-x:clip;scroll-behavior:smooth;scroll-padding-top:76px;-webkit-text-size-adjust:100%}
+body{font-family:var(--body);font-size:1.0625rem;line-height:1.65;color:var(--ink);background:var(--paper);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+img,svg{display:block;max-width:100%}
+a{color:inherit}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:3px;border-radius:6px}
+.wrap{max-width:var(--wrap);margin-inline:auto;padding-inline:var(--gut)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:-.025em;line-height:1.04;text-wrap:balance}
+h2{font-size:clamp(2rem,4.2vw,3.35rem)}
+h3{font-size:clamp(1.25rem,2vw,1.55rem);letter-spacing:-.015em;line-height:1.2}
+p{text-wrap:pretty}
+.lead{font-size:clamp(1.08rem,1.5vw,1.25rem);color:var(--muted);max-width:60ch;margin-top:18px}
+section{position:relative}
+.sec{padding-block:clamp(72px,10vw,132px)}
+
+/* ---------- tombol ---------- */
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 22px;border-radius:12px;font-weight:600;font-size:1rem;text-decoration:none;border:2px solid transparent;transition:transform .15s,background .15s,box-shadow .15s;line-height:1.2}
+.btn:active{transform:translateY(1px)}
+.btn svg{width:20px;height:20px;flex:none}
+.btn-gold{background:var(--gold-lt);color:#2b1a02;box-shadow:0 1px 0 rgba(255,255,255,.4) inset,0 6px 20px -6px rgba(229,173,85,.6)}
+.btn-gold:hover{background:#f0b95f}
+.btn-ghost-lt{border-color:rgba(255,255,255,.38);color:#fff}
+.btn-ghost-lt:hover{background:rgba(255,255,255,.1)}
+.btn-forest{background:var(--forest);color:#fff}
+.btn-forest:hover{background:#0f5a43}
+.btn-line{border-color:var(--forest);color:var(--forest)}
+.btn-line:hover{background:var(--forest);color:#fff}
+
+/* ---------- nav ---------- */
+.nav{position:sticky;top:0;z-index:50;transition:background .2s,box-shadow .2s}
+.nav.solid{background:rgba(246,247,241,.92);backdrop-filter:blur(10px);box-shadow:0 1px 0 var(--line)}
+.nav.on-dark:not(.solid){color:#fff}
+.nav-in{display:flex;align-items:center;gap:28px;height:68px}
+.nav .logo,.foot .logo{display:block}
+.nav .logo{height:40px}
+.logo svg{height:100%;width:auto}
+.hero-mark svg,.final .mark svg{width:100%;height:auto}
+.nav .logo-d{display:none}
+.nav.on-dark:not(.solid) .logo-l{display:none}
+.nav.on-dark:not(.solid) .logo-d{display:block}
+.nav-links{display:flex;gap:22px;margin-left:8px;font-size:.95rem;font-weight:500;white-space:nowrap}
+.nav-links a{text-decoration:none;opacity:.86;padding:6px 0;border-bottom:2px solid transparent}
+.nav-links a:hover{opacity:1;border-color:var(--gold)}
+.nav-cta{margin-left:auto;display:flex;gap:10px;align-items:center}
+.nav .btn{padding:10px 16px;font-size:.92rem;border-radius:10px;white-space:nowrap}
+.nav .btn-forest-o{border:2px solid currentColor;background:transparent}
+.nav.on-dark:not(.solid) .btn-pres{border-color:rgba(255,255,255,.4)}
+.btn-pres{background:transparent;border:2px solid var(--line);color:inherit}
+.btn-pres:hover{border-color:var(--gold)}
+.burger{display:none;background:none;border:0;width:44px;height:44px;margin-left:auto;border-radius:10px}
+.burger span{display:block;width:22px;height:2px;background:currentColor;margin:5px auto;transition:.2s}
+@media(max-width:1180px){.btn-pres{font-size:0;gap:0;padding:10px 12px!important}.btn-pres svg{width:20px;height:20px}}
+@media(max-width:940px){
+  .nav-links{display:none;position:absolute;left:0;right:0;top:68px;background:var(--paper);color:var(--ink);flex-direction:column;gap:0;margin:0;padding:8px var(--gut) 20px;box-shadow:0 20px 30px -20px rgba(0,0,0,.3)}
+  .nav-links.open{display:flex}
+  .nav-links a{padding:14px 0;border-bottom:1px solid var(--line);font-size:1.05rem}
+  .nav-cta .btn-pres{display:none}
+  .nav-cta{margin-left:auto}
+  .burger{display:block;margin-left:0}
+  .nav.on-dark:not(.solid) .burger{color:#fff}
+}
+@media(max-width:520px){.nav-cta .btn{display:none}.burger{margin-left:auto}}
+
+/* ---------- hero ---------- */
+.hero{background:var(--forest);color:#fff;margin-top:-68px;padding-top:68px;overflow-x:clip;isolation:isolate;z-index:2}
+.hero::before{content:"";position:absolute;inset:0;background:radial-gradient(90% 70% at 85% 30%,rgba(45,122,97,.55),transparent 65%),linear-gradient(180deg,var(--forest),#08392a);z-index:-2}
+.hero-mark{position:absolute;right:-9%;top:6%;width:min(52vw,640px);opacity:.09;z-index:-1;transform:rotate(-4deg);pointer-events:none}
+.hero-grid{display:grid;grid-template-columns:minmax(0,6fr) minmax(0,6.4fr);gap:clamp(28px,4vw,64px);align-items:center;padding-block:clamp(48px,7vw,92px) 0}
+.hero h1{font-size:clamp(2.1rem,3.9vw,3.55rem);font-weight:750;letter-spacing:-.032em;line-height:1.04}
+.hero h1 span{display:block}
+.hero .sub{font-size:clamp(1.05rem,1.4vw,1.2rem);color:#cfe3d8;margin-top:24px;max-width:46ch}
+.hero-cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
+.facts{list-style:none;padding:0;margin-top:34px;display:grid;gap:10px;font-size:.98rem;color:#cfe3d8}
+.facts li{display:flex;gap:10px;align-items:flex-start}
+.facts svg{width:20px;height:20px;flex:none;margin-top:2px;color:var(--gold-lt)}
+.hero-mock{margin-bottom:-110px;position:relative;cursor:pointer;transform-origin:50% 100%}
+.hero-mock .hint{position:absolute;right:16px;bottom:16px;background:var(--forest);color:#fff;font-size:.85rem;font-weight:600;padding:8px 14px;border-radius:999px;box-shadow:0 8px 20px -6px rgba(0,0,0,.5);z-index:5;border:1px solid rgba(255,255,255,.2)}
+.hero-grid>div:first-child{padding-bottom:56px}
+.after-hero{padding-top:clamp(140px,14vw,190px)}
+@media(max-width:940px){
+  .hero-grid{grid-template-columns:minmax(0,1fr)}
+  .hero-mock{margin-bottom:-70px}
+  .after-hero{padding-top:110px}
+}
+/* satu momen pembuka: teks masuk berurutan, dashboard naik */
+@media(prefers-reduced-motion:no-preference){
+  .hero h1 span{animation:in .7s cubic-bezier(.2,.7,.2,1) both}
+  .hero h1 span:nth-child(2){animation-delay:.1s}
+  .hero h1 span:nth-child(3){animation-delay:.2s}
+  .hero .sub{animation:in .7s .28s both cubic-bezier(.2,.7,.2,1)}
+  .hero-cta,.facts{animation:in .7s .4s both cubic-bezier(.2,.7,.2,1)}
+  .hero-mock{animation:rise .95s .25s both cubic-bezier(.2,.75,.2,1)}
+  @keyframes in{from{opacity:0;transform:translateY(22px)}}
+  @keyframes rise{from{opacity:0;transform:translateY(70px) scale(.98)}}
+}
+
+/* ---------- ayat / makna nama ---------- */
+.name{background:var(--paper)}
+.name-grid{display:grid;grid-template-columns:minmax(0,6fr) minmax(0,5fr);gap:clamp(32px,6vw,90px);align-items:center}
+.ayat{font-family:var(--arab);font-size:clamp(2rem,4.6vw,3.6rem);line-height:1.9;direction:rtl;color:var(--forest);font-weight:400;padding:clamp(24px,4vw,44px);border-inline-start:0;background:linear-gradient(90deg,transparent,var(--mint) 0);border-radius:6px;position:relative}
+.ayat-wrap{position:relative;padding:clamp(8px,2vw,16px) 0}
+.ayat-wrap::before{content:"";position:absolute;inset:0 auto 0 0;width:6px;background:var(--gold);border-radius:6px}
+.ayat-wrap .ayat{background:none;padding-left:clamp(24px,3vw,40px);padding-right:0}
+.ayat-src{margin-top:10px;padding-left:clamp(24px,3vw,40px);color:var(--muted);font-size:.98rem}
+.name h2{margin-bottom:20px}
+.name p+p{margin-top:16px}
+.name-note{color:var(--muted)}
+@media(max-width:860px){.name-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- masalah / solusi ---------- */
+.problem{background:var(--white);border-block:1px solid var(--line)}
+.scene{max-width:62ch;margin-top:22px;color:var(--muted);font-size:1.15rem}
+.scene b{color:var(--ink);font-weight:600}
+.ps{margin-top:clamp(36px,5vw,60px)}
+.ps-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+.ps-tab{border:2px solid var(--line);background:var(--paper);border-radius:999px;padding:10px 18px;font-weight:600;font-size:.98rem;transition:.15s}
+.ps-tab:hover{border-color:var(--emerald)}
+.ps-tab[aria-selected=true]{background:var(--forest);border-color:var(--forest);color:#fff}
+.ps-head{font-family:var(--display);font-size:clamp(1.4rem,2.6vw,2rem);font-weight:650;letter-spacing:-.02em;line-height:1.15;max-width:34ch;margin-bottom:26px}
+.ps-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(16px,3vw,36px);align-items:stretch}
+.ps-side h4{font-family:var(--body);font-size:.95rem;font-weight:600;color:var(--muted);margin-bottom:12px}
+.notebook{position:relative;height:calc(100% - 34px);min-height:340px;background:#fbfaf3;border-radius:4px;padding:26px 26px 26px 66px;transform:rotate(-1.1deg);box-shadow:0 1px 2px rgba(0,0,0,.08),0 18px 30px -18px rgba(60,50,20,.45);
+  background-image:repeating-linear-gradient(#fbfaf3 0 33px,#b9cbe0 33px 34px);background-position:0 20px}
+.notebook::before{content:"";position:absolute;left:48px;top:0;bottom:0;width:2px;background:rgba(178,58,43,.55)}
+.notebook::after{content:"";position:absolute;top:-12px;left:34%;width:92px;height:26px;background:rgba(229,173,85,.55);transform:rotate(-3deg);border-radius:2px}
+.notebook p{font-family:var(--hand);font-size:1.62rem;line-height:34px;color:#243b63;font-weight:500;margin:0;white-space:normal}
+.notebook .r{color:var(--tinta)}
+.notebook s{text-decoration-color:var(--tinta);text-decoration-thickness:2px}
+.after{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:clamp(16px,2.4vw,24px);height:calc(100% - 34px)}
+.after-note{margin-top:16px;font-size:.98rem;color:var(--muted);padding-top:14px;border-top:1px dashed var(--line)}
+.after-note b{color:var(--ink)}
+@media(max-width:860px){.ps-grid{grid-template-columns:minmax(0,1fr)}.notebook,.after{height:auto}}
+
+/* mini UI (dipakai di panel & mockup) */
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;font-weight:600;border-radius:999px;padding:3px 9px;line-height:1.4;white-space:nowrap}
+.c-ok{background:#dcfce7;color:#166534}.c-warn{background:#fef3c7;color:#92400e}.c-bad{background:#fee2e2;color:#991b1b}.c-info{background:#e0f2fe;color:#075985}.c-mute{background:#e2e8f0;color:#334155}.c-acc{background:color-mix(in srgb,var(--acc,#059669) 14%,#fff);color:color-mix(in srgb,var(--acc,#059669) 80%,#000)}
+.mrow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid #e2e8f0;font-size:.92rem}
+.mrow:last-child{border-bottom:0}
+.mrow small{display:block;color:#64748b;font-size:.78rem}
+.num{font-variant-numeric:tabular-nums;font-weight:600}
+.tot{display:flex;justify-content:space-between;padding:6px 0;font-size:.95rem}
+.tot.big{border-top:2px solid #0f172a;margin-top:6px;padding-top:10px;font-weight:700;font-size:1.05rem}
+
+/* ---------- jendela aplikasi (mockup) ---------- */
+.appwin{--acc:#059669;container-type:inline-size;background:#f8fafc;border-radius:14px;overflow:hidden;position:relative;color:#0f172a;font-size:14px;line-height:1.5;text-align:left;
+  box-shadow:0 0 0 1px rgba(15,23,42,.1),0 2px 4px rgba(15,23,42,.06),0 30px 60px -22px rgba(0,0,0,.55)}
+.chrome{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#e6e9e0;border-bottom:1px solid #d3d8ca}
+.dots{display:flex;gap:6px}.dots i{width:11px;height:11px;border-radius:50%;background:#c7ccbe}
+.url{flex:1;min-width:0;background:#fff;border-radius:999px;padding:5px 14px;font-size:12.5px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;gap:8px;align-items:center}
+.url svg{width:13px;height:13px;color:#16a34a;flex:none}
+.stripe{height:4px;background:var(--acc);transition:background .3s}
+.ahead{display:flex;align-items:center;gap:12px;padding:12px 20px;background:#fff;border-bottom:1px solid #e2e8f0;flex-wrap:wrap}
+.abrand{display:flex;align-items:center;gap:11px;min-width:0}
+.abrand .bm{width:30px;height:30px;flex:none;display:grid;place-items:center;border-radius:7px;color:#fff;font-weight:700;font-family:var(--display);background:var(--acc);transition:background .3s}
+.abrand .mk svg{height:32px;width:auto}
+.abrand b{display:block;font-family:var(--display);font-size:15px;line-height:1.15;letter-spacing:-.01em}
+.abrand small{display:block;color:#64748b;font-size:11.5px}
+.arole{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:#64748b}
+.arole i{width:28px;height:28px;border-radius:50%;background:#e2e8f0;display:grid;place-items:center;font-style:normal;font-weight:600;color:#334155;font-size:12px}
+.atabs{display:flex;gap:2px;padding:0 14px;background:#fff;border-bottom:1px solid #e2e8f0;overflow-x:auto;scrollbar-width:none}
+.atab{background:none;border:0;padding:12px 14px;font-weight:500;color:#64748b;border-bottom:2px solid transparent;white-space:nowrap;font-size:14px;display:flex;gap:8px;align-items:center;margin-bottom:-1px}
+.atab:hover{color:#0f172a}
+.atab[aria-selected=true]{color:#0f172a;border-color:var(--acc);font-weight:600}
+.atab .pro{font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 5px}
+.aview{padding:20px;min-height:520px}
+.aview h5{font-family:var(--display);font-size:19px;font-weight:650;letter-spacing:-.02em;line-height:1.2}
+.aview .sub{color:#64748b;font-size:13px;margin-top:2px}
+.vhead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:13px 14px;text-align:left;font:inherit;display:block;width:100%}
+button.kpi:hover{border-color:var(--acc)}
+.kpi .l{font-size:12px;color:#64748b;display:block}
+.kpi .v{font-size:22px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;display:block;margin-top:3px;line-height:1.2}
+.kpi .s{font-size:12px;color:#64748b;display:block;margin-top:2px}
+.kpi.bad .v{color:#b91c1c}.kpi.warn .v{color:#b45309}
+.two{display:grid;grid-template-columns:1.1fr 1fr;gap:12px;margin-top:12px}
+.box{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px}
+.box h6{font-size:13px;font-weight:600;margin:0 0 10px;font-family:var(--body)}
+.bars{width:100%;height:auto;max-height:150px;margin-top:auto}
+.chartbox{display:flex;flex-direction:column}
+.todo{display:grid;gap:8px}
+.todo button{display:flex;gap:10px;text-align:left;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:9px 11px;font-size:13px;align-items:flex-start;width:100%}
+.todo button:hover{border-color:var(--acc);background:#fff}
+.todo svg{width:16px;height:16px;flex:none;margin-top:2px}
+.todo .t-bad svg{color:#dc2626}.todo .t-warn svg{color:#d97706}
+.abtn{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:600;font-size:13px;transition:filter .15s,background .3s}
+.abtn:hover{filter:brightness(1.08)}
+.abtn.sec{background:#fff;color:#0f172a;border:1px solid #cbd5e1}
+.abtn.sec:hover{border-color:var(--acc);filter:none}
+.abtn.sm{padding:5px 10px;font-size:12px}
+.abtn:disabled{opacity:.45;cursor:not-allowed}
+.prod{background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:10px;overflow:hidden}
+.prod-h{display:grid;grid-template-columns:1.6fr .8fr 1fr auto;gap:10px;align-items:center;padding:12px 14px;width:100%;background:none;border:0;text-align:left}
+.prod-h:hover{background:#f8fafc}
+.prod-h b{font-weight:600}
+.prod-h small{color:#64748b;display:block;font-size:12px}
+.cq{display:none}
+.prod-b{border-top:1px solid #e2e8f0;background:#f8fafc;padding:12px 14px}
+.batch{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:6px;font-size:13px;flex-wrap:wrap}
+.batch.next{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+.batch.exp{opacity:.65;background:#fef2f2}
+.act{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.qty{display:flex;align-items:center;border:1px solid #cbd5e1;border-radius:8px;background:#fff;overflow:hidden}
+.qty button{width:30px;height:32px;border:0;background:#f1f5f9;font-size:16px;line-height:1}
+.qty button:hover{background:#e2e8f0}
+.qty input{width:52px;height:32px;border:0;text-align:center;font:inherit;font-variant-numeric:tabular-nums;background:#fff}
+.result{margin-top:10px;font-size:13px;background:color-mix(in srgb,var(--acc) 10%,#fff);border:1px solid color-mix(in srgb,var(--acc) 35%,#fff);border-radius:8px;padding:9px 12px}
+.result.err{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.filters button{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:500}
+.filters button[aria-pressed=true]{background:#0f172a;color:#fff;border-color:#0f172a}
+.inv{display:grid;grid-template-columns:.9fr 1.4fr 1fr 1fr auto;gap:10px;align-items:center;padding:11px 14px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:8px}
+.inv small{display:block;color:#64748b;font-size:12px}
+.field{display:grid;gap:5px;margin-bottom:12px;font-size:13px;font-weight:500}
+.field input[type=text],.field select{font:inherit;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;width:100%;min-height:40px}
+.field input:focus,.field select:focus{outline:2px solid var(--acc);outline-offset:1px}
+.modal{position:absolute;inset:0;background:rgba(15,23,42,.5);display:grid;place-items:center;padding:16px;z-index:20}
+.modal-box{background:#fff;border-radius:14px;padding:20px;width:min(460px,100%);max-height:100%;overflow:auto;box-shadow:0 30px 60px -20px rgba(0,0,0,.5)}
+.modal-box h5{margin-bottom:14px}
+.mfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+.chk{display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:12px}
+.swatches{display:flex;gap:8px;flex-wrap:wrap}
+.sw{width:34px;height:34px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #cbd5e1;padding:0}
+.sw[aria-pressed=true]{box-shadow:0 0 0 2px #0f172a}
+.seg{display:inline-flex;border:1px solid #cbd5e1;border-radius:9px;overflow:hidden;background:#fff}
+.seg button{border:0;background:none;padding:7px 14px;font-size:13px;font-weight:500}
+.seg button[aria-pressed=true]{background:#0f172a;color:#fff}
+.lock{font-size:12.5px;background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:9px 12px;margin-bottom:12px}
+.toast{position:absolute;left:50%;bottom:18px;transform:translate(-50%,20px);background:#0f172a;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:30;max-width:calc(100% - 32px);box-shadow:0 10px 30px -8px rgba(0,0,0,.5)}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.hero-mock .aview{min-height:0;padding:16px}
+.hero-mock .two{grid-template-columns:.9fr 1.2fr}
+.hero-mock .appwin{pointer-events:none}
+@container (max-width:480px){.two{grid-template-columns:minmax(0,1fr)}.kpi .v{font-size:18px}.kpi{padding:11px 12px}}
+@container (max-width:700px){
+  .cq{display:inline}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .prod-h{grid-template-columns:1fr auto;grid-template-areas:"a c" "b b"}
+  .prod-h>:nth-child(1){grid-area:a}.prod-h>:nth-child(2),.prod-h>:nth-child(3){display:none}
+  .prod-h>:nth-child(4){grid-area:c}
+  .inv{grid-template-columns:1fr auto;grid-template-areas:"a e" "b b" "c d"}
+  .inv>:nth-child(1){grid-area:a}.inv>:nth-child(2){grid-area:b}.inv>:nth-child(3){grid-area:c}.inv>:nth-child(4){grid-area:d;justify-self:end}.inv>:nth-child(5){grid-area:e}
+  .aview{padding:14px}.ahead{padding:10px 14px}.arole span{display:none}
+}
+
+/* ---------- demo ---------- */
+.demo{background:linear-gradient(180deg,var(--paper2),var(--paper))}
+.demo-top{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:end;margin-bottom:28px}
+.missions{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:22px}
+.mission{display:flex;gap:10px;align-items:center;background:var(--white);border:1.5px solid var(--line);border-radius:12px;padding:10px 14px;font-size:.95rem;font-weight:500;text-align:left;transition:.15s}
+.mission:hover{border-color:var(--emerald)}
+.mission .tick{width:22px;height:22px;border-radius:50%;border:2px solid #b8c1b0;flex:none;display:grid;place-items:center;transition:.2s}
+.mission .tick svg{width:13px;height:13px;color:#fff;opacity:0}
+.mission.done{background:var(--mint);border-color:var(--emerald)}
+.mission.done .tick{background:var(--emerald);border-color:var(--emerald)}
+.mission.done .tick svg{opacity:1}
+.prog{font-size:.95rem;color:var(--muted);align-self:center}
+.dev{display:inline-flex;border:2px solid var(--line);border-radius:12px;overflow:hidden;background:var(--white)}
+.dev button{border:0;background:none;padding:9px 14px;display:flex;gap:8px;align-items:center;font-weight:600;font-size:.92rem}
+.dev button[aria-pressed=true]{background:var(--forest);color:#fff}
+.dev svg{width:18px;height:18px}
+.frame-wrap{margin-inline:auto;transition:max-width .45s cubic-bezier(.3,.7,.2,1);max-width:100%}
+.frame-wrap.phone{max-width:390px}
+.demo-cap{margin-top:16px;font-size:.92rem;color:var(--muted);max-width:70ch}
+.demo-end{margin-top:26px;background:var(--forest);color:#fff;border-radius:14px;padding:20px 24px;display:none;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.demo-end.show{display:flex}
+.demo-end p{max-width:52ch;font-size:1.02rem}
+@media(max-width:760px){.demo-top{grid-template-columns:minmax(0,1fr)}.dev{display:none}}
+
+/* ---------- untuk siapa ---------- */
+.who-grid{display:grid;grid-template-columns:minmax(0,4.4fr) minmax(0,7.6fr);gap:clamp(24px,4vw,56px);margin-top:44px;align-items:start}
+.who-list{display:grid;gap:22px}
+.who-group h4{font-family:var(--body);font-size:.92rem;font-weight:600;color:var(--muted);margin-bottom:9px}
+.who-pills{display:flex;flex-wrap:wrap;gap:8px}
+.who-pill{border:2px solid var(--line);background:var(--white);border-radius:999px;padding:8px 14px;font-weight:600;font-size:.94rem;transition:.15s;text-align:left}
+.who-pill:hover{border-color:var(--emerald)}
+.who-pill[aria-pressed=true]{background:var(--forest);border-color:var(--forest);color:#fff}
+.who-detail{background:var(--white);border:1.5px solid var(--line);border-radius:20px;padding:clamp(20px,3vw,34px);display:grid;grid-template-columns:minmax(0,1fr) 240px;gap:28px;position:sticky;top:88px}
+.who-detail h3{font-size:clamp(1.5rem,2.6vw,2.05rem);margin-bottom:10px}
+.who-detail .story{color:var(--muted);max-width:52ch}
+.who-detail h5{font-family:var(--body);font-size:.95rem;font-weight:700;margin:22px 0 8px}
+.who-detail ul{list-style:none;padding:0;display:grid;gap:7px;font-size:.98rem}
+.who-detail li{display:flex;gap:9px;align-items:flex-start}
+.who-detail li svg{width:18px;height:18px;flex:none;margin-top:3px;color:var(--emerald)}
+.who-detail .plan li svg{color:var(--gold)}
+.who-detail .plan{border:1.5px dashed var(--gold);border-radius:12px;padding:4px 14px 14px;margin-top:20px;background:rgba(229,173,85,.08)}
+.who-detail .plan h5{margin-top:12px}
+.sb{background:#0f172a;border-radius:14px;padding:16px 14px;color:#cbd5e1;font-size:13px;align-self:start}
+.sb .tn{display:flex;align-items:center;gap:8px;color:#fff;font-weight:600;font-family:var(--display);margin-bottom:2px}
+.sb .tn i{width:22px;height:22px;border-radius:6px;background:#059669;display:grid;place-items:center;font-style:normal;font-size:12px}
+.sb small{color:#64748b;display:block;margin-bottom:6px}
+.sb .g{font-size:11.5px;color:#94a3b8;margin:12px 0 4px}
+.sb .it{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:5px 9px;border-radius:7px;color:#e2e8f0}
+.sb .it.on{background:rgba(5,150,105,.16)}
+.sb .it.off{opacity:.42}
+.sb .it.pl{border:1px dashed #b4863f;color:#e5ad55;margin-top:4px}
+.sb .tag{font-size:9.5px;font-weight:700;border-radius:4px;padding:1px 5px;background:rgba(255,255,255,.12);color:#cbd5e1;white-space:nowrap}
+.sb .it.pl .tag{background:rgba(229,173,85,.2);color:#e5ad55}
+.sb-cap{font-size:.82rem;color:var(--muted);margin-top:10px;line-height:1.45}
+.who-more{margin-top:28px;color:var(--muted);max-width:70ch}
+.who-more a{color:var(--forest);font-weight:600;text-underline-offset:3px}
+@media(max-width:1000px){.who-grid{grid-template-columns:minmax(0,1fr)}.who-detail{position:static}}
+@media(max-width:640px){.who-detail{grid-template-columns:minmax(0,1fr)}}
+.legacy-who{display:none}
+
+/* ---------- paket ---------- */
+.plans{background:var(--night);color:#fff}
+.plans .lead{color:#b7d3c5}
+.cmp{margin-top:44px;display:grid;grid-template-columns:1.1fr 1fr 1.2fr;border-radius:18px;overflow:hidden;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12)}
+.cmp>div{padding:20px 24px;border-bottom:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;justify-content:center}
+.cmp>div:nth-last-child(-n+3){border-bottom:0}
+.cmp .h{font-family:var(--display);font-size:1.4rem;font-weight:650;letter-spacing:-.02em;padding-block:26px}
+.cmp .h small{display:block;font-family:var(--body);font-size:.92rem;font-weight:400;color:#b7d3c5;letter-spacing:0;margin-top:4px}
+.cmp .rl{color:#b7d3c5;font-size:.98rem}
+.cmp .pro{background:linear-gradient(180deg,rgba(229,173,85,.2),rgba(229,173,85,.08));box-shadow:inset 3px 0 0 var(--gold-lt)}
+.cmp .pro.h{color:var(--gold-lt)}
+.cmp code{font-family:'Inter',monospace;font-size:.95rem;background:rgba(255,255,255,.1);padding:2px 8px;border-radius:6px;word-break:break-all}
+.plans .cta-row{margin-top:32px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.plans .cta-row span{color:#b7d3c5}
+@media(max-width:760px){
+  .cmp{grid-template-columns:minmax(0,1fr)}
+  .cmp>div{border-bottom:0;padding:12px 20px}
+  .cmp .rl{padding-top:22px;font-weight:600;color:#fff;border-top:1px solid rgba(255,255,255,.12)}
+  .cmp .rl:first-child{border-top:0}
+  .cmp .h.rl{display:none}
+  .cmp .h:not(.rl)::before{content:attr(data-plan);font-size:.8rem;color:#b7d3c5;font-family:var(--body);font-weight:500;display:block}
+  .cmp .pro{box-shadow:none;border-radius:8px;margin:2px 12px}
+}
+
+/* ---------- arah ---------- */
+.road-list{list-style:none;padding:0;margin-top:48px;display:grid;grid-template-columns:repeat(3,1fr);gap:0;counter-reset:f}
+.road-list>li{padding:0 clamp(16px,2.4vw,32px) 0 0;position:relative}
+.road-list>li::before{content:"";display:block;height:4px;background:var(--line);margin-bottom:22px;border-radius:2px}
+.road-list>li:first-child::before{background:linear-gradient(90deg,var(--forest),var(--emerald))}
+.road-list .ph{font-family:var(--display);font-weight:700;font-size:1.5rem;letter-spacing:-.02em;line-height:1.15}
+.road-list .st{margin:6px 0 14px;font-size:.92rem;color:var(--muted)}
+.road-list ul{padding-left:1.1em;color:var(--muted);display:grid;gap:6px}
+.road-list>li:first-child .st{color:var(--forest);font-weight:600}
+@media(max-width:860px){.road-list{grid-template-columns:minmax(0,1fr);gap:36px}}
+
+/* ---------- mulai ---------- */
+.start{background:var(--white);border-block:1px solid var(--line)}
+.track{margin-top:48px;border:1.5px dashed var(--gold);border-radius:16px;padding:22px 26px;background:rgba(229,173,85,.08);max-width:880px}
+.track h3{margin-bottom:8px}
+.track p{color:var(--muted)}
+.presets{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.presets>span{font-weight:600;margin-right:4px}
+.preset{border:2px solid var(--line);background:var(--white);border-radius:999px;padding:7px 14px;font-weight:600;font-size:.93rem;transition:.15s}
+.preset:hover{border-color:var(--emerald)}
+.preset[aria-pressed=true]{background:var(--forest);border-color:var(--forest);color:#fff}
+.atab .lk{font-size:10px;font-weight:700;background:#e2e8f0;color:#475569;border-radius:4px;padding:1px 5px}
+.lockbox{background:#fff;border:1.5px dashed #cbd5e1;border-radius:12px;padding:26px;text-align:center;color:#475569}
+.lockbox svg{width:30px;height:30px;margin:0 auto 10px;color:#94a3b8}
+.lockbox h6{font-size:15px;font-family:var(--body);font-weight:600;color:#0f172a;margin-bottom:6px}
+.lockbox p{max-width:46ch;margin-inline:auto;font-size:13.5px}
+.steps{list-style:none;padding:0;counter-reset:s;margin-top:44px;display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(20px,3vw,44px)}
+.steps li{counter-increment:s;position:relative;padding-top:64px}
+.steps li::before{content:counter(s);position:absolute;top:0;left:0;width:48px;height:48px;border-radius:50%;background:var(--forest);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:1.3rem}
+.steps li:not(:last-child)::after{content:"";position:absolute;top:24px;left:64px;right:-10px;height:2px;background:repeating-linear-gradient(90deg,var(--gold) 0 8px,transparent 8px 16px)}
+.steps p{color:var(--muted);margin-top:8px}
+@media(max-width:860px){.steps{grid-template-columns:minmax(0,1fr)}.steps li::after{display:none}}
+
+/* ---------- tentang & faq ---------- */
+.about-grid{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:clamp(32px,6vw,84px);align-items:start}
+.about p{color:var(--muted);margin-top:18px;max-width:58ch}
+.about p b{color:var(--ink)}
+.contact-list{display:grid;gap:12px}
+.contact{display:flex;gap:16px;align-items:center;padding:18px 20px;background:var(--white);border:1.5px solid var(--line);border-radius:14px;text-decoration:none;transition:.15s}
+.contact:hover{border-color:var(--forest);transform:translateY(-2px);box-shadow:0 14px 24px -16px rgba(11,71,53,.5)}
+.contact .ic{width:46px;height:46px;border-radius:12px;background:var(--mint);color:var(--forest);display:grid;place-items:center;flex:none}
+.contact .ic svg{width:24px;height:24px}
+.contact small{display:block;color:var(--muted);font-size:.86rem}
+.contact b{font-size:1.08rem;font-weight:600;word-break:break-all}
+@media(max-width:860px){.about-grid{grid-template-columns:minmax(0,1fr)}}
+.faq{background:var(--white);border-top:1px solid var(--line)}
+.faq-grid{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,7fr);gap:clamp(24px,6vw,80px)}
+.qa{border-bottom:1px solid var(--line)}
+.qa:first-child{border-top:2px solid var(--ink)}
+.qa summary{list-style:none;cursor:pointer;padding:20px 40px 20px 0;font-weight:600;font-size:1.08rem;position:relative;line-height:1.4}
+.qa summary::-webkit-details-marker{display:none}
+.qa summary::after{content:"";position:absolute;right:6px;top:50%;width:12px;height:12px;border-right:2.5px solid var(--forest);border-bottom:2.5px solid var(--forest);transform:translateY(-70%) rotate(45deg);transition:.2s}
+.qa[open] summary::after{transform:translateY(-30%) rotate(-135deg)}
+.qa p{padding:0 0 22px;color:var(--muted);max-width:62ch}
+@media(max-width:860px){.faq-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- penutup ---------- */
+.final{background:var(--forest);color:#fff;overflow:hidden;isolation:isolate}
+.final::before{content:"";position:absolute;inset:0;background:radial-gradient(70% 90% at 0% 100%,rgba(45,122,97,.6),transparent 60%);z-index:-2}
+.final .mark{position:absolute;left:-5%;bottom:-20%;width:min(40vw,460px);opacity:.1;z-index:-1;transform:rotate(6deg)}
+.final-grid{display:grid;grid-template-columns:minmax(0,6fr) minmax(0,5fr);gap:clamp(28px,6vw,88px);align-items:center}
+.final p.lead{color:#cfe3d8}
+.form{background:var(--paper);color:var(--ink);border-radius:18px;padding:clamp(20px,3vw,32px);box-shadow:0 30px 60px -25px rgba(0,0,0,.6)}
+.form h3{margin-bottom:6px}
+.form .fs{color:var(--muted);font-size:.95rem;margin-bottom:18px}
+.form label{display:grid;gap:6px;font-weight:600;font-size:.95rem;margin-bottom:14px}
+.form input,.form select,.form textarea{font:inherit;font-weight:400;padding:12px 14px;border:1.5px solid #c8cfbf;border-radius:10px;background:#fff;width:100%;color:var(--ink)}
+.form textarea{min-height:88px;resize:vertical}
+.form input:focus,.form select:focus,.form textarea:focus{outline:3px solid var(--gold);outline-offset:1px;border-color:var(--forest)}
+.form .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.form .row .btn{flex:1;justify-content:center;min-width:170px}
+.form .privacy{margin-top:14px;font-size:.85rem;color:var(--muted)}
+@media(max-width:860px){.final-grid{grid-template-columns:minmax(0,1fr)}}
+footer{background:var(--night);color:#b7d3c5;padding-block:44px;font-size:.95rem}
+.foot{display:flex;gap:28px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.foot .logo{height:36px}
+.foot a{text-decoration:none;border-bottom:1px solid rgba(255,255,255,.25)}
+.foot a:hover{color:#fff}
+.foot .fl{display:flex;gap:22px;flex-wrap:wrap}
+
+/* ---------- bar WhatsApp mobile & mode presentasi ---------- */
+.stick{position:fixed;left:12px;right:12px;bottom:12px;z-index:40;display:none;gap:8px;transform:translateY(120%);transition:transform .3s}
+.stick.show{transform:none}
+.stick .btn{justify-content:center;box-shadow:0 12px 30px -8px rgba(0,0,0,.5)}
+.stick .btn-gold{flex:1}
+@media(max-width:760px){.stick{display:flex}}
+.pnav{position:fixed;right:18px;bottom:18px;z-index:60;display:none;align-items:center;gap:10px;background:var(--night);color:#fff;border-radius:999px;padding:8px 10px 8px 18px;font-size:.88rem;box-shadow:0 14px 34px -10px rgba(0,0,0,.6)}
+.pnav button{width:38px;height:38px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:1.2rem;line-height:1}
+.pnav button:hover{background:var(--gold-lt);color:#2b1a02}
+.pnav .x{width:auto;border-radius:999px;padding:0 14px;font-size:.85rem}
+body.present .pnav{display:flex}
+body.present .stick{display:none}
+body.present{scroll-snap-type:y proximity}
+body.present [data-slide]{scroll-snap-align:start;min-height:100svh}
+body.present .sec{display:flex;flex-direction:column;justify-content:center}
+body.present .after-hero{justify-content:center}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition-duration:.01ms!important}}
+/* ---------- alur ekosistem ---------- */
+.flowsec{background:#e8f0ea;border-block:1px solid var(--line)}
+.flow{list-style:none;padding:0;counter-reset:f;margin-top:44px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:clamp(14px,2vw,28px)}
+.flow li{counter-increment:f;position:relative;padding-top:60px;display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.flow li::before{content:counter(f);position:absolute;top:0;left:0;width:44px;height:44px;border-radius:50%;background:var(--forest);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:1.2rem}
+.flow li:not(:last-child)::after{content:"";position:absolute;top:22px;left:56px;right:-14px;height:2px;background:repeating-linear-gradient(90deg,var(--gold) 0 7px,transparent 7px 14px)}
+.flow h3{font-size:1.12rem;line-height:1.25}
+.flow p{color:var(--muted);font-size:.96rem}
+.ft{margin-top:auto;font-size:.78rem;font-weight:700;border-radius:999px;padding:3px 10px}
+.ft-ok{background:#d6ecdf;color:#14563d}.ft-new{background:var(--gold-lt);color:#3a2503}.ft-out{background:#fff;border:1px solid #c8cfbf;color:var(--muted)}
+.flowsec .track{background:rgba(255,255,255,.6)}
+@media(max-width:1000px){.flow{grid-template-columns:minmax(0,1fr)}.flow li{padding:0 0 0 62px;min-height:48px}.flow li::after{display:none}.flow li::before{top:0}}
+/* ---------- zakat ---------- */
+.zakat{background:var(--paper)}
+.zk{display:grid;grid-template-columns:minmax(0,8fr) minmax(0,4fr);gap:clamp(20px,3vw,40px);margin-top:40px;align-items:start}
+.zk-card{background:#fff;border:1.5px solid var(--line);border-radius:22px;overflow:hidden;box-shadow:0 28px 50px -34px rgba(11,71,53,.5)}
+.zk-tabs{display:flex;border-bottom:1px solid var(--line)}
+.zk-tabs button{flex:1;padding:16px 12px;background:none;border:0;border-bottom:3px solid transparent;font-family:var(--display);font-weight:650;font-size:1.1rem;color:var(--muted);letter-spacing:-.01em}
+.zk-tabs button[aria-selected=true]{color:var(--forest);border-bottom-color:var(--gold);background:rgba(229,173,85,.08)}
+.zk-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.zk-form{padding:clamp(18px,2.4vw,28px)}
+.zk-res{padding:clamp(18px,2.4vw,28px);background:var(--forest);color:#fff;min-height:100%}
+.zf{display:grid;gap:6px;font-weight:600;font-size:.95rem;margin-bottom:14px}
+.zf input,.zf select{font:inherit;font-weight:500;padding:11px 13px;border:1.5px solid #c8cfbf;border-radius:10px;background:#fff;width:100%;font-variant-numeric:tabular-nums;color:var(--ink);min-height:44px}
+.zf input:focus,.zf select:focus{outline:3px solid var(--gold);outline-offset:1px;border-color:var(--forest)}
+.zf small{font-weight:400;color:var(--muted);font-size:.85rem}
+.zk-auto{background:#eef5f0;border:1px dashed var(--emerald);border-radius:12px;padding:12px 14px 6px;margin-bottom:14px}
+.zk-auto .mrow{border-color:#d5e3da;font-size:.93rem}
+.zk-tag{font-size:.85rem;font-weight:700;color:var(--forest)}
+.zk .chk{display:flex;gap:10px;align-items:flex-start;font-size:.95rem;margin:4px 0 0;line-height:1.4}
+.zk .chk input{width:20px;height:20px;margin-top:1px;accent-color:var(--forest);flex:none}
+.zk-res h4{font-family:var(--display);font-size:1.25rem;font-weight:650;margin-bottom:14px}
+.zr-rows>div{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.14);font-size:.95rem;color:#d3e6dc;font-variant-numeric:tabular-nums}
+.zr-rows>div span:last-child{color:#fff;font-weight:600;white-space:nowrap}
+.zr-rows .zr-net{color:#fff;font-weight:700;border-bottom:1px solid rgba(255,255,255,.35)}
+.zr-bar{height:10px;border-radius:99px;background:rgba(255,255,255,.16);margin:16px 0 12px;overflow:hidden}
+.zr-bar i{display:block;height:100%;border-radius:99px;background:var(--gold-lt);transition:width .4s}
+.zs{display:inline-block;font-size:.85rem;font-weight:700;border-radius:999px;padding:4px 12px}
+.zs-ok{background:var(--gold-lt);color:#3a2503}.zs-warn{background:rgba(229,173,85,.25);color:#f3c880}.zs-no{background:rgba(255,255,255,.16);color:#e3f0e8}
+.zr-due{margin-top:14px;display:flex;flex-direction:column}
+.zr-due span{font-size:.92rem;color:#c3dccf}
+.zr-due b{font-family:var(--display);font-size:clamp(2rem,3.6vw,2.7rem);letter-spacing:-.03em;color:var(--gold-lt);line-height:1.1;font-variant-numeric:tabular-nums}
+.zr-note{font-size:.92rem;color:#d3e6dc;margin-top:6px}
+.zr-act{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.zr-act .btn{padding:10px 16px;font-size:.92rem}
+.zr-copied{min-height:1.2em;font-size:.85rem;color:var(--gold-lt);margin-top:8px}
+.zk-side{padding:4px 0 0 4px}
+.zk-side h3{margin-bottom:14px}
+.zk-side ul{list-style:none;padding:0;display:grid;gap:12px;border-left:4px solid var(--gold);padding-left:18px}
+.zk-side b{color:var(--forest)}
+.zk-disc{margin-top:22px;font-size:.92rem;color:var(--muted);background:var(--white);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+@media(max-width:1000px){.zk{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:700px){.zk-cols{grid-template-columns:minmax(0,1fr)}}
+.atab .nw{font-size:10px;font-weight:700;background:#dbeafe;color:#1e40af;border-radius:4px;padding:1px 5px}
+
+.nav-login{font-weight:600;font-size:.95rem;text-decoration:none;padding:10px 8px;border-radius:8px;white-space:nowrap}
+.nav-login:hover{text-decoration:underline;text-underline-offset:4px}
+.hero-alt{align-self:center;color:#cfe3d8;font-weight:500;text-underline-offset:4px}
+.hero-alt:hover{color:#fff}
+.final-cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px}
+.steps a{color:var(--forest);font-weight:600;text-underline-offset:3px}
+.regline{margin-top:10px;font-size:.95rem;color:var(--forest)}
+.pro-chip{font-size:10px;font-weight:700;background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 5px}
+</style>
+</head>
+<body>
+
+<header class="nav on-dark" id="nav">
+  <div class="wrap nav-in">
+    <a href="#atas" aria-label="TaradinMu, ke atas"><span class="logo logo-l"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1620.13 493"><defs><linearGradient id="i1hgb" gradientUnits="userSpaceOnUse" x1="92.28" y1="107.16" x2="202.12" y2="517.1"><stop offset="0" stop-color="#94b8a8"/><stop offset="0.08" stop-color="#7ea995"/><stop offset="0.2" stop-color="#548f78"/><stop offset="0.31" stop-color="#3b8068"/><stop offset="0.34" stop-color="#2d7a61"/><stop offset="0.64" stop-color="#0e533f"/><stop offset="0.86" stop-color="#063829"/><stop offset="1" stop-color="#042e1f"/></linearGradient><linearGradient id="i1hgf" gradientUnits="userSpaceOnUse" x1="71.07" y1="306.33" x2="251.15" y2="364.84"><stop offset="0" stop-color="#084e39"/><stop offset="0.34" stop-color="#0b3a2c"/><stop offset="0.75" stop-color="#3e725e"/><stop offset="0.97" stop-color="#6e9685"/><stop offset="1" stop-color="#6e9685"/></linearGradient><linearGradient id="i1hga" gradientUnits="userSpaceOnUse" x1="92.12" y1="183.43" x2="268.4" y2="251.1"><stop offset="0" stop-color="#6b9f87" stop-opacity="1"/><stop offset="0.08" stop-color="#5e947d" stop-opacity="1"/><stop offset="0.44" stop-color="#3d836b" stop-opacity="0.86"/><stop offset="0.64" stop-color="#2f7c64" stop-opacity="0.51"/><stop offset="0.87" stop-color="#28765d" stop-opacity="0.13"/><stop offset="1" stop-color="#186750" stop-opacity="0"/></linearGradient><linearGradient id="i1hgc" gradientUnits="userSpaceOnUse" x1="83.18" y1="-8.52" x2="246.4" y2="54.14"><stop offset="0" stop-color="#deac5a"/><stop offset="0.08" stop-color="#ddb46a"/><stop offset="0.21" stop-color="#b9a568"/><stop offset="0.62" stop-color="#759376"/><stop offset="0.77" stop-color="#4a826a"/><stop offset="1" stop-color="#1c6b4f"/></linearGradient><linearGradient id="i1hg1" gradientUnits="userSpaceOnUse" x1="18.41" y1="21.29" x2="66.07" y2="80.14"><stop offset="0" stop-color="#f5c877"/><stop offset="0.18" stop-color="#e4b266"/><stop offset="0.44" stop-color="#cf9546"/><stop offset="0.69" stop-color="#c38028"/><stop offset="0.77" stop-color="#c3802a"/><stop offset="1" stop-color="#d59a49"/></linearGradient><linearGradient id="i1hg2" gradientUnits="userSpaceOnUse" x1="237.43" y1="73.46" x2="285.11" y2="132.34"><stop offset="0" stop-color="#f5c877"/><stop offset="0.18" stop-color="#e4b266"/><stop offset="0.44" stop-color="#cf9546"/><stop offset="0.69" stop-color="#c38028"/><stop offset="0.77" stop-color="#c3802a"/><stop offset="1" stop-color="#d59a49"/></linearGradient><path id="i1hs" d="M15.47 132.17L15.47 358.19C15.47 370.28 18.97 384.47 22.56 395.97C42.27 458.94 99.13 495.69 164.18 492.09C187.33 490.81 210.41 482.48 229.95 470.2C234.48 467.35 238.74 463.56 243.11 460.89L252.68 491.73L311.99 491.73C311.69 491.09 312.06 490.14 311.68 489.39C310.57 487.18 308.91 485.21 307.69 483.05C301.46 471.96 293.83 458.43 293.83 445.33L293.83 300.33C293.83 287.62 291.06 274.58 287.7 262.4C266.55 185.6 181.62 159.44 113.53 192.1C100.65 198.27 85.93 205.05 76.27 215.82L104.95 254.46C109.1 252 112.73 248.81 116.85 246.21C135.34 234.52 154.26 227.22 176.39 227.38C185.58 227.44 195.18 229.91 203.49 233.73C232.66 247.13 241.62 276.72 241.62 306.69C241.62 313.25 242.3 320.24 240.99 326.42C227.21 314.78 220.48 306.1 203.04 297.53C165.6 279.12 118.97 281.31 84.75 306.08C80.06 309.48 75.48 313.28 71.52 317.5C70.16 318.96 69.13 320.74 67.68 322.12C67.23 322.55 66.31 322.16 65.86 322.6L65.86 111.79L15.47 132.17ZM233.16 400.01C216.93 432.16 173.33 448.49 139.16 441.19C134.11 440.11 128.49 438.87 123.93 436.38C111.43 429.56 102.7 416.82 98.93 403.31C96.98 396.32 96.23 388.72 96.95 381.51C100.28 348.03 130.83 328.48 163 335.49C188.26 341 207.73 358.92 222.14 379.49C226.56 385.8 231.28 392.58 233.16 400.01Z" fill-rule="evenodd"/><clipPath id="i1hcf"><path d="M66 279L220 279L242.3 326V393L190 411L120 411L103 428C85 413 68 385 66 341Z"/></clipPath><clipPath id="i1hca"><path d="M75 176H255V286H75Z"/></clipPath></defs><use href="#i1hs" fill="url(#i1hgb)"/><g clip-path="url(#i1hca)"><use href="#i1hs" fill="url(#i1hga)"/></g><g clip-path="url(#i1hcf)"><use href="#i1hs" fill="url(#i1hgf)"/></g><path d="M63.52 26.51C79.06 19.64 95.37 10.73 112.54 8.57C153.5 3.4 196.75 15.66 225.32 46.81C233.4 55.62 239.72 65.06 246.36 75.04" fill="none" stroke="url(#i1hgc)" stroke-width="12.3"/><circle cx="42.2" cy="50.69" r="41.1" fill="url(#i1hg1)"/><circle cx="261.32" cy="102.97" r="41.1" fill="url(#i1hg2)"/><g transform="translate(397 389.3) scale(1)"><path fill="#0b4735" d="M9.27 -146.59V-174.61H150.08V-146.59H96.52V0H62.96V-146.59H9.27Z M191.11 2.62Q178.63 2.62 168.71 -1.83Q158.78 -6.28 153.07 -15.04Q147.35 -23.79 147.35 -36.74Q147.35 -47.78 151.44 -55.07Q155.52 -62.37 162.57 -66.78Q169.61 -71.19 178.51 -73.47Q187.4 -75.76 197.01 -76.72Q208.41 -77.92 215.45 -78.9Q222.49 -79.88 225.81 -82Q229.12 -84.13 229.12 -88.46V-89.06Q229.12 -95.1 226.62 -99.28Q224.13 -103.46 219.3 -105.69Q214.47 -107.92 207.39 -107.92Q200.23 -107.92 194.92 -105.73Q189.61 -103.54 186.24 -99.96Q182.87 -96.38 181.34 -92.07L151.1 -97.65Q154.72 -109.18 162.69 -116.94Q170.67 -124.71 182.12 -128.68Q193.56 -132.66 207.38 -132.66Q217.27 -132.66 226.97 -130.31Q236.66 -127.96 244.56 -122.75Q252.46 -117.53 257.19 -108.97Q261.92 -100.4 261.92 -87.9V0H230.68V-18.13H229.49Q226.47 -12.29 221.26 -7.59Q216.04 -2.88 208.56 -0.13Q201.08 2.62 191.11 2.62ZM199.96 -21.02Q208.83 -21.02 215.41 -24.53Q222 -28.05 225.66 -33.95Q229.33 -39.85 229.33 -46.92V-61.76Q227.77 -60.61 224.44 -59.62Q221.11 -58.62 216.96 -57.84Q212.82 -57.06 208.82 -56.5Q204.82 -55.93 201.88 -55.53Q195.21 -54.64 190.01 -52.52Q184.81 -50.39 181.88 -46.73Q178.95 -43.08 178.95 -37.42Q178.95 -32.05 181.68 -28.4Q184.4 -24.76 189.13 -22.89Q193.85 -21.02 199.96 -21.02Z M290.11 0V-131.02H321.9V-108.64H323.3Q326.88 -120.4 335.51 -126.59Q344.14 -132.79 355.28 -132.79Q357.94 -132.79 361.09 -132.51Q364.23 -132.23 366.53 -131.75V-102.05Q364.43 -102.76 360.07 -103.25Q355.72 -103.75 351.76 -103.75Q343.49 -103.75 336.92 -100.19Q330.35 -96.63 326.63 -90.36Q322.92 -84.08 322.92 -75.81V0H290.11Z M417.73 2.62Q405.25 2.62 395.33 -1.83Q385.4 -6.28 379.69 -15.04Q373.98 -23.79 373.98 -36.74Q373.98 -47.78 378.06 -55.07Q382.15 -62.37 389.19 -66.78Q396.24 -71.19 405.13 -73.47Q414.02 -75.76 423.64 -76.72Q435.04 -77.92 442.08 -78.9Q449.12 -79.88 452.43 -82Q455.74 -84.13 455.74 -88.46V-89.06Q455.74 -95.1 453.25 -99.28Q450.75 -103.46 445.92 -105.69Q441.1 -107.92 434.01 -107.92Q426.85 -107.92 421.54 -105.73Q416.24 -103.54 412.87 -99.96Q409.5 -96.38 407.97 -92.07L377.73 -97.65Q381.34 -109.18 389.32 -116.94Q397.29 -124.71 408.74 -128.68Q420.18 -132.66 434.01 -132.66Q443.89 -132.66 453.59 -130.31Q463.29 -127.96 471.18 -122.75Q479.08 -117.53 483.81 -108.97Q488.54 -100.4 488.54 -87.9V0H457.3V-18.13H456.11Q453.09 -12.29 447.88 -7.59Q442.67 -2.88 435.18 -0.13Q427.7 2.62 417.73 2.62ZM426.58 -21.02Q435.45 -21.02 442.04 -24.53Q448.62 -28.05 452.28 -33.95Q455.95 -39.85 455.95 -46.92V-61.76Q454.4 -60.61 451.06 -59.62Q447.73 -58.62 443.59 -57.84Q439.44 -57.06 435.44 -56.5Q431.44 -55.93 428.5 -55.53Q421.83 -54.64 416.63 -52.52Q411.44 -50.39 408.51 -46.73Q405.58 -43.08 405.58 -37.42Q405.58 -32.05 408.3 -28.4Q411.03 -24.76 415.75 -22.89Q420.47 -21.02 426.58 -21.02Z M564.84 2.29Q549.6 2.29 537.41 -5.59Q525.21 -13.46 518.18 -28.54Q511.15 -43.61 511.15 -65.26Q511.15 -87.38 518.37 -102.39Q525.59 -117.41 537.76 -125.03Q549.93 -132.66 564.69 -132.66Q576.09 -132.66 583.51 -128.83Q590.93 -125.01 595.4 -119.55Q599.86 -114.08 602.13 -109.14H603.35V-174.61H636.15V0H603.95V-20.85H602.13Q599.76 -15.85 595.2 -10.51Q590.65 -5.16 583.27 -1.44Q575.9 2.29 564.84 2.29ZM574.38 -24.33Q583.86 -24.33 590.48 -29.5Q597.1 -34.66 600.55 -43.89Q604.01 -53.13 604.01 -65.39Q604.01 -77.76 600.59 -86.86Q597.16 -95.96 590.54 -101Q583.92 -106.04 574.38 -106.04Q564.65 -106.04 558.05 -100.8Q551.45 -95.57 548.11 -86.41Q544.78 -77.24 544.78 -65.39Q544.78 -53.53 548.14 -44.23Q551.51 -34.94 558.15 -29.64Q564.78 -24.33 574.38 -24.33Z M664.44 0V-131.02H697.24V0H664.44ZM680.86 -148.82Q673.24 -148.82 667.8 -153.93Q662.36 -159.03 662.36 -166.18Q662.36 -173.48 667.8 -178.52Q673.24 -183.57 680.86 -183.57Q688.52 -183.57 693.97 -178.53Q699.42 -173.49 699.42 -166.19Q699.42 -159.03 693.97 -153.93Q688.52 -148.82 680.86 -148.82Z M758.35 -76.3V0H725.55V-131.02H756.58L757.07 -98.47H754.82Q760.11 -115.15 770.71 -123.91Q781.31 -132.66 797.62 -132.66Q811.18 -132.66 821.27 -126.81Q831.36 -120.97 836.96 -109.93Q842.55 -98.89 842.55 -83.31V0H809.75V-77.91Q809.75 -90.6 803.18 -97.81Q796.62 -105.02 785.07 -105.02Q777.33 -105.02 771.28 -101.63Q765.23 -98.24 761.79 -91.84Q758.35 -85.44 758.35 -76.3Z"/><path fill="#c38029" d="M871.89 0V-174.61H922.94L953.66 -89.45Q955.4 -84.16 957.62 -75.75Q959.84 -67.34 962.17 -57.61Q964.5 -47.89 966.54 -38.67Q968.59 -29.46 969.95 -22.5H963.29Q964.72 -29.26 966.74 -38.41Q968.76 -47.57 971.08 -57.32Q973.41 -67.08 975.64 -75.59Q977.87 -84.09 979.6 -89.45L1009.89 -174.61H1061.06V0H1027.49V-85.22Q1027.49 -90.88 1027.65 -99.14Q1027.82 -107.4 1028.07 -116.91Q1028.33 -126.43 1028.56 -136.12Q1028.79 -145.82 1028.85 -154.42H1031.09Q1028.79 -144.96 1026.06 -134.95Q1023.34 -124.93 1020.62 -115.51Q1017.9 -106.08 1015.46 -98.24Q1013.01 -90.39 1011.26 -85.22L980.67 0H952.32L921.25 -85.22Q919.51 -90.33 917.1 -98.07Q914.69 -105.82 911.92 -115.18Q909.15 -124.55 906.36 -134.62Q903.58 -144.7 900.96 -154.42H903.65Q903.78 -146.27 904.01 -136.7Q904.24 -127.14 904.46 -117.52Q904.68 -107.91 904.88 -99.49Q905.08 -91.07 905.08 -85.22V0H871.89Z M1135.45 1.64Q1121.94 1.64 1111.79 -4.2Q1101.64 -10.05 1096.04 -21.12Q1090.45 -32.19 1090.45 -47.71V-131.02H1123.25V-53.1Q1123.25 -40.41 1129.85 -33.2Q1136.45 -25.99 1148 -25.99Q1155.79 -25.99 1161.78 -29.38Q1167.77 -32.77 1171.21 -39.23Q1174.65 -45.69 1174.65 -54.71V-131.02H1207.52V0H1176.42L1176 -32.55H1178.18Q1172.82 -15.73 1162.16 -7.05Q1151.5 1.64 1135.45 1.64Z"/></g></svg></span><span class="logo logo-d"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1620.13 493"><defs><linearGradient id="i2hgb" gradientUnits="userSpaceOnUse" x1="92.28" y1="107.16" x2="202.12" y2="517.1"><stop offset="0" stop-color="#bee4d2"/><stop offset="0.08" stop-color="#a5d9c2"/><stop offset="0.2" stop-color="#76c2a2"/><stop offset="0.34" stop-color="#46a882"/><stop offset="0.64" stop-color="#1e8c66"/><stop offset="0.86" stop-color="#127856"/><stop offset="1" stop-color="#0c6a4c"/></linearGradient><linearGradient id="i2hgf" gradientUnits="userSpaceOnUse" x1="71.07" y1="306.33" x2="251.15" y2="364.84"><stop offset="0" stop-color="#06563e"/><stop offset="0.34" stop-color="#064633"/><stop offset="0.75" stop-color="#48987a"/><stop offset="0.97" stop-color="#96cdb4"/><stop offset="1" stop-color="#96cdb4"/></linearGradient><linearGradient id="i2hga" gradientUnits="userSpaceOnUse" x1="92.12" y1="183.43" x2="268.4" y2="251.1"><stop offset="0" stop-color="#cdecde" stop-opacity="1"/><stop offset="0.08" stop-color="#bee6d4" stop-opacity="1"/><stop offset="0.44" stop-color="#78c4a4" stop-opacity="0.85"/><stop offset="0.64" stop-color="#54b08a" stop-opacity="0.52"/><stop offset="0.87" stop-color="#3c9c76" stop-opacity="0.13"/><stop offset="1" stop-color="#2c8c66" stop-opacity="0"/></linearGradient><linearGradient id="i2hgc" gradientUnits="userSpaceOnUse" x1="83.18" y1="-8.52" x2="246.4" y2="54.14"><stop offset="0" stop-color="#e2b262"/><stop offset="0.05" stop-color="#e4b86c"/><stop offset="0.21" stop-color="#beaa6c"/><stop offset="0.62" stop-color="#80a880"/><stop offset="0.77" stop-color="#5ca47e"/><stop offset="1" stop-color="#3ca078"/></linearGradient><linearGradient id="i2hg1" gradientUnits="userSpaceOnUse" x1="18.41" y1="21.29" x2="66.07" y2="80.14"><stop offset="0" stop-color="#f5c877"/><stop offset="0.18" stop-color="#e4b266"/><stop offset="0.44" stop-color="#cf9546"/><stop offset="0.69" stop-color="#c38028"/><stop offset="0.77" stop-color="#c3802a"/><stop offset="1" stop-color="#d59a49"/></linearGradient><linearGradient id="i2hg2" gradientUnits="userSpaceOnUse" x1="237.43" y1="73.46" x2="285.11" y2="132.34"><stop offset="0" stop-color="#f5c877"/><stop offset="0.18" stop-color="#e4b266"/><stop offset="0.44" stop-color="#cf9546"/><stop offset="0.69" stop-color="#c38028"/><stop offset="0.77" stop-color="#c3802a"/><stop offset="1" stop-color="#d59a49"/></linearGradient><path id="i2hs" d="M15.47 132.17L15.47 358.19C15.47 370.28 18.97 384.47 22.56 395.97C42.27 458.94 99.13 495.69 164.18 492.09C187.33 490.81 210.41 482.48 229.95 470.2C234.48 467.35 238.74 463.56 243.11 460.89L252.68 491.73L311.99 491.73C311.69 491.09 312.06 490.14 311.68 489.39C310.57 487.18 308.91 485.21 307.69 483.05C301.46 471.96 293.83 458.43 293.83 445.33L293.83 300.33C293.83 287.62 291.06 274.58 287.7 262.4C266.55 185.6 181.62 159.44 113.53 192.1C100.65 198.27 85.93 205.05 76.27 215.82L104.95 254.46C109.1 252 112.73 248.81 116.85 246.21C135.34 234.52 154.26 227.22 176.39 227.38C185.58 227.44 195.18 229.91 203.49 233.73C232.66 247.13 241.62 276.72 241.62 306.69C241.62 313.25 242.3 320.24 240.99 326.42C227.21 314.78 220.48 306.1 203.04 297.53C165.6 279.12 118.97 281.31 84.75 306.08C80.06 309.48 75.48 313.28 71.52 317.5C70.16 318.96 69.13 320.74 67.68 322.12C67.23 322.55 66.31 322.16 65.86 322.6L65.86 111.79L15.47 132.17ZM233.16 400.01C216.93 432.16 173.33 448.49 139.16 441.19C134.11 440.11 128.49 438.87 123.93 436.38C111.43 429.56 102.7 416.82 98.93 403.31C96.98 396.32 96.23 388.72 96.95 381.51C100.28 348.03 130.83 328.48 163 335.49C188.26 341 207.73 358.92 222.14 379.49C226.56 385.8 231.28 392.58 233.16 400.01Z" fill-rule="evenodd"/><clipPath id="i2hcf"><path d="M66 279L220 279L242.3 326V393L190 411L120 411L103 428C85 413 68 385 66 341Z"/></clipPath><clipPath id="i2hca"><path d="M75 176H255V286H75Z"/></clipPath></defs><use href="#i2hs" fill="url(#i2hgb)"/><g clip-path="url(#i2hca)"><use href="#i2hs" fill="url(#i2hga)"/></g><g clip-path="url(#i2hcf)"><use href="#i2hs" fill="url(#i2hgf)"/></g><path d="M63.52 26.51C79.06 19.64 95.37 10.73 112.54 8.57C153.5 3.4 196.75 15.66 225.32 46.81C233.4 55.62 239.72 65.06 246.36 75.04" fill="none" stroke="url(#i2hgc)" stroke-width="12.3"/><circle cx="42.2" cy="50.69" r="41.1" fill="url(#i2hg1)"/><circle cx="261.32" cy="102.97" r="41.1" fill="url(#i2hg2)"/><g transform="translate(397 389.3) scale(1)"><path fill="#f1f5f9" d="M9.27 -146.59V-174.61H150.08V-146.59H96.52V0H62.96V-146.59H9.27Z M191.11 2.62Q178.63 2.62 168.71 -1.83Q158.78 -6.28 153.07 -15.04Q147.35 -23.79 147.35 -36.74Q147.35 -47.78 151.44 -55.07Q155.52 -62.37 162.57 -66.78Q169.61 -71.19 178.51 -73.47Q187.4 -75.76 197.01 -76.72Q208.41 -77.92 215.45 -78.9Q222.49 -79.88 225.81 -82Q229.12 -84.13 229.12 -88.46V-89.06Q229.12 -95.1 226.62 -99.28Q224.13 -103.46 219.3 -105.69Q214.47 -107.92 207.39 -107.92Q200.23 -107.92 194.92 -105.73Q189.61 -103.54 186.24 -99.96Q182.87 -96.38 181.34 -92.07L151.1 -97.65Q154.72 -109.18 162.69 -116.94Q170.67 -124.71 182.12 -128.68Q193.56 -132.66 207.38 -132.66Q217.27 -132.66 226.97 -130.31Q236.66 -127.96 244.56 -122.75Q252.46 -117.53 257.19 -108.97Q261.92 -100.4 261.92 -87.9V0H230.68V-18.13H229.49Q226.47 -12.29 221.26 -7.59Q216.04 -2.88 208.56 -0.13Q201.08 2.62 191.11 2.62ZM199.96 -21.02Q208.83 -21.02 215.41 -24.53Q222 -28.05 225.66 -33.95Q229.33 -39.85 229.33 -46.92V-61.76Q227.77 -60.61 224.44 -59.62Q221.11 -58.62 216.96 -57.84Q212.82 -57.06 208.82 -56.5Q204.82 -55.93 201.88 -55.53Q195.21 -54.64 190.01 -52.52Q184.81 -50.39 181.88 -46.73Q178.95 -43.08 178.95 -37.42Q178.95 -32.05 181.68 -28.4Q184.4 -24.76 189.13 -22.89Q193.85 -21.02 199.96 -21.02Z M290.11 0V-131.02H321.9V-108.64H323.3Q326.88 -120.4 335.51 -126.59Q344.14 -132.79 355.28 -132.79Q357.94 -132.79 361.09 -132.51Q364.23 -132.23 366.53 -131.75V-102.05Q364.43 -102.76 360.07 -103.25Q355.72 -103.75 351.76 -103.75Q343.49 -103.75 336.92 -100.19Q330.35 -96.63 326.63 -90.36Q322.92 -84.08 322.92 -75.81V0H290.11Z M417.73 2.62Q405.25 2.62 395.33 -1.83Q385.4 -6.28 379.69 -15.04Q373.98 -23.79 373.98 -36.74Q373.98 -47.78 378.06 -55.07Q382.15 -62.37 389.19 -66.78Q396.24 -71.19 405.13 -73.47Q414.02 -75.76 423.64 -76.72Q435.04 -77.92 442.08 -78.9Q449.12 -79.88 452.43 -82Q455.74 -84.13 455.74 -88.46V-89.06Q455.74 -95.1 453.25 -99.28Q450.75 -103.46 445.92 -105.69Q441.1 -107.92 434.01 -107.92Q426.85 -107.92 421.54 -105.73Q416.24 -103.54 412.87 -99.96Q409.5 -96.38 407.97 -92.07L377.73 -97.65Q381.34 -109.18 389.32 -116.94Q397.29 -124.71 408.74 -128.68Q420.18 -132.66 434.01 -132.66Q443.89 -132.66 453.59 -130.31Q463.29 -127.96 471.18 -122.75Q479.08 -117.53 483.81 -108.97Q488.54 -100.4 488.54 -87.9V0H457.3V-18.13H456.11Q453.09 -12.29 447.88 -7.59Q442.67 -2.88 435.18 -0.13Q427.7 2.62 417.73 2.62ZM426.58 -21.02Q435.45 -21.02 442.04 -24.53Q448.62 -28.05 452.28 -33.95Q455.95 -39.85 455.95 -46.92V-61.76Q454.4 -60.61 451.06 -59.62Q447.73 -58.62 443.59 -57.84Q439.44 -57.06 435.44 -56.5Q431.44 -55.93 428.5 -55.53Q421.83 -54.64 416.63 -52.52Q411.44 -50.39 408.51 -46.73Q405.58 -43.08 405.58 -37.42Q405.58 -32.05 408.3 -28.4Q411.03 -24.76 415.75 -22.89Q420.47 -21.02 426.58 -21.02Z M564.84 2.29Q549.6 2.29 537.41 -5.59Q525.21 -13.46 518.18 -28.54Q511.15 -43.61 511.15 -65.26Q511.15 -87.38 518.37 -102.39Q525.59 -117.41 537.76 -125.03Q549.93 -132.66 564.69 -132.66Q576.09 -132.66 583.51 -128.83Q590.93 -125.01 595.4 -119.55Q599.86 -114.08 602.13 -109.14H603.35V-174.61H636.15V0H603.95V-20.85H602.13Q599.76 -15.85 595.2 -10.51Q590.65 -5.16 583.27 -1.44Q575.9 2.29 564.84 2.29ZM574.38 -24.33Q583.86 -24.33 590.48 -29.5Q597.1 -34.66 600.55 -43.89Q604.01 -53.13 604.01 -65.39Q604.01 -77.76 600.59 -86.86Q597.16 -95.96 590.54 -101Q583.92 -106.04 574.38 -106.04Q564.65 -106.04 558.05 -100.8Q551.45 -95.57 548.11 -86.41Q544.78 -77.24 544.78 -65.39Q544.78 -53.53 548.14 -44.23Q551.51 -34.94 558.15 -29.64Q564.78 -24.33 574.38 -24.33Z M664.44 0V-131.02H697.24V0H664.44ZM680.86 -148.82Q673.24 -148.82 667.8 -153.93Q662.36 -159.03 662.36 -166.18Q662.36 -173.48 667.8 -178.52Q673.24 -183.57 680.86 -183.57Q688.52 -183.57 693.97 -178.53Q699.42 -173.49 699.42 -166.19Q699.42 -159.03 693.97 -153.93Q688.52 -148.82 680.86 -148.82Z M758.35 -76.3V0H725.55V-131.02H756.58L757.07 -98.47H754.82Q760.11 -115.15 770.71 -123.91Q781.31 -132.66 797.62 -132.66Q811.18 -132.66 821.27 -126.81Q831.36 -120.97 836.96 -109.93Q842.55 -98.89 842.55 -83.31V0H809.75V-77.91Q809.75 -90.6 803.18 -97.81Q796.62 -105.02 785.07 -105.02Q777.33 -105.02 771.28 -101.63Q765.23 -98.24 761.79 -91.84Q758.35 -85.44 758.35 -76.3Z"/><path fill="#e5ad55" d="M871.89 0V-174.61H922.94L953.66 -89.45Q955.4 -84.16 957.62 -75.75Q959.84 -67.34 962.17 -57.61Q964.5 -47.89 966.54 -38.67Q968.59 -29.46 969.95 -22.5H963.29Q964.72 -29.26 966.74 -38.41Q968.76 -47.57 971.08 -57.32Q973.41 -67.08 975.64 -75.59Q977.87 -84.09 979.6 -89.45L1009.89 -174.61H1061.06V0H1027.49V-85.22Q1027.49 -90.88 1027.65 -99.14Q1027.82 -107.4 1028.07 -116.91Q1028.33 -126.43 1028.56 -136.12Q1028.79 -145.82 1028.85 -154.42H1031.09Q1028.79 -144.96 1026.06 -134.95Q1023.34 -124.93 1020.62 -115.51Q1017.9 -106.08 1015.46 -98.24Q1013.01 -90.39 1011.26 -85.22L980.67 0H952.32L921.25 -85.22Q919.51 -90.33 917.1 -98.07Q914.69 -105.82 911.92 -115.18Q909.15 -124.55 906.36 -134.62Q903.58 -144.7 900.96 -154.42H903.65Q903.78 -146.27 904.01 -136.7Q904.24 -127.14 904.46 -117.52Q904.68 -107.91 904.88 -99.49Q905.08 -91.07 905.08 -85.22V0H871.89Z M1135.45 1.64Q1121.94 1.64 1111.79 -4.2Q1101.64 -10.05 1096.04 -21.12Q1090.45 -32.19 1090.45 -47.71V-131.02H1123.25V-53.1Q1123.25 -40.41 1129.85 -33.2Q1136.45 -25.99 1148 -25.99Q1155.79 -25.99 1161.78 -29.38Q1167.77 -32.77 1171.21 -39.23Q1174.65 -45.69 1174.65 -54.71V-131.02H1207.52V0H1176.42L1176 -32.55H1178.18Q1172.82 -15.73 1162.16 -7.05Q1151.5 1.64 1135.45 1.64Z"/></g></svg></span></a>
+    <nav class="nav-links" id="navlinks" aria-label="Utama">
+      <a href="#masalah">Masalah</a>
+      <a href="#demo">Coba langsung</a>
+      <a href="#zakat">Zakat</a>
+      <a href="#untuk">Jenis usaha</a>
+      <a href="#paket">Paket</a>
+      <a href="#tentang">Tentang</a>
+    </nav>
+    <div class="nav-cta">
+      <button class="btn btn-pres" id="presBtn" type="button" title="Tekan P. Panah kiri/kanan untuk pindah bagian">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Mode presentasi</button>
+      <a class="nav-login" href="/login">Masuk</a>
+      <a class="btn btn-gold" href="/register">Daftar gratis</a>
+    </div>
+    <button class="burger" id="burger" aria-label="Buka menu" aria-expanded="false" aria-controls="navlinks"><span></span><span></span></button>
+  </div>
+</header>
+
+<main id="atas">
+<!-- ================= HERO ================= -->
+<section class="hero" data-slide>
+  <div class="hero-mark" aria-hidden="true"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 313 493"><defs><linearGradient id="i4mgb" gradientUnits="userSpaceOnUse" x1="92.28" y1="107.16" x2="202.12" y2="517.1"><stop offset="0" stop-color="#bee4d2"/><stop offset="0.08" stop-color="#a5d9c2"/><stop offset="0.2" stop-color="#76c2a2"/><stop offset="0.34" stop-color="#46a882"/><stop offset="0.64" stop-color="#1e8c66"/><stop offset="0.86" stop-color="#127856"/><stop offset="1" stop-color="#0c6a4c"/></linearGradient><linearGradient id="i4mgf" gradientUnits="userSpaceOnUse" x1="71.07" y1="306.33" x2="251.15" y2="364.84"><stop offset="0" stop-color="#06563e"/><stop offset="0.34" stop-color="#064633"/><stop offset="0.75" stop-color="#48987a"/><stop offset="0.97" stop-color="#96cdb4"/><stop offset="1" stop-color="#96cdb4"/></linearGradient><linearGradient id="i4mga" gradientUnits="userSpaceOnUse" x1="92.12" y1="183.43" x2="268.4" y2="251.1"><stop offset="0" stop-color="#cdecde" stop-opacity="1"/><stop offset="0.08" stop-color="#bee6d4" stop-opacity="1"/><stop offset="0.44" stop-color="#78c4a4" stop-opacity="0.85"/><stop offset="0.64" stop-color="#54b08a" stop-opacity="0.52"/><stop offset="0.87" stop-color="#3c9c76" stop-opacity="0.13"/><stop offset="1" stop-color="#2c8c66" stop-opacity="0"/></linearGradient><linearGradient id="i4mgc" gradientUnits="userSpaceOnUse" x1="83.18" y1="-8.52" x2="246.4" y2="54.14"><stop offset="0" stop-color="#e2b262"/><stop offset="0.05" stop-color="#e4b86c"/><stop offset="0.21" stop-color="#beaa6c"/><stop offset="0.62" stop-color="#80a880"/><stop offset="0.77" stop-color="#5ca47e"/><stop offset="1" stop-color="#3ca078"/></linearGradient><linearGradient id="i4mg1" gradientUnits="userSpaceOnUse" x1="18.41" y1="21.29" x2="66.07" y2="80.14"><stop offset="0" stop-color="#f5c877"/><stop offset="0.18" stop-color="#e4b266"/><stop offset="0.44" stop-color="#cf9546"/><stop offset="0.69" stop-color="#c38028"/><stop offset="0.77" stop-color="#c3802a"/><stop offset="1" stop-color="#d59a49"/></linearGradient><linearGradient id="i4mg2" gradientUnits="userSpaceOnUse" x1="237.43" y1="73.46" x2="285.11" y2="132.34"><stop offset="0" stop-color="#f5c877"/><stop offset="0.18" stop-color="#e4b266"/><stop offset="0.44" stop-color="#cf9546"/><stop offset="0.69" stop-color="#c38028"/><stop offset="0.77" stop-color="#c3802a"/><stop offset="1" stop-color="#d59a49"/></linearGradient><path id="i4ms" d="M15.47 132.17L15.47 358.19C15.47 370.28 18.97 384.47 22.56 395.97C42.27 458.94 99.13 495.69 164.18 492.09C187.33 490.81 210.41 482.48 229.95 470.2C234.48 467.35 238.74 463.56 243.11 460.89L252.68 491.73L311.99 491.73C311.69 491.09 312.06 490.14 311.68 489.39C310.57 487.18 308.91 485.21 307.69 483.05C301.46 471.96 293.83 458.43 293.83 445.33L293.83 300.33C293.83 287.62 291.06 274.58 287.7 262.4C266.55 185.6 181.62 159.44 113.53 192.1C100.65 198.27 85.93 205.05 76.27 215.82L104.95 254.46C109.1 252 112.73 248.81 116.85 246.21C135.34 234.52 154.26 227.22 176.39 227.38C185.58 227.44 195.18 229.91 203.49 233.73C232.66 247.13 241.62 276.72 241.62 306.69C241.62 313.25 242.3 320.24 240.99 326.42C227.21 314.78 220.48 306.1 203.04 297.53C165.6 279.12 118.97 281.31 84.75 306.08C80.06 309.48 75.48 313.28 71.52 317.5C70.16 318.96 69.13 320.74 67.68 322.12C67.23 322.55 66.31 322.16 65.86 322.6L65.86 111.79L15.47 132.17ZM233.16 400.01C216.93 432.16 173.33 448.49 139.16 441.19C134.11 440.11 128.49 438.87 123.93 436.38C111.43 429.56 102.7 416.82 98.93 403.31C96.98 396.32 96.23 388.72 96.95 381.51C100.28 348.03 130.83 328.48 163 335.49C188.26 341 207.73 358.92 222.14 379.49C226.56 385.8 231.28 392.58 233.16 400.01Z" fill-rule="evenodd"/><clipPath id="i4mcf"><path d="M66 279L220 279L242.3 326V393L190 411L120 411L103 428C85 413 68 385 66 341Z"/></clipPath><clipPath id="i4mca"><path d="M75 176H255V286H75Z"/></clipPath></defs><use href="#i4ms" fill="url(#i4mgb)"/><g clip-path="url(#i4mca)"><use href="#i4ms" fill="url(#i4mga)"/></g><g clip-path="url(#i4mcf)"><use href="#i4ms" fill="url(#i4mgf)"/></g><path d="M63.52 26.51C79.06 19.64 95.37 10.73 112.54 8.57C153.5 3.4 196.75 15.66 225.32 46.81C233.4 55.62 239.72 65.06 246.36 75.04" fill="none" stroke="url(#i4mgc)" stroke-width="12.3"/><circle cx="42.2" cy="50.69" r="41.1" fill="url(#i4mg1)"/><circle cx="261.32" cy="102.97" r="41.1" fill="url(#i4mg2)"/></svg></div>
+  <div class="wrap hero-grid">
+    <div>
+      <h1><span>Usaha tercatat rapi,</span><span>zakatnya terhitung</span><span>tepat.</span></h1>
+      <p class="sub">TaradinMu adalah ekosistem perniagaan islami untuk anggota Serikat Usaha Muhammadiyah (SUMU). Catat stok, invoice, dan piutang usaha apa pun, dari minimarket sampai travel umrah, lalu hitung zakat perniagaan dan zakat harta dari data yang sama. Modul menyesuaikan jenis usaha yang Anda pilih saat mendaftar.</p>
+      <div class="hero-cta">
+        <a class="btn btn-gold" href="/register">Daftar gratis</a>
+        <a class="btn btn-ghost-lt" href="#demo">Coba dashboard-nya sekarang</a>
+        <a class="hero-alt" data-wa="Halo Admin TaradinMu, saya ingin menjadwalkan demo TaradinMu untuk usaha saya." href="#kontak">Atau jadwalkan demo lewat WhatsApp</a>
+      </div>
+      <ul class="facts">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 3 3 5-6"/></svg><span>Penghitung zakat perniagaan dan zakat harta di paket PRO, dari data stok, piutang, dan kas Anda.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 3 3 5-6"/></svg><span>Pilih jenis usaha saat mendaftar; modul yang tidak Anda perlukan tidak muncul.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 3 3 5-6"/></svg><span>Paket Dasar gratis untuk mulai mencatat, tanpa biaya bulanan.</span></li>
+      </ul>
+    </div>
+    <div class="hero-mock" id="heroMock" role="button" tabindex="0" aria-label="Pratinjau dashboard. Tekan untuk mencoba langsung."></div>
+  </div>
+</section>
+
+<!-- ================= MAKNA NAMA ================= -->
+<section class="name sec after-hero" data-slide id="nama">
+  <div class="wrap name-grid">
+    <div>
+      <h2>Niaga yang baik dimulai dari saling ridha.</h2>
+      <p class="lead" style="margin-top:0">Nama TaradinMu diambil dari kata <b>taradin</b> (تراضٍ), saling ridha. <b>Mu</b> berarti Muhammadiyah. Ayat ini menjadi dasar kami memandang catatan usaha.</p>
+      <p class="name-note">Saling ridha menuntut kejelasan: barang apa yang dijual, berapa harganya, siapa yang masih berutang, kapan jatuh tempo. TaradinMu menjaga hal-hal itu tetap tertulis rapi, lalu memakai catatan yang sama untuk menghitung zakat usaha, supaya penjual, pembeli, dan penerima zakat sama-sama tenang.</p>
+    </div>
+    <figure class="ayat-wrap">
+      <div class="ayat" lang="ar" dir="rtl">إِلَّا أَن تَكُونَ تِجَارَةً عَن تَرَاضٍ مِّنكُمْ</div>
+      <figcaption class="ayat-src">“…kecuali dengan jalan perniagaan yang berlaku dengan suka sama suka di antara kamu.” (QS. An-Nisa: 29)</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ================= ALUR EKOSISTEM ================= -->
+<section class="flowsec sec" data-slide id="alur">
+  <div class="wrap">
+    <h2>Dari transaksi harian sampai zakat tahunan, satu alur</h2>
+    <p class="lead">Kebanyakan aplikasi berhenti di pembukuan. TaradinMu melanjutkannya sampai kewajiban zakat usaha, dengan data yang sama.</p>
+    <ol class="flow">
+      <li><h3>Transaksi harian</h3><p>Stok masuk dan keluar, invoice, dan pembayaran dicatat setiap hari.</p><span class="ft ft-ok">Tersedia</span></li>
+      <li><h3>Kas, piutang, dan stok terlihat</h3><p>Ringkasan pemilik menampilkan pemasukan, piutang, dan barang yang menipis atau hampir kedaluwarsa.</p><span class="ft ft-ok">Tersedia</span></li>
+      <li><h3>Haul terpenuhi</h3><p>Harta usaha dimiliki satu tahun dan mencapai nisab, yaitu setara 85 gram emas.</p><span class="ft ft-out">Pertimbangan Anda</span></li>
+      <li><h3>Zakat dihitung otomatis</h3><p>Stok, piutang lancar, dan kas dikurangi utang jatuh tempo, lalu dikali 2,5%.</p><span class="ft ft-new">Fitur PRO</span></li>
+      <li><h3>Ditunaikan</h3><p>Anda menyalurkan lewat lembaga amil zakat pilihan sendiri.</p><span class="ft ft-out">Di luar aplikasi</span></li>
+    </ol>
+    <div class="track"><h3>Ekosistem yang terus tumbuh</h3><p>Menyusul: laporan laba rugi dan neraca (Fase 2), marketplace B2B antar usaha (Fase 3), dan modul khusus tiap jenis usaha yang dirancang bersama pelaku usaha SUMU.</p></div>
+  </div>
+</section>
+
+<!-- ================= MASALAH & SOLUSI ================= -->
+<section class="problem sec" data-slide id="masalah">
+  <div class="wrap">
+    <h2>Lima hal yang membuat pembukuan dan zakat usaha melelahkan</h2>
+    <p class="scene">Usaha sudah tutup, jam sembilan malam. Anda masih membuka <b>buku tulis</b>, mencocokkan nota, menghitung ulang, dan mengingat siapa yang belum bayar, lalu bertanya-tanya berapa zakat usaha tahun ini. Besok pagi pekerjaan itu menunggu lagi. Pilih satu masalah, lihat bedanya.</p>
+
+    <div class="ps">
+      <div class="ps-tabs" role="tablist" aria-label="Masalah usaha" id="psTabs"></div>
+      <div id="psPanel" role="tabpanel"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DEMO ================= -->
+<section class="demo sec" data-slide id="demo">
+  <div class="wrap">
+    <div class="demo-top">
+      <div>
+        <h2>Coba sendiri. Ini bukan gambar.</h2>
+        <p class="lead">Pilih jenis usaha contoh, lalu klik dan ketik. Perhatikan menu dan angkanya menyesuaikan usahanya. Lima hal ini paling menunjukkan cara kerjanya:</p>
+      </div>
+      <div class="dev" role="group" aria-label="Ukuran layar">
+        <button type="button" data-dev="laptop" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="11" rx="2"/><path d="M2 20h20"/></svg>Laptop</button>
+        <button type="button" data-dev="phone" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg>HP</button>
+      </div>
+    </div>
+    <div class="presets" id="presets" role="group" aria-label="Jenis usaha contoh"></div>
+    <div class="missions" id="missions"></div>
+    <div class="frame-wrap" id="frameWrap"><div id="demoApp"></div></div>
+    <p class="demo-cap">Data di simulasi ini adalah contoh. Ringkasan pemilik adalah pratinjau desain. Alur stok FEFO, invoice, dan pengaturan merek mengikuti aplikasi. Simulasi laundry dan travel umrah menunjukkan arah produk: modul Stok dimatikan dan invoice dipakai untuk layanan. Pencatatan layanan tanpa stok masih dalam rencana.</p>
+    <div class="demo-end" id="demoEnd">
+      <p>Semua sudah Anda coba. Bayangkan angka-angka tadi berisi barang dan pelanggan usaha Anda sendiri.</p>
+      <a class="btn btn-gold" data-wa="Halo Admin TaradinMu, saya sudah mencoba simulasinya dan ingin demo untuk usaha saya." href="#kontak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20.5l1.7-5.3A8.4 8.4 0 1 1 21 11.5z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1.2-1.4-2-1-1 .6a3.6 3.6 0 0 1-1.5-1.5l.6-1-1-2z"/></svg>Minta demo untuk usaha saya</a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ZAKAT ================= -->
+<section class="zakat sec" data-slide id="zakat">
+  <div class="wrap">
+    <h2>Zakat usaha, terhitung dari catatan yang sama</h2>
+    <p class="lead">Penghitung zakat adalah fitur paket PRO. Untuk zakat perniagaan, TaradinMu mengambil nilai stok dan piutang langsung dari data usaha. Anda tinggal melengkapi kas dan utang. Zakat harta untuk kebutuhan pribadi juga tersedia. Coba versi contohnya di bawah; semua angka bisa Anda ubah.</p>
+    <div class="zk">
+      <div class="zk-card">
+        <div class="zk-tabs" role="tablist" aria-label="Jenis zakat"><button role="tab" data-zt="niaga" aria-selected="true">Zakat perniagaan</button><button role="tab" data-zt="harta" aria-selected="false">Zakat harta</button></div>
+        <div id="zkBody"></div>
+      </div>
+      <aside class="zk-side">
+        <h3>Cara penghitungannya</h3>
+        <ul>
+          <li><b>Harta perniagaan</b> = nilai stok + piutang lancar + kas, dikurangi utang jatuh tempo.</li>
+          <li><b>Nisab</b> = 85 gram emas × harga emas per gram.</li>
+          <li><b>Haul</b> = harta dimiliki satu tahun.</li>
+          <li><b>Zakat</b> = 2,5% dari harta bersih, bila sudah nisab dan haul.</li>
+        </ul>
+        <p class="zk-disc">Hasil ini perkiraan untuk membantu Anda. Cara menilai barang dagangan, piutang yang dihitung, dan nisab mengikuti pedoman lembaga zakat yang Anda ikuti. Untuk penetapan dan penyaluran, konsultasikan dengan lembaga amil zakat, misalnya LAZISMU. TaradinMu menghitung, tidak menyalurkan zakat.</p>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ================= UNTUK SIAPA ================= -->
+<section class="who sec" data-slide id="untuk">
+  <div class="wrap">
+    <h2>Satu aplikasi untuk hampir semua jenis usaha</h2>
+    <p class="lead">Anggota SUMU menjalankan banyak jenis usaha. Fondasinya sama: pelanggan, invoice, piutang, dan kas. Saat mendaftar, Anda memilih satu dari enam jenis usaha (toko/ritel, kuliner, farmasi/klinik, jasa, manufaktur, atau lainnya), dan menu yang aktif mengikuti preset itu. Pilih usaha Anda di bawah.</p>
+    <div class="who-grid">
+      <div class="who-list" id="whoList"></div>
+      <div class="who-detail" id="whoDetail" aria-live="polite"></div>
+    </div>
+    <p class="who-more">Jenis usaha Anda tidak ada di daftar? Daftar ini hanya contoh. Pilih “Lainnya” saat mendaftar, atau <a data-wa="Halo Admin TaradinMu, usaha saya belum ada di daftar jenis usaha. Bisakah TaradinMu dipakai?" href="#kontak">ceritakan usaha Anda ke admin</a> agar kami siapkan modul yang cocok.</p>
+  </div>
+</section>
+
+<!-- ================= PAKET ================= -->
+<section class="plans sec" data-slide id="paket">
+  <div class="wrap">
+    <h2>Mulai gratis. Naik ke PRO saat usaha ingin tampil dengan nama sendiri dan menghitung zakat otomatis.</h2>
+    <p class="lead">Paket Dasar cukup untuk mulai mencatat. PRO membuat TaradinMu terasa seperti aplikasi milik usaha Anda dan membuka penghitung zakat.</p>
+    <div class="cmp" role="table" aria-label="Perbandingan paket">
+      <div class="h rl" role="columnheader"></div>
+      <div class="h" role="columnheader" data-plan="Paket">Dasar<small>Gratis</small></div>
+      <div class="h pro" role="columnheader" data-plan="Paket">PRO<small>Hubungi admin untuk penawaran</small></div>
+
+      <div class="rl">Alamat usaha</div><div><code>taradinmu.id/nama-usaha</code></div><div class="pro"><code>nama-usaha.taradinmu.id</code></div>
+      <div class="rl">Logo di dashboard</div><div>Logo TaradinMu</div><div class="pro">Logo usaha Anda</div>
+      <div class="rl">Warna dashboard</div><div>Warna bawaan</div><div class="pro">Warna pilihan Anda</div>
+      <div class="rl">Modul</div><div>Modul dasar sesuai preset jenis usaha</div><div class="pro">Semua modul yang tersedia</div>
+      <div class="rl">Batch dan kedaluwarsa</div><div>Untuk usaha Toko/Ritel dan Kuliner</div><div class="pro">Untuk semua jenis usaha</div>
+      <div class="rl">Penghitung zakat</div><div>Tidak tersedia</div><div class="pro">Zakat perniagaan dan zakat harta</div>
+    </div>
+    <div class="cta-row">
+      <a class="btn btn-gold" data-wa="Halo Admin TaradinMu, saya ingin bertanya tentang paket PRO." href="#kontak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20.5l1.7-5.3A8.4 8.4 0 1 1 21 11.5z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1.2-1.4-2-1-1 .6a3.6 3.6 0 0 1-1.5-1.5l.6-1-1-2z"/></svg>Tanya paket PRO</a>
+      <span>Coba tampilan PRO di simulasi, tab “Merek usaha”.</span>
+    </div>
+  </div>
+</section>
+
+<!-- ================= ARAH ================= -->
+<section class="road sec" data-slide id="arah">
+  <div class="wrap">
+    <h2>Dibangun bertahap, dimulai dari pekerjaan harian</h2>
+    <p class="lead">Kami memulai dari hal yang paling sering membuat usaha kecil berantakan, lalu menambah kemampuan akuntansi setelah fondasinya kuat.</p>
+    <ol class="road-list">
+      <li>
+        <div class="ph">Fase 1: usaha harian</div>
+        <div class="st">Fokus saat ini</div>
+        <ul><li>Multi-usaha, pengguna, dan peran akses</li><li>Produk, varian, batch, dan tanggal kedaluwarsa</li><li>Stok masuk dan keluar (FEFO)</li><li>Pelanggan, invoice, dan status pembayaran</li><li>Ringkasan kas, piutang, dan stok menipis untuk pemilik</li><li>Penghitung zakat perniagaan dan zakat harta (paket PRO)</li></ul>
+      </li>
+      <li>
+        <div class="ph">Fase 2: akuntansi</div>
+        <div class="st">Direncanakan berikutnya</div>
+        <ul><li>Bagan akun yang bisa disesuaikan</li><li>Jurnal otomatis dari invoice dan stok keluar</li><li>Laporan laba rugi dan neraca</li><li>Integrasi PPN dan PPh Final</li></ul>
+      </li>
+      <li>
+        <div class="ph">Fase 3: ekosistem</div>
+        <div class="st">Arah jangka panjang</div>
+        <ul><li>Marketplace B2B antar usaha</li><li>Modul khusus klinik</li><li>Integrasi dengan SKULV untuk sekolah</li></ul>
+      </li>
+    </ol>
+    <div class="track"><h3>Berjalan bersamaan: modul khusus jenis usaha</h3><p>Proyek dan termin untuk kontraktor, paket dan keberangkatan untuk travel, order dan status cucian untuk laundry, dokumen dan multi mata uang untuk ekspor-impor. Modul seperti ini dirancang bersama pelaku usaha SUMU sesuai kebutuhan nyata, lalu menjadi bagian dari preset jenis usaha yang bersangkutan.</p></div>
+  </div>
+</section>
+
+<!-- ================= MULAI ================= -->
+<section class="start sec" data-slide id="mulai">
+  <div class="wrap">
+    <h2>Mulai dalam tiga langkah</h2>
+    <ol class="steps">
+      <li><h3>Daftar dan pilih jenis usaha</h3><p>Pilih jenis usaha Anda saat <a href="/register">mendaftar</a>, misalnya toko, kuliner, jasa, atau manufaktur. Belum yakin? Minta demo dulu lewat WhatsApp.</p></li>
+      <li><h3>Modul menyesuaikan otomatis</h3><p>TaradinMu memasang preset modul sesuai jenis usaha Anda. Menu yang tidak diperlukan tidak muncul.</p></li>
+      <li><h3>Isi produk, lalu mulai mencatat</h3><p>Masukkan produk dan stok awal. Setelah itu, stok masuk, stok keluar, dan invoice sudah bisa dipakai.</p></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ================= TENTANG ================= -->
+<section class="about sec" data-slide id="tentang">
+  <div class="wrap about-grid">
+    <div>
+      <h2>Dikembangkan oleh Axelerasi Inovasi Teknologi</h2>
+      <p>TaradinMu kami bangun dan kelola sendiri. Kami membuat perangkat lunak untuk usaha yang ingin rapi dan tumbuh, dan TaradinMu kami rancang khusus untuk komunitas usaha Muhammadiyah.</p>
+      <p><b>Ingin melihat langsung di usaha Anda?</b> Hubungi admin kami untuk demo, uji coba, atau pertanyaan kerja sama. Balasan paling cepat lewat WhatsApp.</p>
+    </div>
+    <div class="contact-list">
+      <a class="contact" data-wa="Halo Admin TaradinMu, saya ingin bertanya tentang TaradinMu." href="#kontak"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20.5l1.7-5.3A8.4 8.4 0 1 1 21 11.5z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1.2-1.4-2-1-1 .6a3.6 3.6 0 0 1-1.5-1.5l.6-1-1-2z"/></svg></span><span><small>WhatsApp Admin</small><b>0897-0991-994</b></span></a>
+      <a class="contact" href="mailto:axelerasiinovasi@gmail.com?subject=Pertanyaan%20tentang%20TaradinMu"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span><span><small>Email</small><b>axelerasiinovasi@gmail.com</b></span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FAQ ================= -->
+<section class="faq sec" data-slide id="faq">
+  <div class="wrap faq-grid">
+    <h2>Pertanyaan yang sering muncul</h2>
+    <div>
+      <details class="qa"><summary>Apakah data usaha saya tercampur dengan usaha lain?</summary><p>Tidak. Setiap usaha punya ruang sendiri. Data produk, stok, pelanggan, dan invoice hanya bisa dibuka oleh pengguna usaha itu, sesuai peran yang diberikan.</p></details>
+      <details class="qa"><summary>Usaha saya jasa, tanpa stok barang. Apakah cocok?</summary><p>Cocok. Pelanggan, invoice, piutang, dan kas dipakai semua usaha. Saat mendaftar, pilih jenis usaha jasa Anda; modul Stok tidak akan muncul di menu. Untuk kebutuhan khusus, misalnya proyek dan termin, paket perjalanan, atau order cucian, ceritakan ke admin. Modulnya dirancang bersama pelaku usaha, dan pencatatan layanan tanpa stok masih dalam rencana.</p></details>
+      <details class="qa"><summary>Jenis usaha saya tidak ada di daftar.</summary><p>Daftar itu hanya contoh. Yang dipakai semua usaha adalah pelanggan, invoice, piutang, dan kas. Pilih “Lainnya” saat mendaftar dan ceritakan usaha Anda ke admin, lalu kami nilai modul apa yang perlu disiapkan.</p></details>
+      <details class="qa"><summary>Perlu memasang aplikasi khusus?</summary><p>Tidak wajib. TaradinMu dibuka lewat browser di HP maupun laptop, dan bisa ditambahkan ke layar utama HP agar terasa seperti aplikasi.</p></details>
+      <details class="qa"><summary>Apa bedanya paket Dasar dan PRO?</summary><p>Dasar gratis dan memakai alamat <b>taradinmu.id/nama-usaha</b> dengan logo dan warna bawaan. PRO memberi subdomain sendiri, logo dan warna usaha Anda, semua modul, batch dan kedaluwarsa untuk semua jenis usaha, serta penghitung zakat.</p></details>
+      <details class="qa"><summary>Apakah hasil penghitung zakat pasti benar?</summary><p>Hasilnya perkiraan yang mengikuti rumus umum: 2,5% dari harta bersih bila mencapai nisab 85 gram emas dan haul satu tahun. Harga emas dan cara menilai barang dagangan bisa Anda ubah. Untuk penetapan akhir, ikuti pedoman lembaga zakat atau konsultasikan dengan amil.</p></details>
+      <details class="qa"><summary>Apakah TaradinMu menyalurkan zakat saya?</summary><p>Tidak. TaradinMu hanya membantu menghitung. Penyaluran Anda lakukan lewat lembaga amil zakat atau cara yang Anda pilih sendiri.</p></details>
+      <details class="qa"><summary>Bagaimana dengan pajak?</summary><p>Setiap invoice bisa menyertakan PPN yang dicatat terpisah dari harga barang. Integrasi PPN dan PPh Final yang lengkap ada di rencana Fase 2.</p></details>
+      <details class="qa"><summary>Apakah stok yang sudah kedaluwarsa ikut terjual?</summary><p>Tidak. Saat stok keluar atau invoice dibuat, TaradinMu memakai batch yang paling dulu kedaluwarsa dan melewati batch yang sudah lewat tanggal.</p></details>
+      <details class="qa"><summary>Saya belum terbiasa memakai aplikasi. Bisa?</summary><p>Tampilan pemilik dibuat sederhana: yang perlu dilihat hanya kas, piutang, dan stok. Anda bisa meminta demo langsung ke admin, dan mencoba simulasi di halaman ini dulu.</p></details>
+      <details class="qa"><summary>Berapa biayanya?</summary><p>Paket Dasar gratis. Untuk paket PRO, hubungi admin untuk penawaran sesuai kebutuhan usaha Anda.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ================= PENUTUP ================= -->
+<section class="final sec" data-slide id="kontak">
+  <div class="mark" aria-hidden="true"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 313 493"><defs><linearGradient id="i5mgb" gradientUnits="userSpaceOnUse" x1="92.28" y1="107.16" x2="202.12" y2="517.1"><stop offset="0" stop-color="#bee4d2"/><stop offset="0.08" stop-color="#a5d9c2"/><stop offset="0.2" stop-color="#76c2a2"/><stop offset="0.34" stop-color="#46a882"/><stop offset="0.64" stop-color="#1e8c66"/><stop offset="0.86" stop-color="#127856"/><stop offset="1" stop-color="#0c6a4c"/></linearGradient><linearGradient id="i5mgf" gradientUnits="userSpaceOnUse" x1="71.07" y1="306.33" x2="251.15" y2="364.84"><stop offset="0" stop-color="#06563e"/><stop offset="0.34" stop-color="#064633"/><stop offset="0.75" stop-color="#48987a"/><stop offset="0.97" stop-color="#96cdb4"/><stop offset="1" stop-color="#96cdb4"/></linearGradient><linearGradient id="i5mga" gradientUnits="userSpaceOnUse" x1="92.12" y1="183.43" x2="268.4" y2="251.1"><stop offset="0" stop-color="#cdecde" stop-opacity="1"/><stop offset="0.08" stop-color="#bee6d4" stop-opacity="1"/><stop offset="0.44" stop-color="#78c4a4" stop-opacity="0.85"/><stop offset="0.64" stop-color="#54b08a" stop-opacity="0.52"/><stop offset="0.87" stop-color="#3c9c76" stop-opacity="0.13"/><stop offset="1" stop-color="#2c8c66" stop-opacity="0"/></linearGradient><linearGradient id="i5mgc" gradientUnits="userSpaceOnUse" x1="83.18" y1="-8.52" x2="246.4" y2="54.14"><stop offset="0" stop-color="#e2b262"/><stop offset="0.05" stop-color="#e4b86c"/><stop offset="0.21" stop-color="#beaa6c"/><stop offset="0.62" stop-color="#80a880"/><stop offset="0.77" stop-color="#5ca47e"/><stop offset="1" stop-color="#3ca078"/></linearGradient><linearGradient id="i5mg1" gradientUnits="userSpaceOnUse" x1="18.41" y1="21.29" x2="66.07" y2="80.14"><stop offset="0" stop-color="#f5c877"/><stop offset="0.18" stop-color="#e4b266"/><stop offset="0.44" stop-color="#cf9546"/><stop offset="0.69" stop-color="#c38028"/><stop offset="0.77" stop-color="#c3802a"/><stop offset="1" stop-color="#d59a49"/></linearGradient><linearGradient id="i5mg2" gradientUnits="userSpaceOnUse" x1="237.43" y1="73.46" x2="285.11" y2="132.34"><stop offset="0" stop-color="#f5c877"/><stop offset="0.18" stop-color="#e4b266"/><stop offset="0.44" stop-color="#cf9546"/><stop offset="0.69" stop-color="#c38028"/><stop offset="0.77" stop-color="#c3802a"/><stop offset="1" stop-color="#d59a49"/></linearGradient><path id="i5ms" d="M15.47 132.17L15.47 358.19C15.47 370.28 18.97 384.47 22.56 395.97C42.27 458.94 99.13 495.69 164.18 492.09C187.33 490.81 210.41 482.48 229.95 470.2C234.48 467.35 238.74 463.56 243.11 460.89L252.68 491.73L311.99 491.73C311.69 491.09 312.06 490.14 311.68 489.39C310.57 487.18 308.91 485.21 307.69 483.05C301.46 471.96 293.83 458.43 293.83 445.33L293.83 300.33C293.83 287.62 291.06 274.58 287.7 262.4C266.55 185.6 181.62 159.44 113.53 192.1C100.65 198.27 85.93 205.05 76.27 215.82L104.95 254.46C109.1 252 112.73 248.81 116.85 246.21C135.34 234.52 154.26 227.22 176.39 227.38C185.58 227.44 195.18 229.91 203.49 233.73C232.66 247.13 241.62 276.72 241.62 306.69C241.62 313.25 242.3 320.24 240.99 326.42C227.21 314.78 220.48 306.1 203.04 297.53C165.6 279.12 118.97 281.31 84.75 306.08C80.06 309.48 75.48 313.28 71.52 317.5C70.16 318.96 69.13 320.74 67.68 322.12C67.23 322.55 66.31 322.16 65.86 322.6L65.86 111.79L15.47 132.17ZM233.16 400.01C216.93 432.16 173.33 448.49 139.16 441.19C134.11 440.11 128.49 438.87 123.93 436.38C111.43 429.56 102.7 416.82 98.93 403.31C96.98 396.32 96.23 388.72 96.95 381.51C100.28 348.03 130.83 328.48 163 335.49C188.26 341 207.73 358.92 222.14 379.49C226.56 385.8 231.28 392.58 233.16 400.01Z" fill-rule="evenodd"/><clipPath id="i5mcf"><path d="M66 279L220 279L242.3 326V393L190 411L120 411L103 428C85 413 68 385 66 341Z"/></clipPath><clipPath id="i5mca"><path d="M75 176H255V286H75Z"/></clipPath></defs><use href="#i5ms" fill="url(#i5mgb)"/><g clip-path="url(#i5mca)"><use href="#i5ms" fill="url(#i5mga)"/></g><g clip-path="url(#i5mcf)"><use href="#i5ms" fill="url(#i5mgf)"/></g><path d="M63.52 26.51C79.06 19.64 95.37 10.73 112.54 8.57C153.5 3.4 196.75 15.66 225.32 46.81C233.4 55.62 239.72 65.06 246.36 75.04" fill="none" stroke="url(#i5mgc)" stroke-width="12.3"/><circle cx="42.2" cy="50.69" r="41.1" fill="url(#i5mg1)"/><circle cx="261.32" cy="102.97" r="41.1" fill="url(#i5mg2)"/></svg></div>
+  <div class="wrap final-grid">
+    <div>
+      <h2>Lihat TaradinMu bekerja di usaha Anda sendiri.</h2>
+      <p class="lead">Ceritakan usaha Anda. Kami tunjukkan bagaimana stok, invoice, dan piutangnya akan tampil, dengan contoh yang mirip usaha Anda.</p>
+      <div class="final-cta"><a class="btn btn-gold" href="/register">Daftar gratis</a><a class="btn btn-ghost-lt" href="/login">Masuk ke akun</a></div>
+    </div>
+    <form class="form" id="leadForm" novalidate>
+      <h3>Jadwalkan demo</h3>
+      <p class="fs">Pesan akan terbuka di WhatsApp atau email Anda, sudah terisi. Tidak ada data yang kami simpan dari halaman ini.</p>
+      <label>Nama Anda<input name="nama" autocomplete="name" required placeholder="Contoh: Ahmad Fauzi"></label>
+      <label>Nama usaha<input name="usaha" autocomplete="organization" placeholder="Contoh: Kedai Amanah"></label>
+      <label>Jenis usaha
+        <select name="jenis"><option>Minimarket atau toko</option><option>Grosir atau distributor</option><option>Kuliner, katering, atau aqiqah</option><option>Laundry atau jasa lainnya</option><option>Travel umrah, haji, atau wisata</option><option>Kontraktor</option><option>Ekspor impor</option><option>Klinik atau apotek</option><option>Sekolah, koperasi, atau kantin</option><option>Lainnya</option></select>
+      </label>
+      <label>Yang paling merepotkan saat ini<textarea name="butuh" placeholder="Contoh: tagihan jamaah sulit dilacak, atau stok sering tidak cocok"></textarea></label>
+      <div class="row">
+        <button class="btn btn-gold" type="submit" data-ch="wa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20.5l1.7-5.3A8.4 8.4 0 1 1 21 11.5z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1.2-1.4-2-1-1 .6a3.6 3.6 0 0 1-1.5-1.5l.6-1-1-2z"/></svg>Kirim lewat WhatsApp</button>
+        <button class="btn btn-line" type="submit" data-ch="mail"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>Kirim lewat email</button>
+      </div>
+      <p class="privacy" id="formMsg" aria-live="polite"></p>
+    </form>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <span class="logo"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1620.13 493"><defs><linearGradient id="i3hgb" gradientUnits="userSpaceOnUse" x1="92.28" y1="107.16" x2="202.12" y2="517.1"><stop offset="0" stop-color="#bee4d2"/><stop offset="0.08" stop-color="#a5d9c2"/><stop offset="0.2" stop-color="#76c2a2"/><stop offset="0.34" stop-color="#46a882"/><stop offset="0.64" stop-color="#1e8c66"/><stop offset="0.86" stop-color="#127856"/><stop offset="1" stop-color="#0c6a4c"/></linearGradient><linearGradient id="i3hgf" gradientUnits="userSpaceOnUse" x1="71.07" y1="306.33" x2="251.15" y2="364.84"><stop offset="0" stop-color="#06563e"/><stop offset="0.34" stop-color="#064633"/><stop offset="0.75" stop-color="#48987a"/><stop offset="0.97" stop-color="#96cdb4"/><stop offset="1" stop-color="#96cdb4"/></linearGradient><linearGradient id="i3hga" gradientUnits="userSpaceOnUse" x1="92.12" y1="183.43" x2="268.4" y2="251.1"><stop offset="0" stop-color="#cdecde" stop-opacity="1"/><stop offset="0.08" stop-color="#bee6d4" stop-opacity="1"/><stop offset="0.44" stop-color="#78c4a4" stop-opacity="0.85"/><stop offset="0.64" stop-color="#54b08a" stop-opacity="0.52"/><stop offset="0.87" stop-color="#3c9c76" stop-opacity="0.13"/><stop offset="1" stop-color="#2c8c66" stop-opacity="0"/></linearGradient><linearGradient id="i3hgc" gradientUnits="userSpaceOnUse" x1="83.18" y1="-8.52" x2="246.4" y2="54.14"><stop offset="0" stop-color="#e2b262"/><stop offset="0.05" stop-color="#e4b86c"/><stop offset="0.21" stop-color="#beaa6c"/><stop offset="0.62" stop-color="#80a880"/><stop offset="0.77" stop-color="#5ca47e"/><stop offset="1" stop-color="#3ca078"/></linearGradient><linearGradient id="i3hg1" gradientUnits="userSpaceOnUse" x1="18.41" y1="21.29" x2="66.07" y2="80.14"><stop offset="0" stop-color="#f5c877"/><stop offset="0.18" stop-color="#e4b266"/><stop offset="0.44" stop-color="#cf9546"/><stop offset="0.69" stop-color="#c38028"/><stop offset="0.77" stop-color="#c3802a"/><stop offset="1" stop-color="#d59a49"/></linearGradient><linearGradient id="i3hg2" gradientUnits="userSpaceOnUse" x1="237.43" y1="73.46" x2="285.11" y2="132.34"><stop offset="0" stop-color="#f5c877"/><stop offset="0.18" stop-color="#e4b266"/><stop offset="0.44" stop-color="#cf9546"/><stop offset="0.69" stop-color="#c38028"/><stop offset="0.77" stop-color="#c3802a"/><stop offset="1" stop-color="#d59a49"/></linearGradient><path id="i3hs" d="M15.47 132.17L15.47 358.19C15.47 370.28 18.97 384.47 22.56 395.97C42.27 458.94 99.13 495.69 164.18 492.09C187.33 490.81 210.41 482.48 229.95 470.2C234.48 467.35 238.74 463.56 243.11 460.89L252.68 491.73L311.99 491.73C311.69 491.09 312.06 490.14 311.68 489.39C310.57 487.18 308.91 485.21 307.69 483.05C301.46 471.96 293.83 458.43 293.83 445.33L293.83 300.33C293.83 287.62 291.06 274.58 287.7 262.4C266.55 185.6 181.62 159.44 113.53 192.1C100.65 198.27 85.93 205.05 76.27 215.82L104.95 254.46C109.1 252 112.73 248.81 116.85 246.21C135.34 234.52 154.26 227.22 176.39 227.38C185.58 227.44 195.18 229.91 203.49 233.73C232.66 247.13 241.62 276.72 241.62 306.69C241.62 313.25 242.3 320.24 240.99 326.42C227.21 314.78 220.48 306.1 203.04 297.53C165.6 279.12 118.97 281.31 84.75 306.08C80.06 309.48 75.48 313.28 71.52 317.5C70.16 318.96 69.13 320.74 67.68 322.12C67.23 322.55 66.31 322.16 65.86 322.6L65.86 111.79L15.47 132.17ZM233.16 400.01C216.93 432.16 173.33 448.49 139.16 441.19C134.11 440.11 128.49 438.87 123.93 436.38C111.43 429.56 102.7 416.82 98.93 403.31C96.98 396.32 96.23 388.72 96.95 381.51C100.28 348.03 130.83 328.48 163 335.49C188.26 341 207.73 358.92 222.14 379.49C226.56 385.8 231.28 392.58 233.16 400.01Z" fill-rule="evenodd"/><clipPath id="i3hcf"><path d="M66 279L220 279L242.3 326V393L190 411L120 411L103 428C85 413 68 385 66 341Z"/></clipPath><clipPath id="i3hca"><path d="M75 176H255V286H75Z"/></clipPath></defs><use href="#i3hs" fill="url(#i3hgb)"/><g clip-path="url(#i3hca)"><use href="#i3hs" fill="url(#i3hga)"/></g><g clip-path="url(#i3hcf)"><use href="#i3hs" fill="url(#i3hgf)"/></g><path d="M63.52 26.51C79.06 19.64 95.37 10.73 112.54 8.57C153.5 3.4 196.75 15.66 225.32 46.81C233.4 55.62 239.72 65.06 246.36 75.04" fill="none" stroke="url(#i3hgc)" stroke-width="12.3"/><circle cx="42.2" cy="50.69" r="41.1" fill="url(#i3hg1)"/><circle cx="261.32" cy="102.97" r="41.1" fill="url(#i3hg2)"/><g transform="translate(397 389.3) scale(1)"><path fill="#f1f5f9" d="M9.27 -146.59V-174.61H150.08V-146.59H96.52V0H62.96V-146.59H9.27Z M191.11 2.62Q178.63 2.62 168.71 -1.83Q158.78 -6.28 153.07 -15.04Q147.35 -23.79 147.35 -36.74Q147.35 -47.78 151.44 -55.07Q155.52 -62.37 162.57 -66.78Q169.61 -71.19 178.51 -73.47Q187.4 -75.76 197.01 -76.72Q208.41 -77.92 215.45 -78.9Q222.49 -79.88 225.81 -82Q229.12 -84.13 229.12 -88.46V-89.06Q229.12 -95.1 226.62 -99.28Q224.13 -103.46 219.3 -105.69Q214.47 -107.92 207.39 -107.92Q200.23 -107.92 194.92 -105.73Q189.61 -103.54 186.24 -99.96Q182.87 -96.38 181.34 -92.07L151.1 -97.65Q154.72 -109.18 162.69 -116.94Q170.67 -124.71 182.12 -128.68Q193.56 -132.66 207.38 -132.66Q217.27 -132.66 226.97 -130.31Q236.66 -127.96 244.56 -122.75Q252.46 -117.53 257.19 -108.97Q261.92 -100.4 261.92 -87.9V0H230.68V-18.13H229.49Q226.47 -12.29 221.26 -7.59Q216.04 -2.88 208.56 -0.13Q201.08 2.62 191.11 2.62ZM199.96 -21.02Q208.83 -21.02 215.41 -24.53Q222 -28.05 225.66 -33.95Q229.33 -39.85 229.33 -46.92V-61.76Q227.77 -60.61 224.44 -59.62Q221.11 -58.62 216.96 -57.84Q212.82 -57.06 208.82 -56.5Q204.82 -55.93 201.88 -55.53Q195.21 -54.64 190.01 -52.52Q184.81 -50.39 181.88 -46.73Q178.95 -43.08 178.95 -37.42Q178.95 -32.05 181.68 -28.4Q184.4 -24.76 189.13 -22.89Q193.85 -21.02 199.96 -21.02Z M290.11 0V-131.02H321.9V-108.64H323.3Q326.88 -120.4 335.51 -126.59Q344.14 -132.79 355.28 -132.79Q357.94 -132.79 361.09 -132.51Q364.23 -132.23 366.53 -131.75V-102.05Q364.43 -102.76 360.07 -103.25Q355.72 -103.75 351.76 -103.75Q343.49 -103.75 336.92 -100.19Q330.35 -96.63 326.63 -90.36Q322.92 -84.08 322.92 -75.81V0H290.11Z M417.73 2.62Q405.25 2.62 395.33 -1.83Q385.4 -6.28 379.69 -15.04Q373.98 -23.79 373.98 -36.74Q373.98 -47.78 378.06 -55.07Q382.15 -62.37 389.19 -66.78Q396.24 -71.19 405.13 -73.47Q414.02 -75.76 423.64 -76.72Q435.04 -77.92 442.08 -78.9Q449.12 -79.88 452.43 -82Q455.74 -84.13 455.74 -88.46V-89.06Q455.74 -95.1 453.25 -99.28Q450.75 -103.46 445.92 -105.69Q441.1 -107.92 434.01 -107.92Q426.85 -107.92 421.54 -105.73Q416.24 -103.54 412.87 -99.96Q409.5 -96.38 407.97 -92.07L377.73 -97.65Q381.34 -109.18 389.32 -116.94Q397.29 -124.71 408.74 -128.68Q420.18 -132.66 434.01 -132.66Q443.89 -132.66 453.59 -130.31Q463.29 -127.96 471.18 -122.75Q479.08 -117.53 483.81 -108.97Q488.54 -100.4 488.54 -87.9V0H457.3V-18.13H456.11Q453.09 -12.29 447.88 -7.59Q442.67 -2.88 435.18 -0.13Q427.7 2.62 417.73 2.62ZM426.58 -21.02Q435.45 -21.02 442.04 -24.53Q448.62 -28.05 452.28 -33.95Q455.95 -39.85 455.95 -46.92V-61.76Q454.4 -60.61 451.06 -59.62Q447.73 -58.62 443.59 -57.84Q439.44 -57.06 435.44 -56.5Q431.44 -55.93 428.5 -55.53Q421.83 -54.64 416.63 -52.52Q411.44 -50.39 408.51 -46.73Q405.58 -43.08 405.58 -37.42Q405.58 -32.05 408.3 -28.4Q411.03 -24.76 415.75 -22.89Q420.47 -21.02 426.58 -21.02Z M564.84 2.29Q549.6 2.29 537.41 -5.59Q525.21 -13.46 518.18 -28.54Q511.15 -43.61 511.15 -65.26Q511.15 -87.38 518.37 -102.39Q525.59 -117.41 537.76 -125.03Q549.93 -132.66 564.69 -132.66Q576.09 -132.66 583.51 -128.83Q590.93 -125.01 595.4 -119.55Q599.86 -114.08 602.13 -109.14H603.35V-174.61H636.15V0H603.95V-20.85H602.13Q599.76 -15.85 595.2 -10.51Q590.65 -5.16 583.27 -1.44Q575.9 2.29 564.84 2.29ZM574.38 -24.33Q583.86 -24.33 590.48 -29.5Q597.1 -34.66 600.55 -43.89Q604.01 -53.13 604.01 -65.39Q604.01 -77.76 600.59 -86.86Q597.16 -95.96 590.54 -101Q583.92 -106.04 574.38 -106.04Q564.65 -106.04 558.05 -100.8Q551.45 -95.57 548.11 -86.41Q544.78 -77.24 544.78 -65.39Q544.78 -53.53 548.14 -44.23Q551.51 -34.94 558.15 -29.64Q564.78 -24.33 574.38 -24.33Z M664.44 0V-131.02H697.24V0H664.44ZM680.86 -148.82Q673.24 -148.82 667.8 -153.93Q662.36 -159.03 662.36 -166.18Q662.36 -173.48 667.8 -178.52Q673.24 -183.57 680.86 -183.57Q688.52 -183.57 693.97 -178.53Q699.42 -173.49 699.42 -166.19Q699.42 -159.03 693.97 -153.93Q688.52 -148.82 680.86 -148.82Z M758.35 -76.3V0H725.55V-131.02H756.58L757.07 -98.47H754.82Q760.11 -115.15 770.71 -123.91Q781.31 -132.66 797.62 -132.66Q811.18 -132.66 821.27 -126.81Q831.36 -120.97 836.96 -109.93Q842.55 -98.89 842.55 -83.31V0H809.75V-77.91Q809.75 -90.6 803.18 -97.81Q796.62 -105.02 785.07 -105.02Q777.33 -105.02 771.28 -101.63Q765.23 -98.24 761.79 -91.84Q758.35 -85.44 758.35 -76.3Z"/><path fill="#e5ad55" d="M871.89 0V-174.61H922.94L953.66 -89.45Q955.4 -84.16 957.62 -75.75Q959.84 -67.34 962.17 -57.61Q964.5 -47.89 966.54 -38.67Q968.59 -29.46 969.95 -22.5H963.29Q964.72 -29.26 966.74 -38.41Q968.76 -47.57 971.08 -57.32Q973.41 -67.08 975.64 -75.59Q977.87 -84.09 979.6 -89.45L1009.89 -174.61H1061.06V0H1027.49V-85.22Q1027.49 -90.88 1027.65 -99.14Q1027.82 -107.4 1028.07 -116.91Q1028.33 -126.43 1028.56 -136.12Q1028.79 -145.82 1028.85 -154.42H1031.09Q1028.79 -144.96 1026.06 -134.95Q1023.34 -124.93 1020.62 -115.51Q1017.9 -106.08 1015.46 -98.24Q1013.01 -90.39 1011.26 -85.22L980.67 0H952.32L921.25 -85.22Q919.51 -90.33 917.1 -98.07Q914.69 -105.82 911.92 -115.18Q909.15 -124.55 906.36 -134.62Q903.58 -144.7 900.96 -154.42H903.65Q903.78 -146.27 904.01 -136.7Q904.24 -127.14 904.46 -117.52Q904.68 -107.91 904.88 -99.49Q905.08 -91.07 905.08 -85.22V0H871.89Z M1135.45 1.64Q1121.94 1.64 1111.79 -4.2Q1101.64 -10.05 1096.04 -21.12Q1090.45 -32.19 1090.45 -47.71V-131.02H1123.25V-53.1Q1123.25 -40.41 1129.85 -33.2Q1136.45 -25.99 1148 -25.99Q1155.79 -25.99 1161.78 -29.38Q1167.77 -32.77 1171.21 -39.23Q1174.65 -45.69 1174.65 -54.71V-131.02H1207.52V0H1176.42L1176 -32.55H1178.18Q1172.82 -15.73 1162.16 -7.05Q1151.5 1.64 1135.45 1.64Z"/></g></svg></span>
+    <div class="fl"><a href="/login">Masuk</a><a href="/register">Daftar</a><a href="https://wa.me/628970991994" target="_blank" rel="noopener noreferrer">WhatsApp 0897-0991-994</a><a href="mailto:axelerasiinovasi@gmail.com">axelerasiinovasi@gmail.com</a></div>
+    <span>© <span id="yr"></span> Axelerasi Inovasi Teknologi. taradinmu.id</span>
+  </div>
+</footer>
+
+<div class="stick" id="stick"><a class="btn btn-gold" href="/register">Daftar gratis</a><a class="btn btn-forest" data-wa="Halo Admin TaradinMu, saya ingin bertanya tentang TaradinMu." href="#kontak" aria-label="Chat admin lewat WhatsApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20.5l1.7-5.3A8.4 8.4 0 1 1 21 11.5z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1.2-1.4-2-1-1 .6a3.6 3.6 0 0 1-1.5-1.5l.6-1-1-2z"/></svg></a></div>
+<div class="pnav" id="pnav" role="group" aria-label="Navigasi presentasi"><span id="pcount"></span><button id="pprev" aria-label="Bagian sebelumnya">‹</button><button id="pnext" aria-label="Bagian berikutnya">›</button><button class="x" id="pexit">Keluar (Esc)</button></div>
+
+<script>
+(()=>{
+'use strict';
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const WA='628970991994', MAIL='axelerasiinovasi@gmail.com';
+const waLink=t=>`https://wa.me/${WA}?text=${encodeURIComponent(t)}`;
+const rp=n=>'Rp '+Math.round(n).toLocaleString('id-ID');
+const DAY=864e5; const now=new Date(); now.setHours(0,0,0,0);
+const addDays=n=>new Date(now.getTime()+n*DAY);
+const dTo=d=>Math.round((d-now)/DAY);
+const fmtD=d=>d.toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'});
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ICON={
+ alert:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
+ clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+ box:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg>',
+ lockk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+ globe:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+ tick:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg>'
+};
+document.getElementById('yr').textContent=new Date().getFullYear();
+
+/* ============ WA / kontak ============ */
+document.addEventListener('click',e=>{
+  const a=e.target.closest('[data-wa]'); if(!a) return;
+  e.preventDefault(); window.open(waLink(a.dataset.wa),'_blank','noopener');
+});
+$('#leadForm').addEventListener('submit',e=>{
+  e.preventDefault();
+  const f=e.target, ch=(e.submitter&&e.submitter.dataset.ch)||'wa', d=Object.fromEntries(new FormData(f));
+  if(!d.nama||!d.nama.trim()){ $('#formMsg').textContent='Isi nama Anda dulu agar admin tahu siapa yang menghubungi.'; f.nama.focus(); return; }
+  const body=`Halo Admin TaradinMu, saya ${d.nama.trim()}${d.usaha?.trim()?` dari ${d.usaha.trim()}`:''}.\nJenis usaha: ${d.jenis}.\n${d.butuh?.trim()?`Yang paling merepotkan: ${d.butuh.trim()}\n`:''}Saya ingin menjadwalkan demo TaradinMu.`;
+  $('#formMsg').textContent=ch==='wa'?'Membuka WhatsApp…':'Membuka aplikasi email Anda…';
+  if(ch==='wa') window.open(waLink(body),'_blank','noopener');
+  else location.href=`mailto:${MAIL}?subject=${encodeURIComponent('Jadwalkan demo TaradinMu')}&body=${encodeURIComponent(body)}`;
+});
+
+/* ============ nav ============ */
+const nav=$('#nav'), hero=$('.hero');
+const onScroll=()=>{
+  const h=hero.getBoundingClientRect().bottom;
+  nav.classList.toggle('solid',h<80); nav.classList.toggle('on-dark',h>=80);
+  $('#stick').classList.toggle('show',hero.getBoundingClientRect().bottom<0 && !document.body.classList.contains('present'));
+};
+addEventListener('scroll',onScroll,{passive:true}); onScroll();
+$('#burger').addEventListener('click',()=>{const o=$('#navlinks').classList.toggle('open');$('#burger').setAttribute('aria-expanded',o)});
+$('#navlinks').addEventListener('click',e=>{if(e.target.closest('a'))$('#navlinks').classList.remove('open')});
+
+/* ============ data contoh ============ */
+const B=(no,qty,d)=>({no,qty,exp:addDays(d)});
+const PRESETS={
+ katering:{label:'Katering',name:'Kedai Amanah',stok:true,cust:'Pelanggan',
+  products:()=>[
+   {id:'p1',name:'Tepung terigu',unit:'sak 25 kg',price:265000,min:10,batches:[B('B-0412',6,9),B('B-0511',24,140)]},
+   {id:'p2',name:'Margarin',unit:'dus 5 kg',price:185000,min:5,batches:[B('M-0330',2,21),B('M-0502',3,200)]},
+   {id:'p3',name:'Susu UHT 1 L',unit:'karton',price:212000,min:8,batches:[B('S-0218',3,-4),B('S-0601',20,75)]},
+   {id:'p4',name:'Cokelat bubuk',unit:'kg',price:78000,min:15,batches:[B('C-0117',9,34),B('C-0522',30,260)]}],
+  customers:['Kantin Ar-Raudah','Katering Bu Ratna','Warung Pak Syahril','Toko Kue Sakinah'],
+  invoices:()=>[
+   {no:'INV-0041',cust:'Warung Pak Syahril',items:[{pid:'p4',qty:10}],taxPct:0,due:addDays(-2),status:'SENT'},
+   {no:'INV-0040',cust:'Katering Bu Ratna',items:[{pid:'p3',qty:5}],taxPct:11,due:addDays(6),status:'SENT'},
+   {no:'INV-0039',cust:'Kantin Ar-Raudah',items:[{pid:'p1',qty:4}],taxPct:0,due:addDays(-8),status:'SENT'},
+   {no:'INV-0038',cust:'Katering Bu Ratna',items:[{pid:'p3',qty:10}],taxPct:0,due:addDays(-18),status:'PAID'},
+   {no:'INV-0037',cust:'Toko Kue Sakinah',items:[{pid:'p1',qty:6}],taxPct:0,due:addDays(-20),status:'PAID'}],
+  cash:[1200000,0,2400000,1900000,3100000,800000,1600000],kas:180000000,utang:6500000},
+ minimarket:{label:'Minimarket',name:'Minimarket Berkah',stok:true,cust:'Pelanggan',
+  products:()=>[
+   {id:'p1',name:'Beras premium 5 kg',unit:'sak',price:74000,min:15,batches:[B('BR-1104',8,220),B('BR-1201',12,300)]},
+   {id:'p2',name:'Minyak goreng 2 L',unit:'botol',price:36000,min:24,batches:[B('MG-0910',10,40),B('MG-1012',12,150)]},
+   {id:'p3',name:'Roti tawar',unit:'bungkus',price:17500,min:10,batches:[B('RT-0920',6,2),B('RT-0921',18,5)]},
+   {id:'p4',name:'Susu UHT 200 ml',unit:'dus 24',price:96000,min:6,batches:[B('SU-0705',2,-6),B('SU-0901',14,90)]}],
+  customers:['Warung Bu Yati (grosir)','Kantor Kelurahan','Ibu Ratna (langganan)','Panti Al-Hidayah'],
+  invoices:()=>[
+   {no:'INV-0022',cust:'Warung Bu Yati (grosir)',items:[{pid:'p1',qty:4}],taxPct:0,due:addDays(-3),status:'SENT'},
+   {no:'INV-0021',cust:'Kantor Kelurahan',items:[{pid:'p3',qty:10}],taxPct:11,due:addDays(4),status:'SENT'},
+   {no:'INV-0020',cust:'Warung Bu Yati (grosir)',items:[{pid:'p2',qty:12}],taxPct:0,due:addDays(-15),status:'PAID'},
+   {no:'INV-0019',cust:'Ibu Ratna (langganan)',items:[{pid:'p4',qty:3}],taxPct:0,due:addDays(-22),status:'PAID'}],
+  cash:[2800000,3400000,2100000,4200000,3600000,5100000,2300000],kas:260000000,utang:90000000},
+ laundry:{label:'Laundry',name:'Laundry Bersih Amanah',stok:false,cust:'Pelanggan',
+  products:()=>[
+   {id:'p1',name:'Cuci kiloan reguler',unit:'kg',price:7000,svc:true},
+   {id:'p2',name:'Cuci dan setrika ekspres',unit:'kg',price:12000,svc:true},
+   {id:'p3',name:'Sprei dan selimut',unit:'pcs',price:25000,svc:true},
+   {id:'p4',name:'Karpet',unit:'m²',price:35000,svc:true}],
+  customers:['Hotel Melati Indah','Kos Putri Salsabila','Klinik Sehat Bersama','Katering Bu Ratna'],
+  invoices:()=>[
+   {no:'INV-0034',cust:'Hotel Melati Indah',items:[{pid:'p1',qty:180}],taxPct:0,due:addDays(-5),status:'SENT'},
+   {no:'INV-0033',cust:'Kos Putri Salsabila',items:[{pid:'p2',qty:60}],taxPct:0,due:addDays(9),status:'SENT'},
+   {no:'INV-0032',cust:'Klinik Sehat Bersama',items:[{pid:'p3',qty:45}],taxPct:11,due:addDays(-12),status:'SENT'},
+   {no:'INV-0031',cust:'Katering Bu Ratna',items:[{pid:'p1',qty:95}],taxPct:0,due:addDays(-25),status:'PAID'},
+   {no:'INV-0030',cust:'Hotel Melati Indah',items:[{pid:'p1',qty:170}],taxPct:0,due:addDays(-35),status:'PAID'}],
+  cash:[650000,820000,0,1150000,900000,430000,760000],kas:95000000,utang:4000000},
+ umrah:{label:'Travel umrah',name:'Safar Mulia Tour',stok:false,cust:'Jamaah',
+  products:()=>[
+   {id:'p1',name:'Umrah reguler 9 hari',unit:'jamaah',price:32500000,svc:true},
+   {id:'p2',name:'Umrah plus Turki 12 hari',unit:'jamaah',price:41000000,svc:true},
+   {id:'p3',name:'Cicilan tabungan umrah',unit:'kali',price:2500000,svc:true},
+   {id:'p4',name:'Paspor dan visa',unit:'jamaah',price:1800000,svc:true}],
+  customers:['Keluarga Pak Irfan','Ibu Marlina','Bpk. Hasan (rombongan)','Ibu Nur Aini'],
+  invoices:()=>[
+   {no:'INV-0018',cust:'Keluarga Pak Irfan',items:[{pid:'p1',qty:2}],taxPct:0,due:addDays(-4),status:'SENT'},
+   {no:'INV-0017',cust:'Ibu Marlina',items:[{pid:'p3',qty:2}],taxPct:0,due:addDays(7),status:'SENT'},
+   {no:'INV-0016',cust:'Ibu Nur Aini',items:[{pid:'p4',qty:1}],taxPct:0,due:addDays(-10),status:'PAID'},
+   {no:'INV-0015',cust:'Bpk. Hasan (rombongan)',items:[{pid:'p2',qty:2}],taxPct:0,due:addDays(-30),status:'PAID'}],
+  cash:[0,5000000,0,12500000,2500000,0,1800000],kas:350000000,utang:200000000}
+};
+const S={
+  tab:'ringkasan', open:null, filter:'semua', modal:false, dev:'laptop', qty:{}, msg:null, draft:null,
+  brand:{plan:'dasar',name:'',color:'#059669',logo:'default'},
+  seq:{inv:41,batch:600},
+  done:{stok:false,invoice:false,lunas:false,merek:false,zakat:false},
+  h:{cash:120000000,invest:40000000,goldG:20,piutang:5000000,utang:10000000}
+};
+function loadPreset(k){
+  const P=PRESETS[k];
+  S.preset=k;S.pname=P.name;S.stok=P.stok;S.custLabel=P.cust;
+  S.products=P.products().map(p=>({batches:[],...p}));S.customers=[...P.customers];S.invoices=P.invoices();S.cash=[...P.cash];
+  S.seq={inv:Math.max(...S.invoices.map(i=>parseInt(i.no.slice(-4),10))),batch:600};
+  S.brand.name=P.name;S.open=null;S.msg=null;S.modal=false;S.filter='semua';S.draft=null;S.qty={};
+  S.z={gold:S.z?S.z.gold:2000000,haul:S.z?S.z.haul:true,kas:P.kas,utang:P.utang};S.zDirty=true;
+  if(S.tab==='stok'&&!S.stok)S.tab='ringkasan';
+}
+loadPreset('katering');
+const prod=id=>S.products.find(p=>p.id===id);
+const isExp=b=>dTo(b.exp)<0;
+const usable=p=>p.batches.filter(b=>!isExp(b)&&b.qty>0).reduce((a,b)=>a+b.qty,0);
+const expiredQty=p=>p.batches.filter(isExp).reduce((a,b)=>a+b.qty,0);
+const sub=inv=>inv.items.reduce((a,i)=>a+i.qty*prod(i.pid).price,0);
+const tax=inv=>Math.round(sub(inv)*inv.taxPct/100);
+const total=inv=>sub(inv)+tax(inv);
+const overdue=inv=>inv.status==='SENT'&&dTo(inv.due)<0;
+const piutang=()=>S.invoices.filter(i=>i.status==='SENT');
+const statusOf=inv=>overdue(inv)?['Jatuh tempo','c-bad']:{DRAFT:['Draft','c-mute'],SENT:['Terkirim','c-info'],PAID:['Lunas','c-ok']}[inv.status];
+const expiring=()=>S.products.filter(p=>!p.svc).flatMap(p=>p.batches.filter(b=>!isExp(b)&&b.qty>0&&dTo(b.exp)<=30).map(b=>({p,b})));
+const lowStock=()=>S.products.filter(p=>!p.svc&&usable(p)<=p.min);
+
+/* FEFO: batch kedaluwarsa dilewati, terdekat dulu */
+function fefoOut(pid,qty){
+  const p=prod(pid); if(p.svc) return {used:[]};
+  const ok=usable(p);
+  if(qty>ok) return {err:`Stok layak tidak cukup: tersedia ${ok} ${p.unit.split(' ')[0]}${expiredQty(p)?`, ${expiredQty(p)} lain sudah kedaluwarsa dan tidak diikutkan`:''}.`};
+  let left=qty; const used=[];
+  [...p.batches].filter(b=>!isExp(b)&&b.qty>0).sort((a,b)=>a.exp-b.exp).forEach(b=>{
+    if(left<=0) return; const t=Math.min(b.qty,left); b.qty-=t; left-=t; used.push({no:b.no,qty:t});
+  });
+  return {used};
+}
+const usedText=(p,u)=>u.map(x=>`${x.no} × ${x.qty}`).join(', ');
+
+/* ============ toast & animasi angka ============ */
+let toastT; function toast(m){const t=$('.toast',$('#demoApp'));if(!t)return;t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),3200)}
+function countUp(root){
+  if(matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  $$('[data-count]',root).forEach(el=>{
+    const to=+el.dataset.count,pre=el.dataset.pre||'',t0=performance.now(),dur=1100;
+    const step=t=>{const k=Math.min(1,(t-t0)/dur),v=to*(1-Math.pow(1-k,3));el.textContent=pre?rp(v):Math.round(v);if(k<1)requestAnimationFrame(step)};
+    requestAnimationFrame(step);
+  });
+}
+
+/* ============ tampilan aplikasi ============ */
+function slug(n){return n.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'usaha'}
+function brandBits(){
+  const b=S.brand,pro=b.plan==='pro';
+  const nm=(pro||true)?b.name:'Kedai Amanah';
+  const sl=slug(nm);
+  const url=pro?`${sl}.taradinmu.id`:`taradinmu.id/${sl}`;
+  const custom=pro&&b.logo==='custom';
+  const mark=custom?`<span class="bm">${esc(nm.trim().charAt(0).toUpperCase()||'U')}</span>`:`<span class="mk"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 313 493"><defs><linearGradient id="i6mgb" gradientUnits="userSpaceOnUse" x1="92.28" y1="107.16" x2="202.12" y2="517.1"><stop offset="0" stop-color="#94b8a8"/><stop offset="0.08" stop-color="#7ea995"/><stop offset="0.2" stop-color="#548f78"/><stop offset="0.31" stop-color="#3b8068"/><stop offset="0.34" stop-color="#2d7a61"/><stop offset="0.64" stop-color="#0e533f"/><stop offset="0.86" stop-color="#063829"/><stop offset="1" stop-color="#042e1f"/></linearGradient><linearGradient id="i6mgf" gradientUnits="userSpaceOnUse" x1="71.07" y1="306.33" x2="251.15" y2="364.84"><stop offset="0" stop-color="#084e39"/><stop offset="0.34" stop-color="#0b3a2c"/><stop offset="0.75" stop-color="#3e725e"/><stop offset="0.97" stop-color="#6e9685"/><stop offset="1" stop-color="#6e9685"/></linearGradient><linearGradient id="i6mga" gradientUnits="userSpaceOnUse" x1="92.12" y1="183.43" x2="268.4" y2="251.1"><stop offset="0" stop-color="#6b9f87" stop-opacity="1"/><stop offset="0.08" stop-color="#5e947d" stop-opacity="1"/><stop offset="0.44" stop-color="#3d836b" stop-opacity="0.86"/><stop offset="0.64" stop-color="#2f7c64" stop-opacity="0.51"/><stop offset="0.87" stop-color="#28765d" stop-opacity="0.13"/><stop offset="1" stop-color="#186750" stop-opacity="0"/></linearGradient><linearGradient id="i6mgc" gradientUnits="userSpaceOnUse" x1="83.18" y1="-8.52" x2="246.4" y2="54.14"><stop offset="0" stop-color="#deac5a"/><stop offset="0.08" stop-color="#ddb46a"/><stop offset="0.21" stop-color="#b9a568"/><stop offset="0.62" stop-color="#759376"/><stop offset="0.77" stop-color="#4a826a"/><stop offset="1" stop-color="#1c6b4f"/></linearGradient><linearGradient id="i6mg1" gradientUnits="userSpaceOnUse" x1="18.41" y1="21.29" x2="66.07" y2="80.14"><stop offset="0" stop-color="#f5c877"/><stop offset="0.18" stop-color="#e4b266"/><stop offset="0.44" stop-color="#cf9546"/><stop offset="0.69" stop-color="#c38028"/><stop offset="0.77" stop-color="#c3802a"/><stop offset="1" stop-color="#d59a49"/></linearGradient><linearGradient id="i6mg2" gradientUnits="userSpaceOnUse" x1="237.43" y1="73.46" x2="285.11" y2="132.34"><stop offset="0" stop-color="#f5c877"/><stop offset="0.18" stop-color="#e4b266"/><stop offset="0.44" stop-color="#cf9546"/><stop offset="0.69" stop-color="#c38028"/><stop offset="0.77" stop-color="#c3802a"/><stop offset="1" stop-color="#d59a49"/></linearGradient><path id="i6ms" d="M15.47 132.17L15.47 358.19C15.47 370.28 18.97 384.47 22.56 395.97C42.27 458.94 99.13 495.69 164.18 492.09C187.33 490.81 210.41 482.48 229.95 470.2C234.48 467.35 238.74 463.56 243.11 460.89L252.68 491.73L311.99 491.73C311.69 491.09 312.06 490.14 311.68 489.39C310.57 487.18 308.91 485.21 307.69 483.05C301.46 471.96 293.83 458.43 293.83 445.33L293.83 300.33C293.83 287.62 291.06 274.58 287.7 262.4C266.55 185.6 181.62 159.44 113.53 192.1C100.65 198.27 85.93 205.05 76.27 215.82L104.95 254.46C109.1 252 112.73 248.81 116.85 246.21C135.34 234.52 154.26 227.22 176.39 227.38C185.58 227.44 195.18 229.91 203.49 233.73C232.66 247.13 241.62 276.72 241.62 306.69C241.62 313.25 242.3 320.24 240.99 326.42C227.21 314.78 220.48 306.1 203.04 297.53C165.6 279.12 118.97 281.31 84.75 306.08C80.06 309.48 75.48 313.28 71.52 317.5C70.16 318.96 69.13 320.74 67.68 322.12C67.23 322.55 66.31 322.16 65.86 322.6L65.86 111.79L15.47 132.17ZM233.16 400.01C216.93 432.16 173.33 448.49 139.16 441.19C134.11 440.11 128.49 438.87 123.93 436.38C111.43 429.56 102.7 416.82 98.93 403.31C96.98 396.32 96.23 388.72 96.95 381.51C100.28 348.03 130.83 328.48 163 335.49C188.26 341 207.73 358.92 222.14 379.49C226.56 385.8 231.28 392.58 233.16 400.01Z" fill-rule="evenodd"/><clipPath id="i6mcf"><path d="M66 279L220 279L242.3 326V393L190 411L120 411L103 428C85 413 68 385 66 341Z"/></clipPath><clipPath id="i6mca"><path d="M75 176H255V286H75Z"/></clipPath></defs><use href="#i6ms" fill="url(#i6mgb)"/><g clip-path="url(#i6mca)"><use href="#i6ms" fill="url(#i6mga)"/></g><g clip-path="url(#i6mcf)"><use href="#i6ms" fill="url(#i6mgf)"/></g><path d="M63.52 26.51C79.06 19.64 95.37 10.73 112.54 8.57C153.5 3.4 196.75 15.66 225.32 46.81C233.4 55.62 239.72 65.06 246.36 75.04" fill="none" stroke="url(#i6mgc)" stroke-width="12.3"/><circle cx="42.2" cy="50.69" r="41.1" fill="url(#i6mg1)"/><circle cx="261.32" cy="102.97" r="41.1" fill="url(#i6mg2)"/></svg></span>`;
+  return {nm,url,mark,acc:pro?b.color:'#059669'};
+}
+const TABS=[['ringkasan','Ringkasan'],['stok','Stok'],['invoice','Invoice'],['zakat','Zakat'],['merek','Merek usaha']];
+function shell(inner,{hero=false}={}){
+  const {nm,url,mark,acc}=brandBits();
+  const alerts=0;
+  return `<div class="appwin" style="--acc:${acc}">
+   <div class="chrome"><span class="dots"><i></i><i></i><i></i></span><span class="url"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>${esc(url)}/dashboard</span></div>
+   <div class="stripe"></div>
+   <div class="ahead"><div class="abrand">${mark}<div><b>${esc(nm)}</b><small>${esc(url)}</small></div></div><div class="arole"><span>Pemilik</span><i>${esc(nm.trim().charAt(0).toUpperCase()||'U')}</i></div></div>
+   <div class="atabs" role="tablist">${TABS.map(([k,l])=>`<button class="atab" role="tab" data-tab="${k}" aria-selected="${S.tab===k}">${l}${k==='merek'?'<span class="pro">PRO</span>':''}${k==='stok'&&!S.stok?'<span class="lk">TERKUNCI</span>':''}${k==='zakat'?'<span class="pro">PRO</span>':''}</button>`).join('')}</div>
+   <div class="aview">${inner}</div>
+   ${hero?'':'<div class="toast" role="status" aria-live="polite"></div>'}
+  </div>`;
+}
+function viewRingkasan(hero){
+  const cash=S.cash, pt=piutang(), od=pt.filter(overdue), ptTot=pt.reduce((a,i)=>a+total(i),0);
+  const low=S.stok?lowStock():[], ex=S.stok?expiring():[];
+  const max=Math.max(...cash,1), days=[...Array(7)].map((_,i)=>addDays(i-6).toLocaleDateString('id-ID',{weekday:'short'}));
+  const bars=cash.map((v,i)=>{const h=Math.max(3,v/max*84),x=8+i*42;return `<rect x="${x}" y="${100-h}" width="28" height="${h}" rx="5" fill="var(--acc)" opacity="${i===6?1:.32}"/><text x="${x+14}" y="118" text-anchor="middle" font-size="10" fill="#64748b">${days[i]}</text>`}).join('');
+  const soon=pt.filter(i=>!overdue(i)&&dTo(i.due)<=7);
+  const todo=[
+    ...od.map(i=>`<button data-go="invoice" class="t-bad">${ICON.alert}<span><b>${i.no}</b> ${esc(i.cust)} lewat jatuh tempo ${-dTo(i.due)} hari (${rp(total(i))})</span></button>`),
+    ...low.map(p=>`<button data-go="stok" class="t-warn">${ICON.box}<span><b>${esc(p.name)}</b> menipis: sisa ${usable(p)} ${p.unit.split(' ')[0]}</span></button>`),
+    ...soon.map(i=>`<button data-go="invoice" class="t-warn">${ICON.clock}<span><b>${i.no}</b> ${esc(i.cust)} jatuh tempo ${dTo(i.due)} hari lagi (${rp(total(i))})</span></button>`),
+    ...ex.map(({p,b})=>`<button data-go="stok" class="t-warn">${ICON.clock}<span>Batch <b>${b.no}</b> (${esc(p.name)}) kedaluwarsa ${dTo(b.exp)} hari lagi</span></button>`)
+  ];
+  return `<div class="vhead"><div><h5>Ringkasan usaha</h5><div class="sub">Hari ini, ${now.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long'})}</div></div></div>
+  <div class="kpis">
+   <div class="kpi"><span class="l">Pemasukan hari ini</span><span class="v" data-count="${cash[6]}" data-pre="1">${rp(cash[6])}</span><span class="s">dari invoice lunas</span></div>
+   <button class="kpi ${od.length?'bad':''}" data-go="invoice"><span class="l">Piutang beredar</span><span class="v" data-count="${ptTot}" data-pre="1">${rp(ptTot)}</span><span class="s">${od.length?`${od.length} invoice jatuh tempo`:'tidak ada yang terlambat'}</span></button>
+   ${S.stok?`<button class="kpi ${low.length?'warn':''}" data-go="stok"><span class="l">Stok menipis</span><span class="v" data-count="${low.length}">${low.length}</span><span class="s">produk perlu diisi</span></button>
+   <button class="kpi ${ex.length?'warn':''}" data-go="stok"><span class="l">Segera kedaluwarsa</span><span class="v" data-count="${ex.length}">${ex.length}</span><span class="s">batch dalam 30 hari</span></button>`
+   :`<button class="kpi" data-go="invoice"><span class="l">Invoice terkirim</span><span class="v" data-count="${pt.length}">${pt.length}</span><span class="s">menunggu pembayaran</span></button>
+   <button class="kpi" data-go="invoice"><span class="l">${S.custLabel==='Jamaah'?'Jamaah terdaftar':'Pelanggan terdaftar'}</span><span class="v" data-count="${S.customers.length}">${S.customers.length}</span><span class="s">di daftar ${S.custLabel==='Jamaah'?'jamaah':'pelanggan'}</span></button>`}
+  </div>
+  <div class="two">
+   <div class="box chartbox"><h6>Pemasukan 7 hari terakhir</h6><svg class="bars" viewBox="0 0 300 124" role="img" aria-label="Grafik pemasukan 7 hari">${bars}</svg></div>
+   ${hero?`<div class="box">${zakatMini(true)}</div>`:`<div class="box"><h6>Perlu tindakan</h6><div class="todo">${todo.length?todo.slice(0,9).join(''):'<div class="sub">Tidak ada yang perlu ditindaklanjuti.</div>'}</div></div>`}
+  </div>${hero?'':`<div class="box" style="margin-top:12px">${S.brand.plan==='pro'?zakatMini():'<h6>Zakat perniagaan <span class="pro-chip">PRO</span></h6><div class="sub">Hitung otomatis dari stok, piutang, dan kas usaha.</div><button class="abtn sm sec" data-go="zakat" style="margin-top:8px">Lihat di paket PRO</button>'}</div>`}`;
+}
+function chipExp(b){const d=dTo(b.exp);return d<0?`<span class="chip c-bad">Kedaluwarsa</span>`:d<=30?`<span class="chip c-warn">${d} hari lagi</span>`:`<span class="chip c-ok">${d} hari lagi</span>`}
+function viewStok(){
+  if(!S.stok) return `<div class="vhead"><div><h5>Stok dan batch</h5></div></div><div class="lockbox">${ICON.lockk}<h6>Modul Stok tidak aktif untuk usaha ini</h6><p>${esc(S.pname)} menjual layanan, jadi tidak perlu mencatat stok. Modul ini mengikuti preset jenis usaha yang dipilih saat mendaftar, sehingga menu yang tidak diperlukan tidak mengganggu pekerjaan harian.</p></div>`;
+  const rows=S.products.map(p=>{
+    const u=usable(p), low=u<=p.min, opened=S.open===p.id;
+    const next=[...p.batches].filter(b=>!isExp(b)&&b.qty>0).sort((a,b)=>a.exp-b.exp)[0];
+    const bl=[...p.batches].sort((a,b)=>a.exp-b.exp).map(b=>`<div class="batch ${next===b?'next':''} ${isExp(b)?'exp':''}"><span><b>${b.no}</b> · ${b.qty} ${p.unit.split(' ')[0]}</span><span>${fmtD(b.exp)} ${chipExp(b)}${next===b?' <span class="chip c-acc">dipakai lebih dulu</span>':''}</span></div>`).join('');
+    return `<div class="prod"><button class="prod-h" data-open="${p.id}" aria-expanded="${opened}">
+      <span><b>${esc(p.name)}</b><small>${p.unit} · ${rp(p.price)}<span class="cq"> · ${u} ${p.unit.split(' ')[0]} layak</span></small></span>
+      <span class="num">${u} <small style="display:inline">${p.unit.split(' ')[0]} layak</small></span>
+      <span>${next?`<small>Terdekat kedaluwarsa</small>${fmtD(next.exp)}`:'<small>Tidak ada batch</small>'}</span>
+      <span>${low?'<span class="chip c-bad">Stok menipis</span>':'<span class="chip c-ok">Aman</span>'}</span></button>
+      ${opened?`<div class="prod-b">${bl}
+        <div class="act"><div class="qty"><button data-q="-1" aria-label="Kurangi">−</button><input type="text" inputmode="numeric" id="q-${p.id}" value="${S.qty?.[p.id]??5}" aria-label="Jumlah"><button data-q="1" aria-label="Tambah">+</button></div>
+          <button class="abtn" data-out="${p.id}">Keluarkan stok (FEFO)</button><button class="abtn sec" data-in="${p.id}">Terima 10 ${p.unit.split(' ')[0]} batch baru</button></div>
+        ${S.msg&&S.msg.pid===p.id?`<div class="result ${S.msg.err?'err':''}">${S.msg.text}</div>`:''}</div>`:''}</div>`;
+  }).join('');
+  return `<div class="vhead"><div><h5>Stok dan batch</h5><div class="sub">Klik produk untuk membuka batch. Coba keluarkan stok, lalu lihat batch mana yang terpakai.</div></div></div>${rows}`;
+}
+function viewInvoice(){
+  const F=[['semua','Semua'],['DRAFT','Draft'],['SENT','Terkirim'],['PAID','Lunas'],['od','Jatuh tempo']];
+  const list=S.invoices.filter(i=>S.filter==='semua'||(S.filter==='od'?overdue(i):i.status===S.filter&&!overdue(i)));
+  const rows=list.map(i=>{const [t,c]=statusOf(i);const acts=i.status==='DRAFT'?`<button class="abtn sm" data-send="${i.no}">Kirim</button>`:i.status==='SENT'?`<button class="abtn sm" data-pay="${i.no}">Tandai lunas</button>`:'<span class="sub" style="font-size:12px">Selesai</span>';
+    return `<div class="inv"><span><b>${i.no}</b></span><span>${esc(i.cust)}<small>${i.items.map(x=>`${x.qty} ${prod(x.pid).name}`).join(', ')}${i.taxPct?` · PPN ${i.taxPct}%`:''}</small></span><span class="num">${rp(total(i))}<small>jatuh tempo ${fmtD(i.due)}</small></span><span><span class="chip ${c}">${t}</span></span><span>${acts}</span></div>`}).join('');
+  return `<div class="vhead"><div><h5>Invoice</h5><div class="sub">${S.stok?'Membuat invoice memotong stok otomatis. ':''}Tandai lunas untuk melihat piutang berkurang.</div></div><button class="abtn" data-newinv>Buat invoice</button></div>
+  <div class="filters">${F.map(([k,l])=>`<button data-f="${k}" aria-pressed="${S.filter===k}">${l}</button>`).join('')}</div>
+  ${rows||'<div class="box sub">Belum ada invoice pada filter ini.</div>'}`;
+}
+function modalInvoice(){
+  const m=S.draft||(S.draft={cust:S.customers[0],pid:S.products[0].id,qty:3,tax:false,days:14});
+  const p=prod(m.pid), subT=p.price*m.qty, tx=m.tax?Math.round(subT*.11):0;
+  return `<div class="modal" data-close><div class="modal-box" role="dialog" aria-modal="true" aria-label="Buat invoice"><h5>Buat invoice baru</h5>
+    <label class="field">${S.custLabel}<select data-m="cust">${S.customers.map(c=>`<option ${c===m.cust?'selected':''}>${esc(c)}</option>`).join('')}</select></label>
+    <label class="field">${S.stok?'Produk':'Layanan atau paket'}<select data-m="pid">${S.products.map(x=>`<option value="${x.id}" ${x.id===m.pid?'selected':''}>${esc(x.name)} (${x.svc?rp(x.price)+'/'+x.unit:usable(x)+' '+x.unit.split(' ')[0]+' layak'})</option>`).join('')}</select></label>
+    <div class="field">Jumlah <div class="qty" style="width:max-content"><button data-mq="-1" aria-label="Kurangi">−</button><input type="text" inputmode="numeric" data-m="qty" value="${m.qty}" aria-label="Jumlah"><button data-mq="1" aria-label="Tambah">+</button></div></div>
+    <label class="chk"><input type="checkbox" data-m="tax" ${m.tax?'checked':''}> Tambahkan PPN 11%</label>
+    <div class="box" style="margin-bottom:12px"><div class="tot"><span>Subtotal</span><span class="num">${rp(subT)}</span></div><div class="tot"><span>PPN</span><span class="num">${rp(tx)}</span></div><div class="tot big"><span>Total</span><span class="num">${rp(subT+tx)}</span></div></div>
+    <div class="mfoot"><button class="abtn sec" data-cancel>Batal</button><button class="abtn" data-create>Buat invoice</button></div>
+    ${S.msg&&S.msg.modal?`<div class="result err">${S.msg.text}</div>`:''}</div></div>`;
+}
+const COLORS=['#059669','#2563eb','#c2410c','#7c3aed','#be123c'];
+function viewMerek(){
+  const b=S.brand,pro=b.plan==='pro';
+  return `<div class="vhead"><div><h5>Merek usaha</h5><div class="sub">Ganti paket ke PRO, lalu ubah nama, warna, dan logo. Lihat header di atas berubah langsung.</div></div></div>
+  <div class="box" style="margin-bottom:12px"><div class="field" style="margin-bottom:0">Paket
+    <div class="seg" role="group" aria-label="Paket"><button data-plan="dasar" aria-pressed="${!pro}">Dasar</button><button data-plan="pro" aria-pressed="${pro}">PRO</button></div></div></div>
+  ${pro?'':`<div class="lock">Anda di paket Dasar: alamat memakai <b>taradinmu.id/${slug(b.name)}</b>, logo dan warna bawaan. Pilih PRO untuk membuka pengaturan di bawah.</div>`}
+  <div class="box" style="${pro?'':'opacity:.5;pointer-events:none'}">
+    <label class="field">Nama usaha<input type="text" id="brandName" value="${esc(b.name)}" maxlength="28" ${pro?'':'disabled'}></label>
+    <div class="field">Warna dashboard<div class="swatches">${COLORS.map(c=>`<button class="sw" data-color="${c}" style="background:${c}" aria-label="Warna ${c}" aria-pressed="${b.color===c}"></button>`).join('')}</div></div>
+    <div class="field" style="margin-bottom:0">Logo<div class="seg" role="group" aria-label="Logo"><button data-logo="default" aria-pressed="${b.logo==='default'}">Logo TaradinMu</button><button data-logo="custom" aria-pressed="${b.logo==='custom'}">Logo usaha Anda</button></div></div>
+  </div>
+  <p class="sub" style="margin-top:12px">Di aplikasi sebenarnya, logo usaha diunggah sebagai gambar. Di sini kami memakai huruf awal nama usaha sebagai contoh.</p>`;
+}
+/* ============ zakat: perhitungan ============ */
+const GOLD_G=85, RATE=0.025;
+const stokValue=()=>S.stok?S.products.filter(p=>!p.svc).reduce((a,p)=>a+usable(p)*p.price,0):0;
+const piutangTotal=()=>piutang().reduce((a,i)=>a+total(i),0);
+function zEval(net,haul){
+  const nisab=GOLD_G*S.z.gold, reached=net>=nisab;
+  return {net,nisab,reached,haul,due:reached&&haul?Math.round(net*RATE):0,est:reached?Math.round(net*RATE):0,short:Math.max(0,nisab-net)};
+}
+function zNiaga(){
+  const stok=stokValue(), pt=piutangTotal(), {kas,utang,haul}=S.z, net=stok+pt+kas-utang;
+  return {stok,pt,kas,utang,...zEval(net,haul)};
+}
+function zHarta(){
+  const h=S.h, gold=h.goldG*S.z.gold, net=h.cash+h.invest+gold+h.piutang-h.utang;
+  return {...h,gold,...zEval(net,S.z.haul)};
+}
+const zStatus=z=>!z.reached?['Belum mencapai nisab','c-mute']:!z.haul?['Sudah nisab, belum haul','c-warn']:['Wajib zakat','c-ok'];
+function zakatMini(hero){
+  const z=zNiaga(),[t,c]=zStatus(z);
+  return `<h6>Zakat perniagaan (perkiraan)</h6>
+   <div class="mrow"><span>${hero?'Harta bersih':'Harta perniagaan bersih'}</span><span class="num">${rp(z.net)}</span></div>
+   <div class="mrow"><span>${hero?'Nisab':'Nisab (85 g emas)'}</span><span class="num">${rp(z.nisab)}</span></div>
+   <div class="mrow"><span><span class="chip ${c}">${t}</span></span><span class="num"><b>${rp(z.due)}</b></span></div>
+   ${hero?'':'<button class="abtn sm sec" data-go="zakat" style="margin-top:6px">Lihat perhitungan</button>'}`;
+}
+function viewZakat(){
+  if(S.brand.plan!=='pro') return `<div class="vhead"><div><h5>Zakat</h5></div><span class="pro-chip">PRO</span></div><div class="lockbox">${ICON.lockk}<h6>Penghitung zakat adalah fitur PRO</h6><p>Paket Dasar mencatat stok, invoice, dan piutang. Naik ke PRO untuk menghitung zakat perniagaan dan zakat harta otomatis dari data usaha.</p><button class="abtn" data-planpro style="margin-top:12px">Coba paket PRO di simulasi</button></div>`;
+  const z=zNiaga(),[t,c]=zStatus(z);
+  return `<div class="vhead"><div><h5>Zakat perniagaan</h5><div class="sub">Dihitung dari stok, piutang, dan kas usaha. Perkiraan untuk membantu, bukan fatwa.</div></div><span class="pro-chip">PRO</span></div>
+  <div class="box">
+   <div class="mrow"><span>Nilai stok layak jual<small>${S.stok?'batch kedaluwarsa tidak dihitung':'modul Stok tidak aktif untuk usaha ini'}</small></span><span class="num">${rp(z.stok)}</span></div>
+   <div class="mrow"><span>Piutang lancar<small>invoice terkirim yang belum dibayar</small></span><span class="num">${rp(z.pt)}</span></div>
+   <div class="mrow"><span>Kas dan saldo bank<small>diisi di kalkulator</small></span><span class="num">${rp(z.kas)}</span></div>
+   <div class="mrow"><span>Utang jatuh tempo (pengurang)</span><span class="num">− ${rp(z.utang)}</span></div>
+   <div class="tot big"><span>Harta perniagaan bersih</span><span class="num">${rp(z.net)}</span></div>
+   <div class="tot"><span>Nisab (85 g emas × ${rp(S.z.gold)})</span><span class="num">${rp(z.nisab)}</span></div>
+   <div class="tot"><span>Status</span><span><span class="chip ${c}">${t}</span></span></div>
+   <div class="tot big"><span>Zakat 2,5%</span><span class="num">${rp(z.due)}</span></div>
+  </div>
+  <div class="act"><button class="abtn" data-zgo>Ubah kas dan utang di kalkulator</button></div>`;
+}
+
+function view(){return S.tab==='stok'?viewStok():S.tab==='invoice'?viewInvoice():S.tab==='zakat'?viewZakat():S.tab==='merek'?viewMerek():viewRingkasan()}
+
+let first=true;
+function renderDemo(){
+  const host=$('#demoApp'); const st=host.scrollTop;
+  const focusId=document.activeElement&&document.activeElement.id;
+  host.innerHTML=shell(view())+'';
+  if(S.modal) $('.appwin',host).insertAdjacentHTML('beforeend',modalInvoice());
+  if(focusId){const f=document.getElementById(focusId);if(f&&f.tagName==='INPUT'){f.focus();const l=f.value.length;try{f.setSelectionRange(l,l)}catch(e){}}}
+  renderHero(); renderMissions(); renderPresets();
+  if(S.zDirty){S.zDirty=false;renderZakatForm()}else zakatResult();
+}
+function renderHero(){
+  const saved=S.tab, savedPlan=S.brand.plan; S.tab='ringkasan'; S.brand.plan='pro';
+  const html=shell(viewRingkasan(true),{hero:true}); S.tab=saved; S.brand.plan=savedPlan;
+  const el=$('#heroMock'); el.innerHTML=html+'<span class="hint">Klik untuk mencoba langsung</span>';
+  if(first){first=false;countUp(el)}
+}
+const MISSIONS=[['stok','Keluarkan stok, lihat batch yang terpakai (usaha dagang)'],['invoice','Buat invoice baru'],['lunas','Tandai invoice lunas, lihat piutang turun'],['merek','Ganti nama dan warna ke PRO'],['zakat','Ubah kas atau utang, lihat zakat berubah (fitur PRO)']];
+function renderPresets(){
+  $('#presets').innerHTML='<span>Pilih jenis usaha, seperti saat mendaftar:</span>'+Object.entries(PRESETS).map(([k,P])=>`<button class="preset" data-preset="${k}" aria-pressed="${S.preset===k}">${P.label}</button>`).join('')+'<a href="#untuk" style="font-size:.93rem;margin-left:6px;color:var(--forest);font-weight:600">Jenis usaha lainnya</a>';
+}
+function renderMissions(){
+  const n=Object.values(S.done).filter(Boolean).length;
+  $('#missions').innerHTML=MISSIONS.map(([k,l])=>`<button class="mission ${S.done[k]?'done':''}" data-mission="${k}"><span class="tick">${ICON.tick}</span>${l}</button>`).join('')+`<span class="prog" aria-live="polite">${n} dari ${MISSIONS.length} sudah dicoba</span>`;
+  $('#demoEnd').classList.toggle('show',n===MISSIONS.length);
+}
+
+/* ============ interaksi demo ============ */
+document.addEventListener('click',e=>{
+  const t=e.target, host=$('#demoApp');
+  if(t.closest('#heroMock')){ $('#demo').scrollIntoView({behavior:'smooth'}); return; }
+  if(!host.contains(t)) return;
+  let x;
+  if(t.closest('[data-planpro]')){S.brand.plan='pro';renderDemo();return toast('Paket PRO aktif di simulasi.')}
+  if(t.closest('[data-zgo]')){$('#zakat').scrollIntoView({behavior:'smooth'});setTimeout(()=>{const k=$('#zKas');if(k)k.focus({preventScroll:true})},600);return}
+  if((x=t.closest('[data-tab]'))){S.tab=x.dataset.tab;S.modal=false;S.msg=null;return renderDemo()}
+  if((x=t.closest('[data-go]'))){S.tab=x.dataset.go;S.msg=null;return renderDemo()}
+  if((x=t.closest('[data-open]'))){S.open=S.open===x.dataset.open?null:x.dataset.open;S.msg=null;return renderDemo()}
+  if((x=t.closest('[data-q]'))){const id=S.open,inp=$('#q-'+id);S.qty=S.qty||{};S.qty[id]=Math.max(1,(+inp.value||1)+(+x.dataset.q));return renderDemo()}
+  if((x=t.closest('[data-out]'))){
+    const id=x.dataset.out,q=Math.max(1,parseInt($('#q-'+id).value)||1);S.qty=S.qty||{};S.qty[id]=q;
+    const r=fefoOut(id,q);
+    if(r.err) S.msg={pid:id,err:true,text:r.err};
+    else{S.msg={pid:id,text:`Stok keluar ${q}. Batch terpakai: <b>${usedText(prod(id),r.used)}</b>. Batch yang paling dulu kedaluwarsa dipakai lebih dulu.`};S.done.stok=true;toast('Stok keluar tercatat (FEFO)')}
+    return renderDemo();
+  }
+  if((x=t.closest('[data-in]'))){const p=prod(x.dataset.in);p.batches.push({no:`N-${++S.seq.batch}`,qty:10,exp:addDays(180)});S.msg={pid:p.id,text:`Batch baru <b>N-${S.seq.batch}</b> diterima: 10 ${p.unit.split(' ')[0]}, kedaluwarsa ${fmtD(addDays(180))}.`};toast('Stok masuk tercatat');return renderDemo()}
+  if((x=t.closest('[data-f]'))){S.filter=x.dataset.f;return renderDemo()}
+  if(t.closest('[data-newinv]')){S.modal=true;S.draft=null;S.msg=null;return renderDemo()}
+  if(t.closest('[data-cancel]')||(t.matches('.modal'))){S.modal=false;S.msg=null;return renderDemo()}
+  if((x=t.closest('[data-mq]'))){const m=S.draft;m.qty=Math.max(1,m.qty+(+x.dataset.mq));return renderDemo()}
+  if(t.closest('[data-create]')){
+    const m=S.draft,r=fefoOut(m.pid,m.qty);
+    if(r.err){S.msg={modal:true,text:r.err};return renderDemo()}
+    const no='INV-'+String(++S.seq.inv).padStart(4,'0');
+    S.invoices.unshift({no,cust:m.cust,items:[{pid:m.pid,qty:m.qty}],taxPct:m.tax?11:0,due:addDays(m.days),status:'DRAFT'});
+    S.modal=false;S.msg=null;S.done.invoice=true;S.tab='invoice';S.filter='semua';
+    renderDemo();toast(prod(m.pid).svc?`${no} dibuat sebagai draft.`:`${no} dibuat. Stok terpotong otomatis (FEFO).`);return;
+  }
+  if((x=t.closest('[data-send]'))){const i=S.invoices.find(v=>v.no===x.dataset.send);i.status='SENT';renderDemo();return toast(`${i.no} terkirim. Masuk ke piutang.`)}
+  if((x=t.closest('[data-pay]'))){const i=S.invoices.find(v=>v.no===x.dataset.pay);i.status='PAID';S.cash[6]+=total(i);S.done.lunas=true;renderDemo();return toast(`${i.no} lunas. Piutang berkurang ${rp(total(i))}.`)}
+  if((x=t.closest('[data-plan]'))){S.brand.plan=x.dataset.plan;checkMerek();return renderDemo()}
+  if((x=t.closest('[data-color]'))){S.brand.color=x.dataset.color;checkMerek();return renderDemo()}
+  if((x=t.closest('[data-logo]'))){S.brand.logo=x.dataset.logo;checkMerek();return renderDemo()}
+});
+function checkMerek(){const b=S.brand;if(b.plan==='pro'&&(b.color!=='#059669'||b.logo==='custom'||b.name!==S.pname))S.done.merek=true}
+document.addEventListener('input',e=>{
+  const t=e.target; if(!$('#demoApp').contains(t)) return;
+  if(t.id==='brandName'){S.brand.name=t.value||'Usaha Anda';checkMerek();renderDemo()}
+});
+document.addEventListener('change',e=>{
+  const t=e.target, m=t.dataset&&t.dataset.m; if(!m||!$('#demoApp').contains(t)) return;
+  const d=S.draft; if(m==='qty') d.qty=Math.max(1,parseInt(t.value)||1); else if(m==='tax') d.tax=t.checked; else d[m]=t.value;
+  renderDemo();
+});
+document.addEventListener('input',e=>{const t=e.target;if(t.dataset&&t.dataset.m==='qty'&&$('#demoApp').contains(t)){const v=parseInt(t.value);if(v>0){S.draft.qty=v}}});
+$('#missions').addEventListener('click',e=>{
+  const x=e.target.closest('[data-mission]'); if(!x) return; const k=x.dataset.mission;
+  if(k==='zakat'){zTab='niaga';renderZakatForm();$('#zakat').scrollIntoView({behavior:'smooth'});setTimeout(()=>{const f=$('#zKas');if(f)f.focus({preventScroll:true})},600);return}
+  if(k==='stok'){if(!S.stok)loadPreset('minimarket');S.tab='stok';S.open=S.products[0].id}else if(k==='invoice'){S.tab='invoice'}else if(k==='lunas'){S.tab='invoice';S.filter='SENT'}else{S.tab='merek'}
+  S.msg=null;S.modal=false;renderDemo();
+  $('#frameWrap').scrollIntoView({behavior:'smooth',block:'start'});
+});
+$('#presets').addEventListener('click',e=>{const b=e.target.closest('[data-preset]');if(!b)return;loadPreset(b.dataset.preset);renderDemo()});
+$$('[data-dev]').forEach(b=>b.addEventListener('click',()=>{
+  S.dev=b.dataset.dev;$('#frameWrap').classList.toggle('phone',S.dev==='phone');
+  $$('[data-dev]').forEach(x=>x.setAttribute('aria-pressed',x===b));
+}));
+
+/* ============ masalah -> solusi ============ */
+const PS=[
+ {k:'Stok berantakan',h:'Stok dicatat di buku dan di kepala. Kedaluwarsa baru ketahuan saat sudah rugi.',
+  nb:`<p>Tepung, sisa <s>20</s> 14? sak</p><p class="r">Margarin: cek gudang dulu!</p><p>Susu UHT <s>12</s> <s>9</s> 8 ??</p><p>yang lama dipakai dulu…</p><p class="r">kemarin ada yg lewat tanggal</p><p>beli lagi? tanya istri</p>`,
+  ui:()=>`<div class="mrow"><span><b>Tepung terigu</b><small>sak 25 kg</small></span><span class="chip c-ok">Aman</span></div>
+   <div class="mrow"><span><b>B-0412</b> · 6 sak<small>kedaluwarsa ${fmtD(addDays(9))}</small></span><span><span class="chip c-warn">9 hari lagi</span> <span class="chip c-acc">dipakai lebih dulu</span></span></div>
+   <div class="mrow"><span><b>B-0511</b> · 24 sak<small>kedaluwarsa ${fmtD(addDays(140))}</small></span><span class="chip c-ok">140 hari lagi</span></div>
+   <div class="mrow"><span><b>S-0218</b> · susu UHT<small>kedaluwarsa ${fmtD(addDays(-4))}</small></span><span class="chip c-bad">Kedaluwarsa</span></div>`,
+  note:`<b>Solusi:</b> setiap barang punya batch dan tanggal kedaluwarsa. Saat stok keluar, batch yang paling dulu habis masanya dipakai lebih dulu, dan batch yang sudah lewat tanggal dilewati.`},
+ {k:'Piutang terlupakan',h:'Utang pelanggan tercecer di nota dan ingatan. Yang tidak ditagih, tidak dibayar.',
+  nb:`<p>Pak Ali 1.250.000 (bulan lalu?)</p><p class="r">Bu Ratna 800rb, sudah separo?</p><p>Kantin: nota yang mana ya…</p><p>Warung Syahril <s>lunas</s> belum</p><p class="r">lupa tagih!!</p>`,
+  ui:()=>{const pt=piutang();return pt.map(i=>{const [t,c]=statusOf(i);return `<div class="mrow"><span><b>${i.no}</b> ${esc(i.cust)}<small>jatuh tempo ${fmtD(i.due)}</small></span><span style="text-align:right" class="num">${rp(total(i))}<br><span class="chip ${c}">${t}</span></span></div>`}).join('')+`<div class="tot big"><span>Total piutang beredar</span><span class="num">${rp(pt.reduce((a,i)=>a+total(i),0))}</span></div>`},
+  note:`<b>Solusi:</b> setiap invoice punya status (draft, terkirim, lunas, jatuh tempo). Total piutang dan invoice yang terlambat tampil di ringkasan pemilik.`},
+ {k:'Laba rugi manual',h:'Laba rugi dihitung tangan tiap akhir bulan, itu pun kalau sempat.',
+  nb:`<p>jual bulan ini 42.350.000</p><p class="r">modal: ??? (nota beli hilang 3)</p><p>= <s>9 juta</s> <s>7,5 juta</s> ?</p><p>nanti saja pas libur…</p>`,
+  ui:()=>`<div class="mrow"><span><b>Pemasukan hari ini</b><small>dari invoice lunas</small></span><span class="num">${rp(S.cash[6])}</span></div>
+   <div class="mrow"><span><b>Piutang beredar</b><small>${piutang().length} invoice terkirim</small></span><span class="num">${rp(piutang().reduce((a,i)=>a+total(i),0))}</span></div>
+   <div class="mrow" style="opacity:.6"><span><b>Jurnal otomatis</b><small>dari invoice dan stok keluar</small></span><span class="chip c-mute">Fase 2</span></div>
+   <div class="mrow" style="opacity:.6"><span><b>Laporan laba rugi dan neraca</b></span><span class="chip c-mute">Fase 2</span></div>`,
+  note:`<b>Solusi:</b> sekarang, ringkasan kas dan piutang sudah tersedia tanpa hitung tangan. Jurnal otomatis serta laporan laba rugi dan neraca sedang direncanakan di Fase 2.`},
+ {k:'Pajak tercampur',h:'Harga barang dan pajak bercampur dalam satu angka, lalu bingung memisahkannya.',
+  nb:`<p>harganya sudah + PPN belum?</p><p class="r">tanya Bu Ratna dulu</p><p>1.060.000 × 11% = ???</p><p>hitung ulang di kalkulator</p>`,
+  ui:()=>`<div class="mrow"><span><b>INV-0040</b> Katering Bu Ratna<small>5 karton Susu UHT 1 L</small></span><span class="chip c-info">Terkirim</span></div>
+   <div class="tot"><span>Subtotal</span><span class="num">${rp(1060000)}</span></div><div class="tot"><span>PPN 11%</span><span class="num">${rp(116600)}</span></div><div class="tot big"><span>Total</span><span class="num">${rp(1176600)}</span></div>`,
+  note:`<b>Solusi:</b> PPN dicatat terpisah dari harga barang di setiap invoice, jadi angkanya jelas. Integrasi PPN dan PPh Final yang lengkap ada di Fase 2.`},
+ {k:'Zakat dihitung kira-kira',h:'Zakat usaha dihitung kira-kira, atau tertunda karena bingung apa saja yang dihitung.',
+  nb:`<p>zakat toko tahun lalu berapa ya?</p><p class="r">nisab 85 gr emas, harga emas?</p><p>stok + piutang + kas − utang = ???</p><p>sudah setahun belum ya…</p>`,
+  ui:()=>{const z=zNiaga(),[t,c]=zStatus(z);return `<div class="mrow"><span>Nilai stok layak jual</span><span class="num">${rp(z.stok)}</span></div><div class="mrow"><span>Piutang lancar</span><span class="num">${rp(z.pt)}</span></div><div class="mrow"><span>Kas dan bank</span><span class="num">${rp(z.kas)}</span></div><div class="mrow"><span>Utang jatuh tempo</span><span class="num">− ${rp(z.utang)}</span></div><div class="tot big"><span>Harta bersih</span><span class="num">${rp(z.net)}</span></div><div class="tot"><span>Nisab</span><span class="num">${rp(z.nisab)}</span></div><div class="tot"><span><span class="chip ${c}">${t}</span></span><span class="num"><b>Zakat ${rp(z.due)}</b></span></div>`},
+  note:`<b>Solusi (paket PRO):</b> stok dan piutang diambil dari data usaha, lalu Anda melengkapi kas dan utang. Nisab, status haul, dan zakat 2,5% dihitung otomatis. Hasilnya perkiraan; penetapan akhir mengikuti pedoman lembaga zakat.`}
+];
+let psI=0;
+function renderPS(){
+  $('#psTabs').innerHTML=PS.map((p,i)=>`<button class="ps-tab" role="tab" aria-selected="${i===psI}" data-ps="${i}">${p.k}</button>`).join('');
+  const p=PS[psI];
+  $('#psPanel').innerHTML=`<div class="ps-head">${p.h}</div><div class="ps-grid">
+   <div class="ps-side"><h4>Sekarang, di buku tulis</h4><div class="notebook">${p.nb}</div></div>
+   <div class="ps-side"><h4>Dengan TaradinMu</h4><div class="after">${p.ui()}<div class="after-note">${p.note}</div></div></div></div>`;
+}
+$('#psTabs').addEventListener('click',e=>{const b=e.target.closest('[data-ps]');if(b){psI=+b.dataset.ps;renderPS()}});
+$('#psTabs').addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='ArrowLeft'){psI=(psI+(e.key==='ArrowRight'?1:PS.length-1))%PS.length;renderPS();$('[data-ps="'+psI+'"]').focus()}});
+
+/* ============ jenis usaha ============ */
+const WHO_GROUPS=['Dagang dan ritel','Pangan','Jasa','Perjalanan dan ibadah','Proyek dan perdagangan luar negeri','Pendidikan dan kesehatan'];
+const WHO=[
+ {id:'minimarket',g:0,n:'Minimarket dan toko kelontong',stok:true,
+  story:'Ratusan jenis barang, harga yang sering berubah, dan selalu ada yang hampir kedaluwarsa. Stok di rak dan di catatan jarang sama.',
+  now:['Produk dan varian (ukuran, kemasan)','Stok masuk dan keluar per batch, kedaluwarsa terdekat dipakai dulu','Peringatan stok menipis dan batch yang segera kedaluwarsa','Invoice dan piutang untuk pelanggan langganan atau grosir'],
+  plan:['Kasir dan pemindai barcode','Pengelolaan lebih dari satu cabang']},
+ {id:'grosir',g:0,n:'Grosir dan distributor',stok:true,
+  story:'Banyak pelanggan membeli dengan tempo. Yang sulit dilacak: siapa berutang berapa, dan sudah lewat jatuh tempo atau belum.',
+  now:['Invoice per pelanggan dengan tanggal jatuh tempo','Total piutang dan invoice terlambat dalam satu daftar','Stok per batch dengan alokasi kedaluwarsa terdekat dulu','PPN opsional di setiap invoice'],
+  plan:['Harga bertingkat per pelanggan','Surat jalan dan pengiriman']},
+ {id:'bangunan',g:0,n:'Toko bangunan dan material',stok:true,
+  story:'Barang berat dan mahal, dan pelanggan proyek sering membayar bertahap. Stok fisik dan catatan mudah selisih.',
+  now:['Produk dan varian dengan stok masuk dan keluar','Invoice tempo untuk pelanggan proyek','Piutang dan jatuh tempo terlihat di ringkasan'],
+  plan:['Satuan jual berbeda (sak, kg, batang)','Penawaran harga sebelum invoice']},
+ {id:'bengkel',g:0,n:'Bengkel dan suku cadang',stok:true,
+  story:'Suku cadang banyak macamnya, dan jasa servis bercampur dengan barang di satu nota.',
+  now:['Stok suku cadang masuk dan keluar','Invoice untuk pelanggan dan armada perusahaan','Piutang pelanggan yang belum lunas'],
+  plan:['Order servis dan status pengerjaan','Riwayat kendaraan tiap pelanggan']},
+ {id:'kuliner',g:1,n:'Kuliner dan kedai',stok:true,
+  story:'Bahan baku cepat rusak. Yang terlanjur kedaluwarsa langsung menjadi kerugian, dan catatannya jarang rapi.',
+  now:['Bahan baku per batch dengan tanggal kedaluwarsa','Stok menipis dan batch yang segera lewat masa berlaku','Invoice untuk pesanan besar dan ringkasan kas'],
+  plan:['Resep dan biaya per porsi','Kasir untuk kedai']},
+ {id:'katering',g:1,n:'Katering',stok:true,
+  story:'Pesanan besar dibayar belakangan, sementara bahan harus segar dan tidak boleh kedaluwarsa.',
+  now:['Invoice per pesanan dan pelanggan, lengkap dengan piutang','Stok bahan baku per batch, kedaluwarsa terdekat dipakai dulu','PPN opsional di setiap invoice'],
+  plan:['Pesanan dan jadwal pengiriman','Menu paket dan jumlah porsi']},
+ {id:'aqiqah',g:1,n:'Aqiqah dan qurban',stok:false,
+  story:'Pesanan datang jauh hari, ada uang muka dan pelunasan, dan jadwal pengiriman harus tepat.',
+  now:['Pelanggan dan riwayat pesanan lewat invoice','Uang muka dan pelunasan sebagai invoice terpisah dengan jatuh tempo','Piutang yang belum lunas terlihat di ringkasan'],
+  plan:['Paket dan jadwal pemotongan atau pengiriman','Daftar penerima dan lokasi']},
+ {id:'laundry',g:2,n:'Laundry',stok:false,
+  story:'Pelanggan tetap seperti hotel, kos, dan klinik ditagih bulanan, sementara pelanggan harian membayar di tempat. Nota kertas mudah hilang.',
+  now:['Pelanggan dan invoice bulanan','Piutang dan jatuh tempo per pelanggan','Ringkasan kas harian','Modul Stok dapat diaktifkan untuk deterjen dan pewangi'],
+  plan:['Order cucian dan status (diterima, diproses, siap, diambil)','Harga per kg atau per item']},
+ {id:'sewa',g:2,n:'Sewa dan rental',stok:false,
+  story:'Tagihan berulang tiap bulan atau tiap pemakaian. Yang terlambat mudah terlewat.',
+  now:['Pelanggan dan invoice dengan jatuh tempo','Piutang dan invoice terlambat dalam satu daftar','Ringkasan kas'],
+  plan:['Tagihan berulang otomatis','Jadwal dan ketersediaan aset (kos, kendaraan, alat)']},
+ {id:'percetakan',g:2,n:'Percetakan dan konveksi',stok:true,
+  story:'Bahan baku seperti kertas dan kain terpakai untuk banyak pesanan yang berjalan bersamaan.',
+  now:['Stok bahan baku masuk dan keluar','Invoice dan piutang pelanggan','Ringkasan kas'],
+  plan:['Order produksi dan status pengerjaan','Biaya bahan per pesanan']},
+ {id:'umrah',g:3,n:'Travel umrah dan haji',stok:false,
+  story:'Jamaah membayar bertahap: uang muka, cicilan, pelunasan. Melacak siapa sudah membayar berapa adalah pekerjaan harian.',
+  now:['Jamaah sebagai pelanggan','Invoice per tahap pembayaran dengan jatuh tempo','Piutang jamaah dan pembayaran yang terlambat','Ringkasan kas'],
+  plan:['Paket, kuota kursi, dan tanggal keberangkatan','Daftar jamaah dan kelengkapan dokumen','Cicilan dan pengingat pelunasan']},
+ {id:'wisata',g:3,n:'Biro perjalanan dan wisata',stok:false,
+  story:'Paket, tiket, dan layanan tambahan dijual per klien, dan penagihannya sering menyusul.',
+  now:['Klien sebagai pelanggan dan invoice per perjalanan','Piutang dan jatuh tempo','PPN opsional di setiap invoice'],
+  plan:['Paket dan itinerary','Biaya vendor per perjalanan']},
+ {id:'kontraktor',g:4,n:'Kontraktor dan konstruksi',stok:true,
+  story:'Pekerjaan ditagih per termin sesuai progres, sementara material dibeli terpisah. Arus kas mudah bocor di antaranya.',
+  now:['Invoice per termin dengan jatuh tempo','Piutang termin dan invoice terlambat','Modul Stok dapat diaktifkan bila punya gudang material','PPN opsional di setiap invoice'],
+  plan:['Proyek, RAB, dan progres','Biaya dan tagihan per proyek','Retensi dan termin otomatis']},
+ {id:'ekspor',g:4,n:'Ekspor dan impor',stok:true,
+  story:'Pembeli di luar negeri, tempo panjang, dan biaya kirim serta dokumen ikut menentukan untung.',
+  now:['Invoice dan piutang per pembeli','Stok barang per batch','PPN opsional di setiap invoice'],
+  plan:['Multi mata uang dan kurs','Dokumen ekspor-impor (packing list, invoice ekspor)','Biaya kirim dan bea per pengiriman']},
+ {id:'klinik',g:5,n:'Klinik dan apotek',stok:true,
+  story:'Obat dan bahan habis pakai punya masa berlaku, dan kesalahan stok berdampak langsung pada pasien.',
+  now:['Stok obat masuk dan keluar','Batch dan tanggal kedaluwarsa obat (paket PRO)','Invoice dan piutang'],
+  plan:['Modul klinik: rekam medis dan batch obat lebih ketat (rencana Fase 3)']},
+ {id:'sekolah',g:5,n:'Sekolah, koperasi, dan kantin',stok:true,
+  story:'Stok barang koperasi dan kantin harus cocok dengan kas, dan tagihan ke pihak lain perlu tertib.',
+  now:['Stok barang dagangan masuk dan keluar','Invoice dan piutang','Ringkasan kas'],
+  plan:['Integrasi SKULV untuk sekolah (rencana Fase 3)','Tagihan berulang tiap periode']}
+];
+const REG={minimarket:'Toko / Ritel',grosir:'Toko / Ritel',bangunan:'Toko / Ritel',bengkel:'Toko / Ritel',kuliner:'Kuliner (F&B)',katering:'Kuliner (F&B)',aqiqah:'Usaha Lainnya',laundry:'Jasa',sewa:'Jasa',percetakan:'Manufaktur / Produksi',umrah:'Jasa',wisata:'Jasa',kontraktor:'Jasa',ekspor:'Toko / Ritel',klinik:'Farmasi / Klinik',sekolah:'Usaha Lainnya'};
+WHO.forEach(w=>{w.reg=REG[w.id];w.stok=w.reg!=='Jasa'});
+let whoI=0;
+const CHK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7"/></svg>';
+const PLUS='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
+function renderWho(){
+  $('#whoList').innerHTML=WHO_GROUPS.map((g,gi)=>`<div class="who-group"><h4>${g}</h4><div class="who-pills">${WHO.map((w,i)=>w.g===gi?`<button class="who-pill" data-who="${i}" aria-pressed="${i===whoI}">${w.n}</button>`:'').join('')}</div></div>`).join('');
+  const w=WHO[whoI];
+  const item=(t,on,pl)=>`<div class="it ${pl?'pl':on?'on':'off'}"><span>${t}</span>${pl?'<span class="tag">Rencana</span>':on?'':'<span class="tag">Terkunci</span>'}</div>`;
+  $('#whoDetail').innerHTML=`<div><h3>${w.n}</h3><p class="story">${w.story}</p><p class="regline">Saat mendaftar, pilih <b>${w.reg}</b>.</p>
+    <h5>Sudah bisa dipakai</h5><ul>${w.now.concat(['Penghitung zakat perniagaan dan zakat harta (paket PRO)']).map(t=>`<li>${CHK}<span>${t}</span></li>`).join('')}</ul>
+    <div class="plan"><h5>Modul khusus, dirancang bersama pelaku usaha</h5><ul>${w.plan.map(t=>`<li>${PLUS}<span>${t}</span></li>`).join('')}</ul></div></div>
+   <div><div class="sb" aria-label="Contoh menu aplikasi untuk ${w.n}"><div class="tn"><i>T</i>Usaha Anda</div><small>usaha-anda.taradinmu.id</small>
+      ${item('Dashboard',true)}
+      <div class="g">Inventory</div>${['Produk','Stok','Stok masuk','Stok keluar'].map(t=>item(t,w.stok)).join('')}
+      <div class="g">Billing</div>${item('Pelanggan',true)}${item('Invoice',true)}
+      <div class="g">Zakat</div>${item('Kalkulator zakat',true)}
+      <div class="g">Modul khusus</div>${w.plan.slice(0,2).map(t=>item(t.split(/ \(|, | dan /)[0],false,true)).join('')}
+    </div><p class="sb-cap">Contoh menu untuk ${w.n.toLowerCase()}. Modul aktif mengikuti preset jenis usaha yang dipilih saat mendaftar; yang terkunci tidak mengganggu pekerjaan harian.</p></div>`;
+}
+$('#whoList').addEventListener('click',e=>{const b=e.target.closest('[data-who]');if(b){whoI=+b.dataset.who;renderWho()}});
+
+/* ============ zakat: kalkulator ============ */
+let zTab='niaga';
+const mIn=(id,label,val,hint)=>`<label class="zf" for="${id}">${label}<input id="${id}" type="text" inputmode="numeric" autocomplete="off" value="${Math.round(val).toLocaleString('id-ID')}">${hint?`<small>${hint}</small>`:''}</label>`;
+function renderZakatForm(){
+  const body=$('#zkBody'); if(!body) return;
+  $$('[data-zt]').forEach(b=>b.setAttribute('aria-selected',b.dataset.zt===zTab));
+  const common=`${mIn('zGold','Harga emas per gram',S.z.gold,'Angka contoh. Ubah sesuai harga emas hari ini.')}
+     <label class="chk zh"><input type="checkbox" id="zHaul" ${S.z.haul?'checked':''}> Harta sudah mencapai haul (dimiliki satu tahun)</label>`;
+  if(zTab==='niaga'){
+    body.innerHTML=`<div class="zk-cols"><div class="zk-form">
+      <label class="zf" for="zPreset">Usaha contoh<select id="zPreset">${Object.entries(PRESETS).map(([k,P])=>`<option value="${k}" ${S.preset===k?'selected':''}>${P.label}</option>`).join('')}</select></label>
+      <div class="zk-auto"><span class="zk-tag">Dari data aplikasi, otomatis</span>
+        <div class="mrow"><span>Nilai stok layak jual</span><b class="num" id="zStok"></b></div>
+        <div class="mrow"><span>Piutang lancar (invoice terkirim)</span><b class="num" id="zPt"></b></div></div>
+      ${mIn('zKas','Kas dan saldo bank',S.z.kas)}
+      ${mIn('zUtang','Utang jatuh tempo',S.z.utang,'Utang yang harus dibayar dalam waktu dekat.')}
+      ${common}
+    </div><div class="zk-res" id="zRes" aria-live="polite"></div></div>`;
+  }else{
+    body.innerHTML=`<div class="zk-cols"><div class="zk-form">
+      ${mIn('hCash','Uang tunai dan tabungan',S.h.cash)}
+      ${mIn('hInvest','Deposito, saham, dan investasi',S.h.invest)}
+      ${mIn('hGoldG','Emas simpanan (gram)',S.h.goldG,'Hitung emas yang disimpan. Perhiasan yang dipakai: ikuti pedoman lembaga zakat Anda.')}
+      ${mIn('hPiutang','Piutang yang pasti tertagih',S.h.piutang)}
+      ${mIn('hUtang','Utang jatuh tempo',S.h.utang)}
+      ${common}
+    </div><div class="zk-res" id="zRes" aria-live="polite"></div></div>`;
+  }
+  zakatResult();
+}
+function zakatResult(){
+  const res=$('#zRes'); if(!res) return;
+  let z,rows,title;
+  if(zTab==='niaga'){
+    z=zNiaga(); title='Zakat perniagaan';
+    if($('#zStok')){$('#zStok').textContent=S.stok?rp(z.stok):'Rp 0 (Stok tidak aktif)';$('#zPt').textContent=rp(z.pt)}
+    rows=[['Nilai stok',z.stok],['Piutang lancar',z.pt],['Kas dan bank',z.kas],['Utang jatuh tempo',-z.utang]];
+  }else{
+    z=zHarta(); title='Zakat harta';
+    rows=[['Tunai dan tabungan',z.cash],['Investasi',z.invest],[`Emas ${z.goldG} g`,z.gold],['Piutang tertagih',z.piutang],['Utang jatuh tempo',-z.utang]];
+  }
+  const [t,c]=zStatus(z), pct=Math.min(100,z.nisab?z.net/z.nisab*100:0);
+  const cls={'c-ok':'zs-ok','c-warn':'zs-warn','c-mute':'zs-no'}[c];
+  const note=!z.reached?`Kurang ${rp(z.short)} dari nisab. Belum wajib zakat.`:!z.haul?`Sudah mencapai nisab. Zakat wajib setelah haul terpenuhi; perkiraannya ${rp(z.est)}.`:`2,5% dari ${rp(z.net)}.`;
+  res.innerHTML=`<h4>${title}</h4>
+   <div class="zr-rows">${rows.map(([l,v])=>`<div><span>${l}</span><span>${v<0?'− ':''}${rp(Math.abs(v))}</span></div>`).join('')}
+     <div class="zr-net"><span>Harta bersih</span><span>${rp(z.net)}</span></div>
+     <div><span>Nisab (85 g emas)</span><span>${rp(z.nisab)}</span></div></div>
+   <div class="zr-bar" role="img" aria-label="Harta bersih ${Math.round(pct)} persen dari nisab"><i style="width:${pct}%"></i></div>
+   <span class="zs ${cls}">${t}</span>
+   <div class="zr-due"><span>Zakat yang perlu ditunaikan</span><b>${rp(z.due)}</b></div>
+   <p class="zr-note">${note}</p>
+   <div class="zr-act"><button class="btn btn-gold" id="zCopy" type="button">Salin hitungan</button><a class="btn btn-ghost-lt" data-wa="Halo Admin TaradinMu, saya ingin bertanya tentang penghitung zakat di TaradinMu." href="#kontak">Tanya admin</a></div>
+   <p class="zr-copied" id="zCopied" aria-live="polite"></p>`;
+}
+function zakatText(){
+  const z=zTab==='niaga'?zNiaga():zHarta(),[t]=zStatus(z);
+  const rows=zTab==='niaga'?[['Nilai stok',z.stok],['Piutang lancar',z.pt],['Kas dan bank',z.kas],['Utang jatuh tempo',-z.utang]]:[['Tunai dan tabungan',z.cash],['Investasi',z.invest],['Emas',z.gold],['Piutang tertagih',z.piutang],['Utang jatuh tempo',-z.utang]];
+  return `${zTab==='niaga'?'Zakat perniagaan':'Zakat harta'} (perkiraan, contoh dari TaradinMu)\n`+rows.map(([l,v])=>`${l}: ${v<0?'-':''}${rp(Math.abs(v))}`).join('\n')+`\nHarta bersih: ${rp(z.net)}\nNisab (85 g emas @ ${rp(S.z.gold)}): ${rp(z.nisab)}\nStatus: ${t}\nZakat 2,5%: ${rp(z.due)}`;
+}
+const zNum=v=>Math.max(0,parseInt(String(v).replace(/\D/g,''),10)||0);
+$('#zkBody').addEventListener('input',e=>{
+  const t=e.target,id=t.id; if(!id||id==='zPreset') return;
+  if(id==='zHaul'){S.z.haul=t.checked}
+  else{const v=zNum(t.value);({zKas:()=>S.z.kas=v,zUtang:()=>S.z.utang=v,zGold:()=>S.z.gold=Math.max(1,v),hCash:()=>S.h.cash=v,hInvest:()=>S.h.invest=v,hGoldG:()=>S.h.goldG=v,hPiutang:()=>S.h.piutang=v,hUtang:()=>S.h.utang=v})[id]?.()}
+  S.done.zakat=true; zakatResult(); renderDemo();
+});
+$('#zkBody').addEventListener('change',e=>{
+  if(e.target.id==='zPreset'){loadPreset(e.target.value);S.zDirty=false;renderDemo();renderZakatForm()}
+});
+$('#zkBody').addEventListener('focusout',e=>{const t=e.target;if(t.tagName==='INPUT'&&t.type==='text')t.value=zNum(t.value).toLocaleString('id-ID')});
+$('#zkBody').addEventListener('click',async e=>{
+  if(!e.target.closest('#zCopy')) return;
+  try{await navigator.clipboard.writeText(zakatText());$('#zCopied').textContent='Hitungan disalin.'}catch(err){$('#zCopied').textContent='Salin manual tidak tersedia di browser ini.'}
+});
+$('.zk-tabs').addEventListener('click',e=>{const b=e.target.closest('[data-zt]');if(b){zTab=b.dataset.zt;renderZakatForm()}});
+
+/* ============ mode presentasi ============ */
+const slides=()=>$$('[data-slide]');
+function cur(){const y=innerHeight*.4;let c=0;slides().forEach((s,i)=>{if(s.getBoundingClientRect().top<=y)c=i});return c}
+function go(d){const s=slides(),i=Math.max(0,Math.min(s.length-1,cur()+d));s[i].scrollIntoView({behavior:'smooth'})}
+function present(on){document.body.classList.toggle('present',on);$('#presBtn').setAttribute('aria-pressed',on);pc();onScroll()}
+function pc(){$('#pcount').textContent=`${cur()+1} / ${slides().length}`}
+$('#presBtn').addEventListener('click',()=>present(!document.body.classList.contains('present')));
+$('#pexit').addEventListener('click',()=>present(false));$('#pprev').addEventListener('click',()=>go(-1));$('#pnext').addEventListener('click',()=>go(1));
+addEventListener('scroll',()=>{if(document.body.classList.contains('present'))pc()},{passive:true});
+addEventListener('keydown',e=>{
+  const tag=(e.target.tagName||'').toLowerCase(); if(['input','textarea','select'].includes(tag)) return;
+  if(e.key==='p'||e.key==='P'){present(!document.body.classList.contains('present'))}
+  else if(document.body.classList.contains('present')){
+    if(e.key==='Escape')present(false);
+    else if(['ArrowRight','PageDown'].includes(e.key)){e.preventDefault();go(1)}
+    else if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();go(-1)}
+  }
+});
+$('#heroMock').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('#demo').scrollIntoView({behavior:'smooth'})}});
+
+renderPS(); renderDemo(); renderWho(); renderZakatForm();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,279 @@
+// Skema database TaradinMu (sumber: TARADINMU-PRD.md Bagian 3)
+// Catatan: blok generator & datasource disesuaikan dengan konvensi Prisma 7.
+// - generator memakai provider "prisma-client" dengan output wajib.
+// - datasource tidak lagi memuat `url`; DATABASE_URL dibaca dari prisma7.config.ts.
+// Catatan: model InvoiceItem ditambahkan agar invoice bisa menautkan varian
+// (dibutuhkan untuk memotong stok InventoryBatch). Sudah dicerminkan di PRD.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  SUPER_ADMIN // Khusus Pak Reza (Platform Owner)
+  OWNER       // Pemilik Tenant/Toko
+  ADMIN
+  STAFF
+  ACCOUNTANT
+}
+
+enum PlanType {
+  FREE // Default: Pakai path /nama-toko, logo default, modul dasar
+  PRO  // Berbayar: Subdomain toko.taradinmu.id, custom logo/warna, semua modul
+}
+
+// Jenis usaha tenant — menentukan perilaku modul (mis. batch/expired wajib
+// untuk FNB & PHARMACY, opsional untuk RETAIL).
+enum BusinessType {
+  RETAIL        // Toko/ritel umum
+  FNB           // Food & Beverage / kuliner
+  PHARMACY      // Farmasi, apotek, klinik
+  SERVICE       // Jasa
+  MANUFACTURING // Manufaktur/produksi
+  OTHER         // Lainnya
+}
+
+enum ExpenseCategory {
+  OPERATIONAL // Operasional harian
+  PURCHASE    // Pembelian stok/barang
+  SALARY      // Gaji & upah
+  RENT        // Sewa tempat
+  UTILITIES   // Listrik, air, internet
+  MARKETING   // Pemasaran & promosi
+  TAX         // Pajak & retribusi
+  OTHER       // Lainnya
+}
+
+// Jenis zakat yang bisa dihitung tenant (PRD: modul Zakat).
+enum ZakatType {
+  TRADE       // Zakat perdagangan (tijarah)
+  SAVINGS     // Zakat simpanan/uang
+  GOLD        // Zakat emas & perak
+  INCOME      // Zakat penghasilan
+  AGRICULTURE // Zakat pertanian
+  LIVESTOCK   // Zakat peternakan
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+}
+
+model Tenant {
+  id              String   @id @default(cuid())
+  name            String // Nama Usaha (e.g., "Klinik Sehat Muhammadiyah")
+  slug            String   @unique // Untuk path URL (e.g., "klinik-sehat")
+  subdomain       String?  @unique // Untuk subdomain (e.g., "klinik-sehat" -> klinik-sehat.taradinmu.id)
+
+  plan            PlanType @default(FREE)
+  businessType    BusinessType @default(OTHER) // Jenis usaha (PRD: menentukan perilaku modul)
+  enabledModules  String[] // Array modul aktif: ["INVENTORY", "BILLING"]
+  categories      String[] // Kategori default dari preset jenis usaha (diisi saat registrasi)
+
+  // Custom Branding (White-label)
+  customLogoUrl   String? // URL logo custom tenant
+  primaryColor    String?  @default("#059669") // Warna utama custom
+  dashboardLayout String? // JSON config untuk layout dashboard
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  users           User[]
+  products        Product[]
+  customers       Customer[]
+  invoices        Invoice[]
+  expenses        Expense[]
+  zakatCalculations ZakatCalculation[]
+}
+
+model User {
+  id            String    @id @default(cuid())
+  tenantId      String? // Null jika SUPER_ADMIN
+  tenant        Tenant?   @relation(fields: [tenantId], references: [id])
+  name          String
+  email         String    @unique
+  emailVerified DateTime? // Dipakai Auth.js (adapter) untuk verifikasi email
+  image         String? // Foto profil dari provider OAuth
+  password      String
+  role          Role      @default(STAFF)
+  accounts      Account[]
+  sessions      Session[]
+  createdAt     DateTime  @default(now())
+}
+
+// --- AUTH.JS (NextAuth v5) — model wajib untuk @auth/prisma-adapter ---
+// Sesi aplikasi tetap JWT (lihat auth.config.ts); tabel Session disediakan
+// agar adapter berfungsi penuh bila kelak menambah provider OAuth.
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// --- MODUL INVENTORY ---
+model Product {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String // e.g., "Paracetamol" atau "Baju Koko"
+  description String?
+  variants    ProductVariant[]
+  createdAt   DateTime @default(now())
+}
+
+model ProductVariant {
+  id           String   @id @default(cuid())
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku          String   @unique
+  name         String // e.g., "Paracetamol 500mg" atau "Baju Koko - L - Putih"
+  price        Decimal  @db.Decimal(12, 2)
+  batches      InventoryBatch[]
+  invoiceItems InvoiceItem[]
+}
+
+model InventoryBatch {
+  id             String   @id @default(cuid())
+  variantId      String
+  variant        ProductVariant @relation(fields: [variantId], references: [id])
+  batchNumber    String // e.g., "BATCH-2024-001"
+  quantity       Int // Stok saat ini di batch ini
+  expiredDate    DateTime? // Wajib untuk F&B dan Farmasi
+  createdAt      DateTime @default(now())
+  movements      StockMovement[]
+}
+
+model StockMovement {
+  id          String   @id @default(cuid())
+  batchId     String
+  batch       InventoryBatch @relation(fields: [batchId], references: [id])
+  type        StockMovementType
+  quantity    Int
+  reference   String? // e.g., "INV-001" atau "PO-002"
+  notes       String?
+  createdAt   DateTime @default(now())
+}
+
+// --- MODUL BILLING ---
+model Customer {
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  name        String
+  phone       String?
+  email       String?
+  address     String?
+  invoices    Invoice[]
+  createdAt   DateTime @default(now())
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id])
+  invoiceNumber String   @unique
+  totalAmount   Decimal  @db.Decimal(12, 2)
+  taxAmount     Decimal  @db.Decimal(12, 2) @default(0)
+  status        InvoiceStatus @default(DRAFT)
+  dueDate       DateTime
+  paidAt        DateTime? // diisi saat status menjadi PAID (dasar pendapatan)
+  notes         String?
+  items         InvoiceItem[]
+  createdAt     DateTime @default(now())
+}
+
+// Baris item invoice: menautkan invoice ke varian (dasar pemotongan stok).
+model InvoiceItem {
+  id        String   @id @default(cuid())
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  variantId String
+  variant   ProductVariant @relation(fields: [variantId], references: [id])
+  quantity  Int
+  price     Decimal  @db.Decimal(12, 2) // harga satuan saat invoice dibuat
+  subtotal  Decimal  @db.Decimal(12, 2)
+}
+
+// --- MODUL AKUNTANSI ---
+model Expense {
+  id            String          @id @default(cuid())
+  tenantId      String
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category      ExpenseCategory @default(OTHER)
+  description   String // Keterangan pengeluaran
+  amount        Decimal         @db.Decimal(12, 2)
+  expenseDate   DateTime        @default(now())
+  paymentMethod String? // e.g., "CASH", "TRANSFER"
+  reference     String? // Nota/bukti terkait
+  notes         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([tenantId, expenseDate])
+}
+
+// --- MODUL ZAKAT ---
+model ZakatCalculation {
+  id                 String    @id @default(cuid())
+  tenantId           String
+  tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type               ZakatType @default(TRADE)
+  calculationDate    DateTime  @default(now())
+  totalAssets        Decimal   @db.Decimal(14, 2) // Total harta/aset usaha
+  totalLiabilities   Decimal   @db.Decimal(14, 2) @default(0) // Hutang/kewajiban
+  netAssets          Decimal   @db.Decimal(14, 2) // Harta bersih (dasar zakat)
+  nisab              Decimal   @db.Decimal(14, 2) // Batas nisab saat perhitungan
+  rate               Decimal   @db.Decimal(5, 4) @default(0.025) // Kadar zakat (2,5%)
+  zakatDue           Decimal   @db.Decimal(14, 2) // Zakat terutang (0 bila di bawah nisab)
+  isPaid             Boolean   @default(false)
+  paidAt             DateTime?
+  notes              String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([tenantId, calculationDate])
+}
