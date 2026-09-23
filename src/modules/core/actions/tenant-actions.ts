@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { hash } from "bcryptjs";
-import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { assertSuperAdmin } from "@/modules/core/auth/dal";
@@ -15,33 +14,15 @@ import type { ActionResponse, TenantListData } from "@/modules/core/types";
 import { slugify } from "@/modules/core/utils";
 import { isReservedSlug } from "@/shared/constants";
 
-// Kumpulkan pesan validasi Zod menjadi satu kalimat.
-function pesanValidasi(error: z.ZodError): string {
-  return error.issues.map((issue) => issue.message).join(" ");
-}
-
-// Deteksi pelanggaran unique constraint (P2002) tanpa bergantung pada kelas error Prisma.
-function isUniqueConstraintError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "P2002"
-  );
-}
-
-function isRecordNotFoundError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "P2025"
-  );
-}
-
-function pesanErrorUmum(error: unknown): string {
-  return error instanceof Error ? error.message : "Terjadi kesalahan tak terduga.";
-}
+// Empat helper di bawah ini sempat dityalin secara lokal di berkas ini, sehingga
+// aksi Super Admin justru jadi satu-satunya yang tidak melewati pencatatan error
+// terpusat. Sekarang mengimpor dari src/lib/action seperti modul lain.
+import {
+  isRecordNotFoundError,
+  isUniqueConstraintError,
+  pesanErrorUmum,
+  pesanValidasi,
+} from "@/lib/action";
 
 // Mendapatkan semua tenant dengan pagination.
 export async function getAllTenants(
