@@ -3,6 +3,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { checkLimit } from "@/lib/feature-guards";
 import { prisma } from "@/lib/prisma";
+import { ITEM_KIND_LABELS } from "@/shared/item-kind";
 import type { ActionResponse } from "@/shared/types";
 import {
   createProductSchema,
@@ -60,6 +61,7 @@ export async function getProducts(
           id: product.id,
           name: product.name,
           description: product.description,
+          kind: product.kind,
           createdAt: product.createdAt.toISOString(),
           variants: product.variants.map((variant) => ({
             id: variant.id,
@@ -111,13 +113,15 @@ export async function createProduct(
         tenantId: akses.tenantId,
         name: parsed.data.name,
         description: description ? description : null,
+        // Menentukan apakah invoice untuk item ini memotong stok atau tidak.
+        kind: parsed.data.kind,
       },
       select: { id: true },
     });
 
     return {
       success: true,
-      message: `Produk "${parsed.data.name}" berhasil dibuat.`,
+      message: `${ITEM_KIND_LABELS[parsed.data.kind]} "${parsed.data.name}" berhasil dibuat.`,
       data: { productId: product.id },
     };
   } catch (error) {
@@ -149,6 +153,8 @@ export async function updateProduct(
       data: {
         name: parsed.data.name,
         description: description ? description : null,
+        // Boleh berubah: item yang semula barang bisa jadi jasa, dan sebaliknya.
+        kind: parsed.data.kind,
       },
     });
 
@@ -158,7 +164,7 @@ export async function updateProduct(
 
     return {
       success: true,
-      message: `Produk "${parsed.data.name}" berhasil diperbarui.`,
+      message: `${ITEM_KIND_LABELS[parsed.data.kind]} "${parsed.data.name}" berhasil diperbarui.`,
       data: { productId: parsed.data.productId },
     };
   } catch (error) {

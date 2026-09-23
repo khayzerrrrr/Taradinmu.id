@@ -1,7 +1,9 @@
 import type { PlanType } from "@/generated/prisma/client";
+import { awalBulan } from "@/lib/periode";
 import {
   ambilBatasFitur,
   ambilBatasJumlah,
+  labelBatasJumlah,
   LIMIT_LABELS,
   type LimitKey,
 } from "@/lib/plan-limits";
@@ -59,12 +61,20 @@ export async function checkLimit(
     };
   }
 
-  // --- Batas berbasis jumlah (invoice, produk) ---
+  // --- Batas berbasis jumlah (invoice, produk, pengguna) ---
   const limit = ambilBatasJumlah(plan, type);
-  const used =
-    type === "INVOICE"
-      ? await prisma.invoice.count({ where: { tenantId } })
-      : await prisma.product.count({ where: { tenantId } });
+  let used: number;
+  if (type === "INVOICE") {
+    // PRD 4.D: batas FREE adalah 50 invoice PER BULAN, bukan sepanjang waktu.
+    // Dibatasi pada bulan berjalan supaya kuota bulan lalu tidak ikut terpakai.
+    used = await prisma.invoice.count({
+      where: { tenantId, createdAt: { gte: awalBulan() } },
+    });
+  } else if (type === "PRODUCT") {
+    used = await prisma.product.count({ where: { tenantId } });
+  } else {
+    used = await prisma.user.count({ where: { tenantId } });
+  }
 
   if (limit === null || used < limit) {
     return { allowed: true, plan, used, limit };
@@ -76,6 +86,6 @@ export async function checkLimit(
     used,
     limit,
     code: "UPGRADE_REQUIRED",
-    message: `Batas paket ${plan} tercapai: maksimal ${limit} ${LIMIT_LABELS[type]}. Saat ini ${used}. Upgrade ke PRO untuk menambah tanpa batas.`,
+    message: `Batas paket ${plan} tercapai: maksimal ${limit} ${labelBatasJumlah(type)}. Saat ini ${used}. Upgrade ke PRO untuk menambah tanpa batas.`,
   };
 }

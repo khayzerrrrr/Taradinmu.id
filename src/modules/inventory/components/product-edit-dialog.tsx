@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Pencil } from "lucide-react";
@@ -19,7 +19,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -30,6 +38,11 @@ import {
   type UpdateProductFormValues,
 } from "../schemas/product-schema";
 import type { ProductListItem } from "../types";
+import {
+  ITEM_KINDS,
+  ITEM_KIND_LABELS,
+  type ItemKindValue,
+} from "@/shared/item-kind";
 
 type Props = {
   product: ProductListItem;
@@ -46,10 +59,12 @@ export function ProductEditDialog({ product }: Props) {
       productId: product.id,
       name: product.name,
       description: product.description ?? "",
+      kind: product.kind,
     },
   });
 
   const { errors } = form.formState;
+  const kind = useWatch({ control: form.control, name: "kind" });
 
   async function onSubmit(values: UpdateProductFormValues) {
     setSubmitting(true);
@@ -75,7 +90,7 @@ export function ProductEditDialog({ product }: Props) {
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit Produk</DialogTitle>
+          <DialogTitle>Edit Item</DialogTitle>
           <DialogDescription>{product.name}</DialogDescription>
         </DialogHeader>
 
@@ -84,9 +99,37 @@ export function ProductEditDialog({ product }: Props) {
           className="flex flex-col gap-4"
         >
           <FieldGroup>
+            <Field data-invalid={Boolean(errors.kind)}>
+              <FieldLabel>Jenis Item</FieldLabel>
+              <Select
+                value={kind}
+                onValueChange={(value) =>
+                  form.setValue("kind", value as ItemKindValue, {
+                    shouldValidate: true,
+                  })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Pilih jenis item" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ITEM_KINDS.map((nilai) => (
+                    <SelectItem key={nilai} value={nilai}>
+                      {ITEM_KIND_LABELS[nilai]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                Mengubah jenis memengaruhi perhitungan berikutnya: invoice untuk
+                jasa tidak lagi memotong stok.
+              </FieldDescription>
+              <FieldError errors={[errors.kind]} />
+            </Field>
+
             <Field data-invalid={Boolean(errors.name)}>
               <FieldLabel htmlFor={`product-name-${product.id}`}>
-                Nama Produk
+                Nama Item
               </FieldLabel>
               <Input
                 id={`product-name-${product.id}`}

@@ -1,7 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import type { NavItem, NavSection } from "@/components/layout/nav";
+import { AiAssistantChat } from "@/components/shared/ai-assistant-chat";
 import { resolveBranding } from "@/lib/branding";
+import { punyaItemBarang } from "@/lib/katalog-tenant";
 import {
   buildTenantSubdomainUrl,
   getCurrentTenant,
@@ -11,6 +13,7 @@ import {
 } from "@/lib/tenant";
 import { getSessionUser } from "@/lib/tenant-access";
 import { logoutAction } from "@/modules/core/actions/auth-actions";
+import { ImpersonationBanner } from "@/modules/core/components/impersonation-banner";
 import { isModuleEnabled } from "@/shared/modules";
 
 // Layout area tenant: sidebar + bilah atas + kanvas konten.
@@ -22,8 +25,21 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
   const info = await getTenantRequestInfo();
   const modus: TenantMode = info.mode ?? "path";
 
+  // Sesi dibaca lebih awal karena perannya menentukan apakah menu Pengguna muncul,
+  // dan karena mode "masuk sebagai tenant" membatalkan pengalihan subdomain di bawah.
+  // `getSessionUser` di-cache per request, jadi ini tidak menambah query.
+  const user = await getSessionUser();
+
   // Fitur PRO (subdomain). Bila tenant PRO diakses lewat path, arahkan ke subdomain.
-  if (modus === "path" && tenant.isPro && tenant.subdomain) {
+  // Dikecualikan ketika Super Admin sedang "masuk sebagai tenant": subdomain butuh
+  // DNS yang tidak tersedia di pengembangan, sehingga mode pratinjau justru gagal
+  // membuka halamannya.
+  if (
+    modus === "path" &&
+    tenant.isPro &&
+    tenant.subdomain &&
+    !user?.impersonatedBy
+  ) {
     redirect(buildTenantSubdomainUrl(tenant.subdomain, info.rest));
   }
 
@@ -35,11 +51,70 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
   const inventoryAktif = isModuleEnabled(tenant.enabledModules, "INVENTORY");
   const billingAktif = isModuleEnabled(tenant.enabledModules, "BILLING");
   const accountingAktif = isModuleEnabled(tenant.enabledModules, "ACCOUNTING");
+  // Menu stok hanya relevan bila katalog tenant memang berisi barang, bukan
+  // hanya jasa (travel/laundry/pendidikan).
+  const adaItemBarang = inventoryAktif ? await punyaItemBarang(tenant.id) : false;
+
+  // Sesi sudah dibaca di atas (lihat alasan di sana).
+  const bolehKelolaPengguna =
+    user !== null &&
+    (user.role === "SUPER_ADMIN" ||
+      user.role === "OWNER" ||
+      user.role === "ADMIN");
 
   // Modul yang belum aktif tetap ditampilkan (dengan penanda gembok) agar
   // pengguna tahu fitur itu ada — halamannya menjelaskan cara mengaktifkan.
   const tandai = (items: NavItem[], aktif: boolean): NavItem[] =>
     aktif ? items : items.map((item) => ({ ...item, terkunci: true }));
+
+  const itemToko: NavItem[] = [
+    {
+      href: `${basePath}/dashboard/settings`,
+      label: "Pengaturan Toko",
+      icon: "settings",
+      // Branding/white-label hanya untuk PRO: FREE melihat gembok upgrade.
+      kunciPro: tenant.plan === "FREE",
+    },
+  ];
+
+  if (bolehKelolaPengguna) {
+    itemToko.push({
+      href: `${basePath}/dashboard/settings/users`,
+      label: "Pengguna",
+      icon: "users",
+    });
+  }
+
+  // Katalog selalu ditampilkan (barang maupun jasa). Menu stok menyusul hanya
+  // bila tenant punya item barang, supaya usaha jasa tidak melihat menu yang
+  // selamanya kosong.
+  const itemInventory: NavItem[] = [
+    {
+      href: `${basePath}/dashboard/inventory`,
+      label: "Produk & Layanan",
+      icon: "products",
+    },
+  ];
+
+  if (adaItemBarang) {
+    itemInventory.push(
+      {
+        href: `${basePath}/dashboard/inventory/stock`,
+        label: "Stok",
+        icon: "stock",
+      },
+      {
+        href: `${basePath}/dashboard/inventory/stock-in`,
+        label: "Stok Masuk",
+        icon: "stockIn",
+      },
+      {
+        href: `${basePath}/dashboard/inventory/stock-out`,
+        label: "Stok Keluar",
+        icon: "stockOut",
+      },
+    );
+  }
 
   const sections: NavSection[] = [
     {
@@ -54,31 +129,7 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
     },
     {
       judul: "Inventory",
-      items: tandai(
-        [
-          {
-            href: `${basePath}/dashboard/inventory`,
-            label: "Produk",
-            icon: "products",
-          },
-          {
-            href: `${basePath}/dashboard/inventory/stock`,
-            label: "Stok",
-            icon: "stock",
-          },
-          {
-            href: `${basePath}/dashboard/inventory/stock-in`,
-            label: "Stok Masuk",
-            icon: "stockIn",
-          },
-          {
-            href: `${basePath}/dashboard/inventory/stock-out`,
-            label: "Stok Keluar",
-            icon: "stockOut",
-          },
-        ],
-        inventoryAktif,
-      ),
+      items: tandai(itemInventory, inventoryAktif),
     },
     {
       judul: "Billing",
@@ -90,7 +141,7 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
             icon: "customers",
           },
           {
-            href: `${basePath}/dashboard/billing`,
+            href: `${basePath}/dashboard/billing/invoices`,
             label: "Invoice",
             icon: "invoices",
           },
@@ -118,21 +169,12 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
     },
     {
       judul: "Toko",
-      items: [
-        {
-          href: `${basePath}/dashboard/settings`,
-          label: "Pengaturan Branding",
-          icon: "settings",
-          // Branding/white-label hanya untuk PRO: FREE melihat gembok upgrade.
-          kunciPro: tenant.plan === "FREE",
-        },
-      ],
+      items: itemToko,
     },
   ];
 
   // Halaman di bawah grup ini mengalihkan ke /login bila belum ada sesi. Render
   // tanpa kerangka dulu supaya tidak ada sidebar yang berkedip sebelum itu.
-  const user = await getSessionUser();
   if (!user) {
     return <div className="min-h-svh bg-background">{children}</div>;
   }
@@ -154,8 +196,18 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
       }}
       basePath={basePath}
       logoutAction={logoutAction}
+      banner={
+        // Mode "masuk sebagai tenant" (PRD 4.B): banner + jalan keluar.
+        user.impersonatedBy ? (
+          <ImpersonationBanner
+            tenantName={user.impersonatingTenant?.name ?? tenant.name}
+          />
+        ) : undefined
+      }
     >
       {children}
+      {/* Asisten AI mengambang di seluruh halaman tenant (PRD Bagian 4.E). */}
+      <AiAssistantChat terkunciPro={tenant.plan === "FREE"} />
     </AppShell>
   );
 }

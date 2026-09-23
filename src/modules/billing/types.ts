@@ -1,3 +1,4 @@
+import type { ItemKindValue } from "@/shared/item-kind";
 import type { PaginationMeta } from "@/shared/types";
 
 // Tipe internal modul billing (tidak mengimpor tipe dari modul lain).
@@ -67,6 +68,8 @@ export type InvoiceVariantOption = {
   name: string;
   productName: string;
   price: string;
-  /** Stok layak keluar (belum kedaluwarsa). */
+  /** Barang (memotong stok saat ditagih) atau jasa (tidak menyentuh stok). */
+  kind: ItemKindValue;
+  /** Stok layak keluar (belum kedaluwarsa). Tidak berarti untuk item jasa. */
   available: number;
 };

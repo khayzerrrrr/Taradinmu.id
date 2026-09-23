@@ -15,7 +15,18 @@ import type {
   InvoiceStatusValue,
   InvoiceVariantOption,
 } from "@/modules/billing/types";
+import { Crown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
+import { UpgradeModal } from "@/components/shared/upgrade-modal";
+import { checkLimit } from "@/lib/feature-guards";
 import { isModuleEnabled } from "@/shared/modules";
 import type { PaginationMeta } from "@/shared/types";
 
@@ -81,6 +92,13 @@ export default async function BillingPage({
   const variants: InvoiceVariantOption[] = variantsRes.data ?? [];
   const customers = customersRes.data ?? [];
 
+  // Batas paket (PRD 4.D): FREE maksimal 50 invoice PER BULAN, dihitung dari
+  // invoice bulan berjalan saja. Karena kontrol "buat" di halaman ini berupa kartu
+  // besar (bukan tombol di toolbar), penggantian ke ajakan upgrade dilakukan di
+  // sini — bukan di dalam tabel seperti pola halaman Pengguna.
+  const kuotaInvoice = await checkLimit(tenant.id, "INVOICE");
+  const bolehBuatInvoice = kuotaInvoice.allowed;
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -92,11 +110,40 @@ export default async function BillingPage({
         <p className="text-sm text-destructive">{invoicesRes.message}</p>
       ) : null}
 
-      <InvoiceForm
-        customers={customers}
-        variants={variants}
-        defaultDueDate={defaultJatuhTempo()}
-      />
+      {bolehBuatInvoice ? (
+        <>
+          {kuotaInvoice.limit === null ? null : (
+            <p className="text-sm text-muted-foreground">
+              Kuota bulan ini: {kuotaInvoice.used ?? 0} dari {kuotaInvoice.limit}{" "}
+              invoice terpakai. Kuota dihitung ulang setiap awal bulan.
+            </p>
+          )}
+          <InvoiceForm
+            customers={customers}
+            variants={variants}
+            defaultDueDate={defaultJatuhTempo()}
+          />
+        </>
+      ) : (
+        <Card className="max-w-4xl">
+          <CardHeader>
+            <CardTitle>Kuota invoice bulan ini tercapai</CardTitle>
+            <CardDescription>
+              Paket {tenant.plan} dibatasi {kuotaInvoice.limit} invoice per bulan.
+              Kuota tersedia kembali pada awal bulan berikutnya — atau tanpa batas
+              sama sekali dengan paket PRO.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <UpgradeModal fitur="Invoice tanpa batas">
+              <Button size="lg">
+                <Crown />
+                Buka Invoice Tanpa Batas
+              </Button>
+            </UpgradeModal>
+          </CardContent>
+        </Card>
+      )}
 
       <InvoiceTable
         invoices={invoices}

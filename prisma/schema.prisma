@@ -27,14 +27,16 @@ enum PlanType {
   PRO  // Berbayar: Subdomain toko.taradinmu.id, custom logo/warna, semua modul
 }
 
-// Jenis usaha tenant — menentukan perilaku modul (mis. batch/expired wajib
-// untuk FNB & PHARMACY, opsional untuk RETAIL).
+// Jenis usaha tenant — menentukan perilaku modul (mis. batch/expired untuk
+// RETAIL_FNB & HEALTH_CLINIC). Nilai di sini mengikuti PRD Bagian 4.C.
 enum BusinessType {
-  RETAIL        // Toko/ritel umum
-  FNB           // Food & Beverage / kuliner
-  PHARMACY      // Farmasi, apotek, klinik
-  SERVICE       // Jasa
-  MANUFACTURING // Manufaktur/produksi
+  RETAIL_FNB    // Minimarket, Catering, F&B
+  TRAVEL_UMROH  // Travel Umrah & Haji
+  JASA_ORDER    // Laundry, Aqiqah, Konveksi
+  PROJECT_BASED // Kontraktor, Event Organizer
+  TRADING       // Ekspor-Impor, Distributor
+  EDUCATION     // Sekolah, Bimbel, Pesantren
+  HEALTH_CLINIC // Klinik, Apotek, Layanan Kesehatan
   OTHER         // Lainnya
 }
 
@@ -70,6 +72,14 @@ enum InvoiceStatus {
   SENT
   PAID
   OVERDUE
+}
+
+// Sifat item katalog. Disimpan EKSPLISIT, tidak disimpulkan dari "punya batch
+// atau tidak": barang yang stoknya sedang kosong akan keliru dianggap jasa,
+// lalu invoice berhenti memotong stok tanpa ada yang menyadari.
+enum ItemKind {
+  GOODS   // Barang: punya stok/batch; invoice memotong stok (FEFO)
+  SERVICE // Jasa: tanpa stok; invoice tidak menyentuh stok
 }
 
 model Tenant {
@@ -157,10 +167,15 @@ model Product {
   id          String   @id @default(cuid())
   tenantId    String
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
-  name        String // e.g., "Paracetamol" atau "Baju Koko"
+  name        String // e.g., "Paracetamol", "Baju Koko", atau "Paket Umrah 9 hari"
   description String?
+  // Barang atau jasa (PRD 4.C: travel, laundry, dan pendidikan menjual jasa).
+  kind        ItemKind @default(GOODS)
   variants    ProductVariant[]
   createdAt   DateTime @default(now())
+
+  // Dipakai untuk memutuskan apakah menu Stok perlu ditampilkan pada tenant ini.
+  @@index([tenantId, kind])
 }
 
 model ProductVariant {
@@ -224,6 +239,10 @@ model Invoice {
   notes         String?
   items         InvoiceItem[]
   createdAt     DateTime @default(now())
+
+  // Kuota FREE dihitung per bulan (PRD 4.D): `createdAt >= awal bulan`.
+  // Tanpa index ini setiap pemeriksaan kuota menjadi pemindaian penuh.
+  @@index([tenantId, createdAt])
 }
 
 // Baris item invoice: menautkan invoice ke varian (dasar pemotongan stok).
@@ -263,6 +282,11 @@ model ZakatCalculation {
   tenant             Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   type               ZakatType @default(TRADE)
   calculationDate    DateTime  @default(now())
+  // Periode laporan zakat (PRD 4.D.3), mis. 9/2026. Selalu diisi server dari
+  // bulan berjalan — bukan disalin dari waktu input — supaya riwayat bisa
+  // dikelompokkan dan dicetak per bulan. Nullable demi baris lama sebelum migrasi.
+  periodMonth        Int?
+  periodYear         Int?
   totalAssets        Decimal   @db.Decimal(14, 2) // Total harta/aset usaha
   totalLiabilities   Decimal   @db.Decimal(14, 2) @default(0) // Hutang/kewajiban
   netAssets          Decimal   @db.Decimal(14, 2) // Harta bersih (dasar zakat)
@@ -276,4 +300,26 @@ model ZakatCalculation {
   updatedAt          DateTime  @updatedAt
 
   @@index([tenantId, calculationDate])
+  // Pengelompokan & pengurutan riwayat per periode laporan (PRD 4.D.3).
+  @@index([tenantId, periodYear, periodMonth])
+}
+
+// --- PENGERASAN PRODUKSI ---
+
+// Penghitung rate limit "fixed window" untuk menahan percobaan berulang
+// (brute force login, penyalahgunaan /api/chat).
+//
+// Disimpan di database, bukan di memori proses: produksi berjalan di beberapa
+// instance tanpa state bersama, sehingga limiter in-memory bisa dilewati cukup
+// dengan berpindah instance. Baris lama dibersihkan berkala oleh
+// src/lib/rate-limit.ts (tidak ada penjadwal di proyek ini).
+model RateLimit {
+  id          String   @id @default(cuid())
+  key         String // mis. "login:<email>" atau "chat:<userId>"
+  windowStart DateTime
+  count       Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([key, windowStart])
+  @@index([windowStart])
 }

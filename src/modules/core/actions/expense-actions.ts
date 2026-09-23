@@ -6,6 +6,7 @@ import {
   pesanErrorUmum,
   pesanValidasi,
 } from "@/lib/action";
+import { awalBulan } from "@/lib/periode";
 import { prisma } from "@/lib/prisma";
 import { getCurrentTenant } from "@/lib/tenant";
 import { assertTenantMember } from "@/lib/tenant-access";
@@ -146,14 +147,9 @@ export async function getExpenseSummary(): Promise<
   if (!akses.ok) return { success: false, message: akses.message };
 
   try {
-    const sekarang = new Date();
-    const awalBulan = new Date(
-      Date.UTC(sekarang.getUTCFullYear(), sekarang.getUTCMonth(), 1),
-    );
-
     const [bulanIni, keseluruhan] = await Promise.all([
       prisma.expense.aggregate({
-        where: { tenantId: akses.tenantId, expenseDate: { gte: awalBulan } },
+        where: { tenantId: akses.tenantId, expenseDate: { gte: awalBulan() } },
         _sum: { amount: true },
         _count: true,
       }),

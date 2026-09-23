@@ -14,6 +14,12 @@ type Props = {
   user: ShellUser;
   basePath: string;
   logoutAction: () => Promise<void>;
+  /**
+   * Pengumuman yang dirender di atas bilah atas — dipakai untuk banner mode
+   * "masuk sebagai tenant" (PRD 4.B). Ditaruh di dalam kolom konten agar sidebar
+   * yang setinggi layar tidak ikut tertutup.
+   */
+  banner?: ReactNode;
   children: ReactNode;
 };
 
@@ -32,6 +38,7 @@ export function AppShell({
   user,
   basePath,
   logoutAction,
+  banner,
   children,
 }: Props) {
   return (
@@ -47,6 +54,8 @@ export function AppShell({
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {banner}
+
         <AppTopbar user={user} basePath={basePath} logoutAction={logoutAction} />
 
         <main id="konten-utama" className="flex-1">

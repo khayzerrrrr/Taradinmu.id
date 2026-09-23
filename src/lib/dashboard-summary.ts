@@ -1,4 +1,5 @@
 import type { PlanType } from "@/generated/prisma/client";
+import { awalBulan } from "@/lib/periode";
 import { prisma } from "@/lib/prisma";
 import {
   EXPIRING_SOON_DAYS,
@@ -50,6 +51,12 @@ export type RingkasanOwner = {
 
   /** Pengeluaran bulan berjalan (0 bila modul Akuntansi tidak aktif). */
   pengeluaranBulanIni: number;
+  /**
+   * Arus kas bulan berjalan = pendapatan yang sudah diterima − pengeluaran.
+   * Ini BUKAN saldo kas: sistem tidak menyimpan saldo awal, jadi angkanya
+   * menggambarkan pergerakan bulan ini saja.
+   */
+  arusKasBulanIni: number;
   /** Estimasi zakat penghasilan bulan ini; null bila fitur PRO belum aktif. */
   estimasiZakat: number | null;
   /** Laba bersih bulan ini sudah mencapai nisab? */
@@ -75,9 +82,7 @@ export async function getOwnerSummary(
   const inventoryAktif = isModuleEnabled(enabledModules, "INVENTORY");
   const accountingAktif = isModuleEnabled(enabledModules, "ACCOUNTING");
   const sekarang = new Date();
-  const awalBulan = new Date(
-    Date.UTC(sekarang.getUTCFullYear(), sekarang.getUTCMonth(), 1),
-  );
+  const batasBulanIni = awalBulan(sekarang);
 
   // --- Billing ---
   let piutang = 0;
@@ -96,7 +101,7 @@ export async function getOwnerSummary(
           _count: true,
         }),
         prisma.invoice.aggregate({
-          where: { tenantId, status: "PAID", paidAt: { gte: awalBulan } },
+          where: { tenantId, status: "PAID", paidAt: { gte: batasBulanIni } },
           _sum: { totalAmount: true },
           _count: true,
         }),
@@ -119,7 +124,7 @@ export async function getOwnerSummary(
   let pengeluaranBulanIni = 0;
   if (accountingAktif) {
     const pengeluaran = await prisma.expense.aggregate({
-      where: { tenantId, expenseDate: { gte: awalBulan } },
+      where: { tenantId, expenseDate: { gte: batasBulanIni } },
       _sum: { amount: true },
     });
     pengeluaranBulanIni = Number(pengeluaran._sum.amount ?? 0);
@@ -204,6 +209,8 @@ export async function getOwnerSummary(
     jumlahInvoice,
 
     pengeluaranBulanIni,
+    // labaBersih dihitung tepat sebagai pendapatan bulan ini dikurangi pengeluaran.
+    arusKasBulanIni: labaBersih,
     estimasiZakat,
     mencapaiNisabZakat: hasilZakat.mencapaiNisab,
     nisabZakat: NISAB_PENGHASILAN,

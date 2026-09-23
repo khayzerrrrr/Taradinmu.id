@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   AlertTriangle,
   Boxes,
+  Coins,
   HeartHandshake,
   Lock,
   PackageX,
@@ -30,8 +31,8 @@ type Props = {
 export function OwnerDashboard({ ringkasan, basePath }: Props) {
   return (
     <div className="flex flex-col gap-6">
-      {/* Empat metrik utama: pendapatan, piutang, stok menipis, estimasi zakat. */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Metrik utama: pendapatan, arus kas, piutang, zakat, stok menipis. */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <MetricCard
           label="Total Pendapatan"
           value={
@@ -49,6 +50,22 @@ export function OwnerDashboard({ ringkasan, basePath }: Props) {
         />
 
         <MetricCard
+          label="Arus Kas Bulan Ini"
+          value={
+            ringkasan.accountingAktif
+              ? formatRupiah(ringkasan.arusKasBulanIni)
+              : "—"
+          }
+          hint={
+            ringkasan.accountingAktif
+              ? `Masuk ${formatRupiah(ringkasan.pendapatanBulanIni)} − keluar ${formatRupiah(ringkasan.pengeluaranBulanIni)}`
+              : "Modul Akuntansi belum aktif"
+          }
+          icon={Coins}
+          style={{ animationDelay: "40ms" }}
+        />
+
+        <MetricCard
           label="Piutang"
           value={ringkasan.billingAktif ? formatRupiah(ringkasan.piutang) : "—"}
           hint={
@@ -57,7 +74,7 @@ export function OwnerDashboard({ ringkasan, basePath }: Props) {
               : "Modul Billing belum aktif"
           }
           icon={Wallet}
-          style={{ animationDelay: "40ms" }}
+          style={{ animationDelay: "80ms" }}
         />
 
         <MetricCard
@@ -73,7 +90,7 @@ export function OwnerDashboard({ ringkasan, basePath }: Props) {
               : "Modul Inventory belum aktif"
           }
           icon={PackageX}
-          style={{ animationDelay: "80ms" }}
+          style={{ animationDelay: "120ms" }}
         />
 
         <MetricCard
@@ -93,7 +110,7 @@ export function OwnerDashboard({ ringkasan, basePath }: Props) {
                 }`
           }
           icon={HeartHandshake}
-          style={{ animationDelay: "120ms" }}
+          style={{ animationDelay: "160ms" }}
         />
       </div>
 

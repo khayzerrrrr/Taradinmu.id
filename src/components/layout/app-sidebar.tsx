@@ -92,7 +92,7 @@ export function SidebarPanel({
  */
 export function AppSidebar(props: PanelProps) {
   return (
-    <aside className="sticky top-0 hidden h-svh w-sidebar shrink-0 self-start md:block">
+    <aside className="cetak-sembunyi sticky top-0 hidden h-svh w-sidebar shrink-0 self-start md:block">
       <SidebarPanel {...props} />
     </aside>
   );

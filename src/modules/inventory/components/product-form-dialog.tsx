@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
@@ -19,7 +19,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -29,18 +37,29 @@ import {
   createProductSchema,
   type CreateProductFormValues,
 } from "../schemas/product-schema";
+import {
+  ITEM_KINDS,
+  ITEM_KIND_LABELS,
+  type ItemKindValue,
+} from "@/shared/item-kind";
 
-export function ProductFormDialog() {
+type Props = {
+  /** Nilai awal jenis item, diambil dari preset jenis usaha tenant. */
+  defaultKind?: ItemKindValue;
+};
+
+export function ProductFormDialog({ defaultKind = "GOODS" }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<CreateProductFormValues>({
     resolver: zodResolver(createProductSchema),
-    defaultValues: { name: "", description: "" },
+    defaultValues: { name: "", description: "", kind: defaultKind },
   });
 
   const { errors } = form.formState;
+  const kind = useWatch({ control: form.control, name: "kind" });
 
   async function onSubmit(values: CreateProductFormValues) {
     setSubmitting(true);
@@ -49,7 +68,7 @@ export function ProductFormDialog() {
 
     if (result.success) {
       toast.success(result.message);
-      form.reset();
+      form.reset({ name: "", description: "", kind: defaultKind });
       setOpen(false);
       router.refresh();
       return;
@@ -66,14 +85,14 @@ export function ProductFormDialog() {
       <DialogTrigger asChild>
         <Button>
           <Plus />
-          Tambah Produk
+          Tambah Item
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Tambah Produk</DialogTitle>
+          <DialogTitle>Tambah Item</DialogTitle>
           <DialogDescription>
-            Produk akan tersimpan untuk tenant ini. Varian (SKU &amp; harga)
+            Item akan tersimpan untuk tenant ini. Varian (SKU &amp; harga)
             ditambahkan setelahnya.
           </DialogDescription>
         </DialogHeader>
@@ -83,11 +102,44 @@ export function ProductFormDialog() {
           className="flex flex-col gap-4"
         >
           <FieldGroup>
+            <Field data-invalid={Boolean(errors.kind)}>
+              <FieldLabel>Jenis Item</FieldLabel>
+              <Select
+                value={kind}
+                onValueChange={(value) =>
+                  form.setValue("kind", value as ItemKindValue, {
+                    shouldValidate: true,
+                  })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Pilih jenis item" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ITEM_KINDS.map((nilai) => (
+                    <SelectItem key={nilai} value={nilai}>
+                      {ITEM_KIND_LABELS[nilai]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {kind === "SERVICE"
+                  ? "Jasa tidak memakai stok, jadi invoice untuk item ini tidak memotong stok."
+                  : "Barang memakai stok: setiap invoice akan memotong stok (FEFO)."}
+              </FieldDescription>
+              <FieldError errors={[errors.kind]} />
+            </Field>
+
             <Field data-invalid={Boolean(errors.name)}>
-              <FieldLabel htmlFor="product-name">Nama Produk</FieldLabel>
+              <FieldLabel htmlFor="product-name">Nama Item</FieldLabel>
               <Input
                 id="product-name"
-                placeholder="Paracetamol / Baju Koko"
+                placeholder={
+                  kind === "SERVICE"
+                    ? "Paket Umrah 9 hari / Cuci Kering 3 kg"
+                    : "Paracetamol / Baju Koko"
+                }
                 {...form.register("name")}
               />
               <FieldError errors={[errors.name]} />
@@ -99,7 +151,7 @@ export function ProductFormDialog() {
               </FieldLabel>
               <Textarea
                 id="product-description"
-                placeholder="Keterangan singkat produk"
+                placeholder="Keterangan singkat"
                 {...form.register("description")}
               />
               <FieldError errors={[errors.description]} />

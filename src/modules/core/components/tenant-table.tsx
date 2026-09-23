@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { DataTableToolbar } from "@/components/shared/data-table-toolbar";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ImpersonateTenantDialog } from "./impersonate-tenant-dialog";
 import { TenantEditDialog } from "./tenant-edit-dialog";
 import { TenantFormDialog } from "./tenant-form-dialog";
 import type { PaginationMeta, TenantListItem } from "@/modules/core/types";
@@ -104,7 +105,10 @@ export function TenantTable({ tenants, meta }: Props) {
                   {formatTanggal(tenant.createdAt)}
                 </TableCell>
                 <TableCell className="text-right">
-                  <TenantEditDialog tenant={tenant} />
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <ImpersonateTenantDialog tenant={tenant} />
+                    <TenantEditDialog tenant={tenant} />
+                  </div>
                 </TableCell>
               </TableRow>
             ))

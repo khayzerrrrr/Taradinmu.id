@@ -22,13 +22,10 @@ const prisma = new PrismaClient({
 // ── Konfigurasi demo ────────────────────────────────────────────────────────
 const PASSWORD_DEMO = process.env.DEMO_OWNER_PASSWORD ?? "DemoTaradinMu#2026";
 
-// Enum BusinessType yang tersedia saat ini: RETAIL, FNB, PHARMACY, SERVICE,
-// MANUFACTURING, OTHER. PRD menyebut "TRAVEL_UMROH" dan "RETAIL_FNB"; keduanya
-// dipetakan ke nilai terdekat di bawah ini (businessType tidak ditampilkan di UI,
-// jadi pemetaan ini tidak terlihat pada presentasi). Ubah dua baris ini bila
-// nilai enum-nya ditambahkan nanti.
-const BT_TRAVEL = "SERVICE" as const; // padanan TRAVEL_UMROH
-const BT_MINIMARKET = "RETAIL" as const; // padanan RETAIL_FNB
+// Jenis usaha tenant demo (PRD Bagian 4.C). Nilai-nilai ini sudah tersedia di
+// enum BusinessType, sehingga tidak ada lagi pemetaan sementara di sini.
+const BT_TRAVEL = "TRAVEL_UMROH" as const;
+const BT_MINIMARKET = "RETAIL_FNB" as const;
 
 const SLUG_TRAVEL = "berkah-haramain";
 const SLUG_MINIMARKET = "toko-berkah";
@@ -281,15 +278,19 @@ async function seedTravel(): Promise<string> {
     items: [{ variantId: varVip.id, quantity: 1, price: hargaVip }],
   });
 
-  // Riwayat zakat: sudah ditunaikan.
+  // Riwayat zakat: sudah ditunaikan. Periode mengikuti bulan tanggalnya agar
+  // data demo tidak tampil sebagai "Tanpa periode" di riwayat.
   const totalAset = 850_000_000;
   const totalHutang = 120_000_000;
   const neto = round2(totalAset - totalHutang);
+  const tanggalZakat = bulanLalu(25);
   await prisma.zakatCalculation.create({
     data: {
       tenantId: tenant.id,
       type: "TRADE",
-      calculationDate: bulanLalu(25),
+      calculationDate: tanggalZakat,
+      periodYear: tanggalZakat.getUTCFullYear(),
+      periodMonth: tanggalZakat.getUTCMonth() + 1,
       totalAssets: totalAset.toFixed(2),
       totalLiabilities: totalHutang.toFixed(2),
       netAssets: neto.toFixed(2),

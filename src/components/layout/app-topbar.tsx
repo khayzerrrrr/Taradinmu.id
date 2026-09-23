@@ -31,7 +31,7 @@ type Props = {
  */
 export function AppTopbar({ user, basePath, logoutAction }: Props) {
   return (
-    <header className="sticky top-0 z-30 flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-4 md:gap-3 md:px-6">
+    <header className="cetak-sembunyi sticky top-0 z-30 flex h-topbar shrink-0 items-center gap-2 border-b border-border bg-surface px-4 md:gap-3 md:px-6">
       <Breadcrumbs basePath={basePath} />
 
       <div className="ml-auto flex items-center gap-1">

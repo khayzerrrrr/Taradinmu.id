@@ -1,6 +1,7 @@
 import type {
   ExpenseCategory,
   PlanType,
+  Role,
   ZakatType,
 } from "@/generated/prisma/client";
 
@@ -90,7 +91,11 @@ export type ZakatPerniagaan = {
 export type ZakatHistoryItem = {
   id: string;
   type: ZakatType;
+  /** Waktu perhitungan/penyimpanan (jejak input). */
   calculationDate: string;
+  /** Periode laporan; null hanya untuk baris lama sebelum migrasi. */
+  periodYear: number | null;
+  periodMonth: number | null;
   totalAssets: string;
   totalLiabilities: string;
   netAssets: string;
@@ -100,4 +105,23 @@ export type ZakatHistoryItem = {
   isPaid: boolean;
   paidAt: string | null;
   notes: string | null;
+};
+
+// --- MODUL CORE: MANAJEMEN PENGGUNA ---
+
+export type UserListItem = {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  createdAt: string;
+  /** Baris milik sesi yang sedang aktif — tidak boleh dihapus/diubah sendiri. */
+  isSelf: boolean;
+  /** Akun pemilik/SUPER_ADMIN tidak dapat diubah dari halaman ini. */
+  tidakDapatDiubah: boolean;
+};
+
+export type UserListData = {
+  users: UserListItem[];
+  meta: import("@/shared/types").PaginationMeta;
 };

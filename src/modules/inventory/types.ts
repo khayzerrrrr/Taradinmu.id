@@ -1,3 +1,4 @@
+import type { ItemKind } from "@/generated/prisma/client";
 import type { PaginationMeta } from "@/shared/types";
 
 // Tipe internal modul inventory (tidak mengimpor tipe dari modul lain).
@@ -14,6 +15,8 @@ export type ProductListItem = {
   id: string;
   name: string;
   description: string | null;
+  /** Barang (punya stok) atau jasa (tanpa stok). */
+  kind: ItemKind;
   createdAt: string;
   variants: VariantItem[];
 };

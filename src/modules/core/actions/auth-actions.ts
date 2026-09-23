@@ -1,6 +1,7 @@
 "use server";
 
 import { AuthError } from "next-auth";
+import { BATAS_LOGIN_EMAIL, lihatBatas } from "@/lib/rate-limit";
 import { signIn, signOut } from "@/modules/core/auth";
 
 export type LoginActionState = {
@@ -20,6 +21,22 @@ export async function loginAction(
   _prevState: LoginActionState,
   formData: FormData,
 ): Promise<LoginActionState> {
+  // Penegakan rate limit yang sesungguhnya ada di `authorize()` (satu-satunya
+  // jalur yang tidak bisa dilewati). Pemeriksaan di sini hanya MEMBACA hitungan
+  // tanpa menambah, supaya pengguna yang terkena batas menerima penjelasan yang
+  // jelas — bukan "kata sandi salah" yang menyesatkan.
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (email) {
+    const batas = await lihatBatas(`login:${email}`, BATAS_LOGIN_EMAIL);
+    if (!batas.allowed) {
+      return {
+        success: false,
+        message:
+          "Terlalu banyak percobaan masuk. Mohon tunggu beberapa menit sebelum mencoba lagi.",
+      };
+    }
+  }
+
   try {
     await signIn("credentials", {
       email: String(formData.get("email") ?? ""),

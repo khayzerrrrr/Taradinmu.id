@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { getPresetConfig } from "@/lib/business-presets";
 import { getCurrentTenant } from "@/lib/tenant";
 import { requireTenantMember } from "@/lib/tenant-access";
 import { getProducts } from "@/modules/inventory/actions/product-actions";
@@ -11,7 +12,7 @@ import { ProductFormDialog } from "@/modules/inventory/components/product-form-d
 import { isModuleEnabled } from "@/shared/modules";
 import type { PaginationMeta } from "@/shared/types";
 
-// Halaman utama Modul Inventory: katalog produk + varian (SKU & harga).
+// Halaman utama Modul Inventory: katalog barang & jasa + varian (SKU & harga).
 // Data bergantung sesi & query, jadi selalu dirender per-request.
 export const dynamic = "force-dynamic";
 
@@ -59,12 +60,17 @@ export default async function InventoryPage({
     totalPages: 1,
   };
 
+  // Jenis usaha menentukan jenis item yang paling sering dibuat: travel/laundry
+  // mayoritas jasa, minimarket mayoritas barang. Hanya nilai awal form, tetap
+  // bisa diubah pengguna.
+  const defaultKind = getPresetConfig(tenant.businessType).defaultItemKind;
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Inventory"
-        description={`Katalog produk beserta varian (SKU & harga) untuk ${tenant.name}.`}
-        aksi={<ProductFormDialog />}
+        title="Produk & Layanan"
+        description={`Katalog barang dan jasa beserta varian (SKU & harga) untuk ${tenant.name}.`}
+        aksi={<ProductFormDialog defaultKind={defaultKind} />}
       />
 
       {!result.success ? (
@@ -75,6 +81,7 @@ export default async function InventoryPage({
         products={products}
         meta={meta}
         search={input.search ?? ""}
+        defaultKind={defaultKind}
       />
     </div>
   );

@@ -18,6 +18,12 @@ export const RESERVED_SLUGS = [
   "robots.txt",
   "sitemap.xml",
   "manifest.webmanifest",
+  // Rute halaman autentikasi. Segmen statis memang menang atas [tenantSlug],
+  // tetapi tanpa dicadangkan di sini tenant bisa mendaftar dengan slug tersebut
+  // dan dashboard-nya akan tertutup oleh halaman ini.
+  "register",
+  "lupa-sandi",
+  "reset-sandi",
 ] as const;
 
 export function isReservedSlug(value: string): boolean {

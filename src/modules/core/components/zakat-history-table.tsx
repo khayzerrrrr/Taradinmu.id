@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { History } from "lucide-react";
 import type { ZakatType } from "@/generated/prisma/client";
 import { Badge } from "@/components/ui/badge";
@@ -23,13 +24,46 @@ const JENIS_LABELS: Record<ZakatType, string> = {
   LIVESTOCK: "Peternakan",
 };
 
+// Nama bulan ditulis eksplisit, bukan lewat Intl, supaya hasilnya tidak
+// bergantung pada kelengkapan data ICU di runtime (server vs browser).
+const NAMA_BULAN = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
+] as const;
+
+/** Judul kelompok periode. Baris lama (sebelum migrasi) belum punya periode. */
+function labelPeriode(item: ZakatHistoryItem): string {
+  if (item.periodYear === null || item.periodMonth === null) {
+    return "Tanpa periode";
+  }
+  return `${NAMA_BULAN[item.periodMonth - 1]} ${item.periodYear}`;
+}
+
+const JUMLAH_KOLOM = 6;
+
 export function ZakatHistoryTable({ items }: { items: ZakatHistoryItem[] }) {
+  // Penanda periode terakhir yang sudah diberi judul kelompok. Server sudah
+  // mengurutkan baris per periode (menurun), jadi satu kali jalan cukup untuk
+  // menyisipkan judul setiap kali periode berubah.
+  let periodeSebelumnya: string | null = null;
+
   return (
     <Card className="overflow-hidden p-0">
       <div className="border-b border-border p-3">
         <h2 className="text-sm font-medium">Riwayat Zakat</h2>
         <p className="text-xs text-muted-foreground">
-          Perhitungan yang sudah ditandai dibayar (maks. 20 terakhir).
+          Perhitungan yang sudah ditandai dibayar, dikelompokkan per periode
+          (maks. 20 terakhir).
         </p>
       </div>
 
@@ -47,7 +81,7 @@ export function ZakatHistoryTable({ items }: { items: ZakatHistoryItem[] }) {
         <TableBody>
           {items.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6}>
+              <TableCell colSpan={JUMLAH_KOLOM}>
                 <EmptyState
                   icon={History}
                   title="Belum ada riwayat zakat"
@@ -56,30 +90,49 @@ export function ZakatHistoryTable({ items }: { items: ZakatHistoryItem[] }) {
               </TableCell>
             </TableRow>
           ) : (
-            items.map((item) => (
-              <TableRow key={item.id}>
-                <TableCell className="whitespace-nowrap text-muted-foreground">
-                  {formatTanggal(item.calculationDate)}
-                </TableCell>
-                <TableCell>{JENIS_LABELS[item.type]}</TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatRupiah(item.netAssets)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {formatRupiah(item.nisab)}
-                </TableCell>
-                <TableCell className="text-right font-medium tabular-nums">
-                  {formatRupiah(item.zakatDue)}
-                </TableCell>
-                <TableCell>
-                  {item.isPaid ? (
-                    <Badge variant="default">Sudah Dibayar</Badge>
-                  ) : (
-                    <Badge variant="warning">Belum Dibayar</Badge>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))
+            items.map((item) => {
+              const periode = labelPeriode(item);
+              const periodeBaru = periode !== periodeSebelumnya;
+              periodeSebelumnya = periode;
+
+              return (
+                <Fragment key={item.id}>
+                  {periodeBaru ? (
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
+                      <TableCell
+                        colSpan={JUMLAH_KOLOM}
+                        className="text-xs font-semibold tracking-wide uppercase"
+                      >
+                        {periode}
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+
+                  <TableRow>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {formatTanggal(item.calculationDate)}
+                    </TableCell>
+                    <TableCell>{JENIS_LABELS[item.type]}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatRupiah(item.netAssets)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {formatRupiah(item.nisab)}
+                    </TableCell>
+                    <TableCell className="text-right font-medium tabular-nums">
+                      {formatRupiah(item.zakatDue)}
+                    </TableCell>
+                    <TableCell>
+                      {item.isPaid ? (
+                        <Badge variant="default">Sudah Dibayar</Badge>
+                      ) : (
+                        <Badge variant="warning">Belum Dibayar</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                </Fragment>
+              );
+            })
           )}
         </TableBody>
       </Table>

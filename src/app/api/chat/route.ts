@@ -1,104 +1,118 @@
-import { NextResponse } from "next/server";
 import { createOpenAI } from "@ai-sdk/openai";
-import { convertToModelMessages, streamText, type UIMessage } from "ai";
+import { streamText } from "ai";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { BATAS_CHAT, periksaBatas } from "@/lib/rate-limit";
 import { getSessionUser } from "@/lib/tenant-access";
 
-export const maxDuration = 30;
+// Asisten AI TaradinMu (PRD Bagian 4.E).
+//
+// Properti penting:
+// - Hanya untuk tenant PRO. Penegakan di sini, bukan hanya di UI.
+// - Tanpa DEEPSEEK_API_KEY endpoint membalas 503 dengan pesan jelas, bukan crash.
+// - baseURL punya nilai bawaan sehingga hanya kunci API yang wajib diisi.
 
-/**
- * System prompt Asisten TaradinMu.
- *
- * Sengaja memuat daftar fitur yang BENAR-BENAR ada di aplikasi (lihat modul
- * inventory/billing/keuangan) supaya asisten tidak menjanjikan hal yang belum
- * dibangun, dan menegaskan bahwa ia tidak punya akses ke data usaha pengguna.
- */
-export const SYSTEM_PROMPT = `Anda adalah "Asisten TaradinMu", asisten usaha berbahasa Indonesia untuk UMKM.
+export const runtime = "nodejs";
 
-Anda membantu pemilik usaha memahami dan memakai fitur TaradinMu:
-- Inventory: produk, varian (SKU & harga), batch, tanggal kedaluwarsa, stok masuk/keluar memakai FEFO (batch kedaluwarsa terdekat dipakai lebih dulu).
-- Billing: pelanggan, invoice, dan statusnya (Draft, Terkirim, Lunas, Jatuh Tempo) serta piutang.
-- Keuangan: pencatatan pengeluaran, lalu perhitungan zakat penghasilan (otomatis dari invoice lunas dikurangi pengeluaran) dan zakat perniagaan (manual: aset dikurangi hutang).
-- Paket: FREE dibatasi 50 invoice & 100 produk, tanpa fitur batch dan tanpa zakat otomatis; paket PRO membuka semuanya termasuk branding (logo & warna).
+// Kepribadian AI. Aturan "jangan mengarang angka" sengaja ditaruh di sini karena
+// akses data (RAG) belum dipasang — tanpa aturan itu model cenderung menebak.
+const SYSTEM_PROMPT = `
+Kamu adalah "Asisten TaradinMu", asisten bisnis digital untuk para pengusaha di lingkungan Serikat Usaha Muhammadiyah (SUMU).
 
-Aturan menjawab:
-1. Gunakan Bahasa Indonesia yang ringkas, ramah, dan mudah dipahami pengusaha non-teknis.
-2. Anda TIDAK punya akses ke data usaha pengguna. Jangan mengarang angka, stok, atau nominal apa pun — arahkan mereka ke halaman yang tepat di aplikasi.
-3. Untuk pertanyaan zakat, sebutkan bahwa angkanya estimasi (kadar 2,5%, nisab 85 gram emas) dan keputusan akhir sebaiknya dikonsultasikan kepada amil atau ustaz.
-4. Jangan menjanjikan fitur yang tidak ada. Jika pertanyaannya di luar TaradinMu, jawab singkat lalu arahkan kembali.
-5. Jangan pernah menampilkan data pribadi atau rahasia.`;
+ATURAN UTAMA PERILAKU:
+1. Sopan & Islami: gunakan sapaan santun. Awali percakapan pertama dengan "Assalamu'alaikum". Gunakan "Silakan", "Mohon maaf", "Terima kasih". Hindari bahasa gaul.
+2. Profesional & Solutif: jawaban ringkas, padat, langsung pada inti. Pakai Markdown (bold, list, tabel) agar mudah dibaca di ponsel.
+3. Berbasis Data & Fakta: saat ini kamu BELUM terhubung ke data tenant. JANGAN MENGARANG ANGKA. Bila ditanya data keuangan atau stok, jawab dengan sopan bahwa data belum tersedia di sesi ini dan arahkan pengguna ke halaman terkait (Dashboard, Inventory, Billing, Pengeluaran, atau Zakat).
+4. Prinsip Syariah: selaraskan saran bisnis dengan prinsip muamalah (halal, thayyib, saling meridhai/taradin, menghindari riba dan gharar).
+5. Bahasa: Bahasa Indonesia yang baik dan mudah dipahami pelaku UMKM.
 
-type BodyPermintaan = { messages?: UIMessage[] };
+TUGAS:
+- Membantu memahami cara mencatat pengeluaran atau membuat invoice.
+- Menjelaskan cara membaca laporan sederhana.
+- Membuat draf pesan WhatsApp yang sopan untuk menagih piutang.
+- Menjawab pertanyaan seputar hitungan zakat perniagaan dan zakat penghasilan (nisab 85 gram emas, kadar 2,5%).
+- Jika pengguna meminta data spesifik miliknya, jelaskan langkah membukanya sendiri di aplikasi.
+`.trim();
 
-// Klien DeepSeek (API-nya kompatibel dengan OpenAI). Dipakai untuk menekan
-// biaya produksi; baseURL bisa diarahkan ke endpoint lain lewat env.
-const deepseek = createOpenAI({
-  baseURL: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com/v1",
-  apiKey: process.env.DEEPSEEK_API_KEY,
+// PRD Bagian 6: semua input divalidasi Zod sebelum dipakai.
+const pesanSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string().min(1).max(4000),
 });
 
-/**
- * POST /api/chat — endpoint chat AI (streaming, protokol UI Message AI SDK).
- *
- * Catatan: rute /api/* tidak melewati proxy tenant, sehingga konteks tenant
- * tidak tersedia di sini. Otorisasi cukup memakai sesi yang sedang aktif.
- */
-export async function POST(req: Request) {
+const bodySchema = z.object({
+  messages: z.array(pesanSchema).min(1).max(40),
+});
+
+function balas(pesan: string, status: number): Response {
+  return new Response(pesan, {
+    status,
+    headers: { "Content-Type": "text/plain; charset=utf-8" },
+  });
+}
+
+export async function POST(req: Request): Promise<Response> {
   const user = await getSessionUser();
-  if (!user) {
-    return NextResponse.json(
-      { error: "Sesi tidak ditemukan. Silakan masuk terlebih dahulu." },
-      { status: 401 },
+  if (!user) return balas("Sesi tidak ditemukan. Silakan masuk terlebih dahulu.", 401);
+
+  // Feature gating PRO (PRD 4.E). SUPER_ADMIN tetap boleh untuk keperluan uji.
+  const tenant = user.tenantId
+    ? await prisma.tenant.findUnique({
+        where: { id: user.tenantId },
+        select: { plan: true },
+      })
+    : null;
+  const bolehPakai = user.role === "SUPER_ADMIN" || tenant?.plan === "PRO";
+  if (!bolehPakai) {
+    return balas(
+      "Asisten AI hanya tersedia pada paket PRO. Silakan upgrade untuk mengaktifkannya.",
+      403,
     );
   }
 
-  // Tanpa kunci API, jangan sampai melempar error mentah ke klien.
-  if (!process.env.DEEPSEEK_API_KEY) {
-    return NextResponse.json(
-      {
-        error:
-          "Chat AI belum dikonfigurasi. Isi DEEPSEEK_API_KEY pada file .env untuk mengaktifkannya.",
-      },
-      { status: 503 },
+  // Batas pemakaian asisten (pengerasan produksi). Kunci per pengguna, bukan per
+  // IP: endpoint ini selalu berada di belakang sesi, jadi identitas pengguna
+  // lebih tepat dan tidak bisa dipalsukan lewat header.
+  const batas = await periksaBatas(`chat:${user.id}`, BATAS_CHAT);
+  if (!batas.allowed) {
+    return balas(
+      "Terlalu banyak permintaan ke Asisten AI. Mohon tunggu beberapa menit.",
+      429,
     );
   }
 
-  let body: BodyPermintaan;
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) {
+    return balas(
+      "Asisten AI belum dikonfigurasi: DEEPSEEK_API_KEY kosong. Hubungi admin platform.",
+      503,
+    );
+  }
+
+  let mentah: unknown;
   try {
-    body = (await req.json()) as BodyPermintaan;
+    mentah = await req.json();
   } catch {
-    return NextResponse.json(
-      { error: "Format permintaan tidak valid." },
-      { status: 400 },
-    );
+    return balas("Format permintaan tidak valid.", 400);
   }
 
-  const messages = body.messages ?? [];
-  if (messages.length === 0) {
-    return NextResponse.json(
-      { error: "Tidak ada pesan yang dikirim." },
-      { status: 400 },
-    );
-  }
+  const parsed = bodySchema.safeParse(mentah);
+  if (!parsed.success) return balas("Format permintaan tidak valid.", 400);
 
-  try {
-    const result = streamText({
-      // DeepSeek hanya kompatibel dengan Chat Completions API (bukan Responses
-      // API), jadi WAJIB lewat .chat() — memanggil provider langsung akan
-      // menuju /responses dan gagal.
-      model: deepseek.chat(process.env.DEEPSEEK_MODEL || "deepseek-chat"),
-      system: SYSTEM_PROMPT,
-      messages: await convertToModelMessages(messages),
-    });
+  // Provider dibuat di dalam handler agar variabel lingkungan dibaca saat request,
+  // bukan saat build (build produksi tidak punya kunci API).
+  const deepseek = createOpenAI({
+    baseURL: process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com/v1",
+    apiKey,
+  });
 
-    return result.toUIMessageStreamResponse({
-      // Pesan error yang aman: detail teknis tidak dibocorkan ke klien.
-      onError: () => "Terjadi kesalahan saat memproses pesan. Coba lagi.",
-    });
-  } catch (error) {
-    console.error("Chat AI gagal:", error);
-    return NextResponse.json(
-      { error: "Gagal memproses pesan." },
-      { status: 500 },
-    );
-  }
+  const result = streamText({
+    model: deepseek(process.env.DEEPSEEK_MODEL ?? "deepseek-chat"),
+    system: SYSTEM_PROMPT,
+    messages: parsed.data.messages,
+    temperature: 0.7,
+    maxOutputTokens: 1024,
+  });
+
+  return result.toTextStreamResponse();
 }

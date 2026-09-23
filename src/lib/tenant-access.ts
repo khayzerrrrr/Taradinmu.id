@@ -11,6 +11,9 @@ import { getTenantRequestInfo, type TenantIndex } from "@/lib/tenant";
 const TENANT_MANAGER_ROLES: readonly Role[] = ["OWNER", "ADMIN", "STAFF"];
 // Role yang boleh mengubah identitas/branding tenant.
 const TENANT_OWNER_ROLES: readonly Role[] = ["OWNER"];
+// Role yang boleh mengelola pengguna tenant (PRD Bagian 4.D: PRO dapat menambah
+// Admin, Staff, dan Akuntan; yang boleh mengundang adalah OWNER dan ADMIN).
+const TENANT_USER_MANAGER_ROLES: readonly Role[] = ["OWNER", "ADMIN"];
 
 export const getSessionUser = cache(async () => {
   const session = await auth();
@@ -57,6 +60,27 @@ export async function assertTenantOwner(
   return { ok: true, userId: user.id };
 }
 
+// Hanya OWNER/ADMIN (atau SUPER_ADMIN) — untuk mengelola pengguna tenant.
+export async function assertTenantUserManager(
+  tenantId: string,
+): Promise<TenantGuardResult> {
+  const user = await getSessionUser();
+  if (!user) {
+    return { ok: false, message: "Sesi tidak ditemukan. Silakan masuk terlebih dahulu." };
+  }
+  if (user.role === "SUPER_ADMIN") return { ok: true, userId: user.id };
+  if (user.tenantId !== tenantId) {
+    return { ok: false, message: "Akses ditolak. Anda bukan anggota tenant ini." };
+  }
+  if (!TENANT_USER_MANAGER_ROLES.includes(user.role)) {
+    return {
+      ok: false,
+      message: "Akses ditolak. Hanya pemilik atau admin yang boleh mengelola pengguna.",
+    };
+  }
+  return { ok: true, userId: user.id };
+}
+
 // Untuk halaman: redirect bila belum masuk / bukan anggota tenant.
 export async function requireTenantMember(tenant: TenantIndex) {
   const user = await getSessionUser();
@@ -74,6 +98,16 @@ export async function requireTenantOwner(tenant: TenantIndex) {
   if (user.role === "SUPER_ADMIN") return user;
   if (user.tenantId !== tenant.id) redirect("/");
   if (!TENANT_OWNER_ROLES.includes(user.role)) redirect("/");
+  return user;
+}
+
+// Untuk halaman pengguna: hanya OWNER/ADMIN.
+export async function requireTenantUserManager(tenant: TenantIndex) {
+  const user = await getSessionUser();
+  if (!user) redirect(await keLogin(tenant));
+  if (user.role === "SUPER_ADMIN") return user;
+  if (user.tenantId !== tenant.id) redirect("/");
+  if (!TENANT_USER_MANAGER_ROLES.includes(user.role)) redirect("/");
   return user;
 }
 

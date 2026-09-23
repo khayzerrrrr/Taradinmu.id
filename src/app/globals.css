@@ -264,3 +264,35 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   6. CETAK (print)
+   ═══════════════════════════════════════════════════════════════════════════
+   Pola cetak pertama di repo ini — dipakai oleh "Cetak Laporan Zakat"
+   (PRD 4.D.3) yang diserahkan ke LAZISMU/BAZNAS.
+
+   Cara pakai:
+   - `.cetak-sembunyi` → disembunyikan saat mencetak: kerangka aplikasi
+     (sidebar, bilah atas, navigasi bawah) dan UI interaktif pada halaman.
+   - `.cetak-laporan`  → tersembunyi di layar, muncul hanya saat mencetak.
+
+   Sengaja CSS biasa, bukan varian `print:` Tailwind yang tersebar di banyak
+   komponen, supaya daftar apa yang disembunyikan ada di satu tempat. */
+
+.cetak-laporan {
+  display: none;
+}
+
+@media print {
+  .cetak-sembunyi {
+    display: none !important;
+  }
+
+  .cetak-laporan {
+    display: block !important;
+  }
+
+  @page {
+    margin: 16mm;
+  }
+}

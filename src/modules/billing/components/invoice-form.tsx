@@ -265,7 +265,9 @@ export function InvoiceForm({ customers, variants, defaultDueDate }: Props) {
                                 </Select>
                                 {variantDipilih ? (
                                   <FieldDescription>
-                                    Stok layak: {variantDipilih.available} unit
+                                    {variantDipilih.kind === "SERVICE"
+                                      ? "Layanan — tanpa stok, invoice ini tidak memotong stok."
+                                      : `Stok layak: ${variantDipilih.available} unit`}
                                   </FieldDescription>
                                 ) : null}
                                 <FieldError errors={[barisError?.variantId]} />

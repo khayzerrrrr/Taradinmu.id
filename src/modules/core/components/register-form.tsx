@@ -2,12 +2,14 @@
 
 import { useActionState, useState } from "react";
 import {
-  Factory,
-  Pill,
+  ClipboardList,
+  GraduationCap,
+  HardHat,
+  HeartPulse,
+  Plane,
   Shapes,
   Store,
-  UtensilsCrossed,
-  Wrench,
+  Truck,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "cn";
@@ -30,11 +32,13 @@ import type { BusinessType } from "@/generated/prisma/client";
 
 // Ikon per jenis usaha (dipetakan di UI, bukan di file preset yang murni data).
 const PRESET_ICONS: Record<BusinessType, LucideIcon> = {
-  RETAIL: Store,
-  FNB: UtensilsCrossed,
-  PHARMACY: Pill,
-  SERVICE: Wrench,
-  MANUFACTURING: Factory,
+  RETAIL_FNB: Store,
+  TRAVEL_UMROH: Plane,
+  JASA_ORDER: ClipboardList,
+  PROJECT_BASED: HardHat,
+  TRADING: Truck,
+  EDUCATION: GraduationCap,
+  HEALTH_CLINIC: HeartPulse,
   OTHER: Shapes,
 };
 
@@ -45,7 +49,7 @@ export function RegisterForm() {
     registerTenantWithPreset,
     initialState,
   );
-  const [jenisUsaha, setJenisUsaha] = useState<BusinessType>("RETAIL");
+  const [jenisUsaha, setJenisUsaha] = useState<BusinessType>("RETAIL_FNB");
   const adaError = Boolean(state.message);
 
   return (

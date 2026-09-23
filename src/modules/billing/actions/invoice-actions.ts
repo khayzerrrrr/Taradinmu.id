@@ -1,6 +1,6 @@
 "use server";
 
-import type { Prisma } from "@/generated/prisma/client";
+import type { ItemKind, Prisma } from "@/generated/prisma/client";
 import {
   isRecordNotFoundError,
   isUniqueConstraintError,
@@ -102,6 +102,8 @@ function keListItem(invoice: {
 // ---------------------------------------------------------------------------
 
 // Varian + harga + stok layak, untuk form pembuatan invoice (Prisma langsung).
+// Termasuk item JASA (kind = SERVICE): item jasa tetap bisa ditagih, hanya saja
+// tidak menyentuh stok, jadi `available` tidak berarti untuknya.
 export async function getVariantsForInvoice(): Promise<
   ActionResponse<InvoiceVariantOption[]>
 > {
@@ -117,7 +119,7 @@ export async function getVariantsForInvoice(): Promise<
         sku: true,
         name: true,
         price: true,
-        product: { select: { name: true } },
+        product: { select: { name: true, kind: true } },
         batches: { select: { quantity: true, expiredDate: true } },
       },
     });
@@ -129,6 +131,7 @@ export async function getVariantsForInvoice(): Promise<
       name: variant.name,
       productName: variant.product.name,
       price: variant.price.toString(),
+      kind: variant.product.kind,
       available: ringkasStok(variant.batches, now).layak,
     }));
 
@@ -316,12 +319,19 @@ export async function createInvoice(input: unknown): Promise<
     }
 
     // Harga diambil dari DB (server otoritatif); harga dari client diabaikan.
+    // `kind` ikut diambil karena menentukan apakah baris ini memotong stok.
     const variants = await prisma.productVariant.findMany({
       where: {
         id: { in: items.map((item) => item.variantId) },
         product: { tenantId: akses.tenantId },
       },
-      select: { id: true, sku: true, name: true, price: true },
+      select: {
+        id: true,
+        sku: true,
+        name: true,
+        price: true,
+        product: { select: { kind: true } },
+      },
     });
     const petaVarian = new Map(variants.map((variant) => [variant.id, variant]));
 
@@ -331,6 +341,7 @@ export async function createInvoice(input: unknown): Promise<
       nama: string;
       quantity: number;
       price: number;
+      kind: ItemKind;
     }[] = [];
 
     for (const item of items) {
@@ -347,6 +358,7 @@ export async function createInvoice(input: unknown): Promise<
         nama: variant.name,
         quantity: item.quantity,
         price: Number(variant.price),
+        kind: variant.product.kind,
       });
     }
 
@@ -385,9 +397,14 @@ export async function createInvoice(input: unknown): Promise<
         select: { id: true, invoiceNumber: true, totalAmount: true },
       });
 
-      // Potong stok per item dan catat StockMovement OUT (reference = nomor invoice).
+      // Potong stok per item BARANG dan catat StockMovement OUT (reference =
+      // nomor invoice). Item JASA sengaja dilewati: jasa tidak punya stok, dan
+      // inilah yang membuat travel, laundry, serta pendidikan bisa menagih tanpa
+      // perlu membuat batch stok palsu lebih dulu.
       const allocations: { batchNumber: string; quantity: number }[] = [];
       for (const b of baris) {
+        if (b.kind === "SERVICE") continue;
+
         try {
           const alokasi = await alokasiFefoKeluar(tx, {
             variantId: b.variantId,
@@ -414,9 +431,13 @@ export async function createInvoice(input: unknown): Promise<
       return { invoice, allocations };
     });
 
+    const adaPotongStok = hasil.allocations.length > 0;
+
     return {
       success: true,
-      message: `Invoice ${hasil.invoice.invoiceNumber} dibuat; stok sudah dipotong (FEFO).`,
+      message: adaPotongStok
+        ? `Invoice ${hasil.invoice.invoiceNumber} dibuat; stok sudah dipotong (FEFO).`
+        : `Invoice ${hasil.invoice.invoiceNumber} dibuat (semua item jasa, tidak ada stok yang dipotong).`,
       data: {
         invoiceId: hasil.invoice.id,
         invoiceNumber: hasil.invoice.invoiceNumber,

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ITEM_KINDS } from "@/shared/item-kind";
 
 // Validasi input Product (PRD Bagian 6: semua input wajib lewat Zod).
 export const listProductsSchema = z.object({
@@ -7,31 +8,29 @@ export const listProductsSchema = z.object({
   search: z.string().trim().max(100).optional(),
 });
 
+const nameField = z
+  .string()
+  .trim()
+  .min(2, "Nama produk minimal 2 karakter.")
+  .max(120, "Nama produk maksimal 120 karakter.");
+
+const descriptionField = z
+  .string()
+  .trim()
+  .max(500, "Deskripsi maksimal 500 karakter.")
+  .optional();
+
 export const createProductSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(2, "Nama produk minimal 2 karakter.")
-    .max(120, "Nama produk maksimal 120 karakter."),
-  description: z
-    .string()
-    .trim()
-    .max(500, "Deskripsi maksimal 500 karakter.")
-    .optional(),
+  name: nameField,
+  description: descriptionField,
+  kind: z.enum(ITEM_KINDS),
 });
 
 export const updateProductSchema = z.object({
   productId: z.string().min(1, "Produk tidak valid."),
-  name: z
-    .string()
-    .trim()
-    .min(2, "Nama produk minimal 2 karakter.")
-    .max(120, "Nama produk maksimal 120 karakter."),
-  description: z
-    .string()
-    .trim()
-    .max(500, "Deskripsi maksimal 500 karakter.")
-    .optional(),
+  name: nameField,
+  description: descriptionField,
+  kind: z.enum(ITEM_KINDS),
 });
 
 export const deleteProductSchema = z.object({

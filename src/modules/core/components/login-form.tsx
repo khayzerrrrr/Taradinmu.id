@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,6 +53,17 @@ export function LoginForm({ callbackUrl }: Props) {
             required
           />
         </Field>
+        <div className="flex justify-end">
+          {/* text-primary-solid (#078360), bukan text-primary: emerald-600 hanya
+              3.77:1 di atas putih dan gagal WCAG AA untuk teks. */}
+          <Link
+            href="/lupa-sandi"
+            className="text-sm font-medium text-primary-solid underline-offset-4 hover:underline"
+          >
+            Lupa kata sandi?
+          </Link>
+        </div>
+
         {adaError ? <FieldError>{state.message}</FieldError> : null}
       </FieldGroup>
       <Button type="submit" size="lg" className="w-full" disabled={pending}>

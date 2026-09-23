@@ -39,6 +39,7 @@ import { aksesTenant } from "./akses-tenant";
 // ---------------------------------------------------------------------------
 
 // Daftar varian tenant + stok tersedia (dipakai form stok masuk/keluar).
+// Hanya item BARANG: jasa tidak punya stok, jadi tidak boleh muncul di sini.
 export async function getVariantsForStock(): Promise<
   ActionResponse<VariantOption[]>
 > {
@@ -47,7 +48,7 @@ export async function getVariantsForStock(): Promise<
 
   try {
     const variants = await prisma.productVariant.findMany({
-      where: { product: { tenantId: akses.tenantId } },
+      where: { product: { tenantId: akses.tenantId, kind: "GOODS" } },
       orderBy: [{ product: { name: "asc" } }, { sku: "asc" }],
       select: {
         id: true,
@@ -95,8 +96,9 @@ export async function getStockSummary(
   }
 
   const { page, perPage, search } = parsed.data;
+  // Hanya item BARANG — jasa tidak punya stok untuk diringkas.
   const where: Prisma.ProductVariantWhereInput = {
-    product: { tenantId: akses.tenantId },
+    product: { tenantId: akses.tenantId, kind: "GOODS" },
     ...(search
       ? {
           OR: [
@@ -304,7 +306,7 @@ export async function stockIn(input: unknown): Promise<
     parsed.data;
 
   // Kebijakan batch: nomor batch & tanggal kedaluwarsa hanya dipakai bila fitur
-  // batch aktif (plan PRO atau jenis usaha RETAIL/FNB). Selain itu stok masuk
+  // batch aktif (paket PRO — PRD Bagian 4.D). Selain itu stok masuk
   // menumpuk di satu batch default tanpa tanggal kedaluwarsa.
   const nomorBatch = akses.batchEnabled
     ? (batchNumber ?? "").trim()

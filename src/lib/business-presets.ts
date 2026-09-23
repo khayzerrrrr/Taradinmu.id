@@ -1,10 +1,27 @@
 import type { BusinessType, PlanType } from "@/generated/prisma/client";
+import { ambilBatasFitur } from "@/lib/plan-limits";
+import type { ItemKindValue } from "@/shared/item-kind";
 import type { ModuleKey } from "@/shared/modules";
 
-// Preset per jenis usaha (PRD Bagian 3): menentukan modul yang diaktifkan,
-// dukungan fitur batch, dan kategori default saat tenant baru mendaftar.
+// Preset per jenis usaha (PRD Bagian 4.C): menentukan modul yang diaktifkan,
+// jenis item yang paling sering dibuat, dan kategori default saat tenant baru
+// mendaftar.
 // File ini murni data (tanpa React / dependensi server) agar aman dipakai
 // client maupun server action. Ikon kartu dipetakan di komponen UI.
+
+/**
+ * Modul dasar untuk SEMUA jenis usaha.
+ *
+ * PENTING — INVENTORY bukan sekadar "stok". Katalog item (barang maupun jasa)
+ * berada di modul ini, dan tanpa itu tenant tidak dapat membuat satu pun item
+ * yang bisa ditagih. Preset travel umrah, jasa pesanan, dan pendidikan dahulu
+ * hanya memberi BILLING, sehingga form invoice menyuruh membuka modul yang tidak
+ * mereka miliki — tenant-nya buntu total.
+ *
+ * ACCOUNTING memuat pengeluaran & zakat; tanpa itu kartu Arus Kas Bulan Ini dan
+ * estimasi zakat selalu bernilai 0 untuk tenant baru.
+ */
+const MODUL_DASAR: ModuleKey[] = ["INVENTORY", "BILLING", "ACCOUNTING"];
 
 export type BusinessPreset = {
   businessType: BusinessType;
@@ -14,7 +31,19 @@ export type BusinessPreset = {
   description: string;
   /** Modul yang langsung diaktifkan untuk jenis usaha ini. */
   enabledModules: ModuleKey[];
-  /** Fitur batch (nomor batch + tanggal kedaluwarsa) untuk jenis usaha ini. */
+  /**
+   * Jenis item yang paling sering dibuat usaha ini, dipakai sebagai nilai awal
+   * form katalog. Hanya nilai awal — pengguna tetap bisa memilih jenis lain.
+   */
+  defaultItemKind: ItemKindValue;
+  /**
+   * Industri ini lazim memakai nomor batch & tanggal kedaluwarsa.
+   *
+   * PENTING — ini BUKAN penentu akses. Penegakan fitur batch mengikuti PAKET
+   * (PRD Bagian 4.D: paket FREE tanpa batch/kedaluwarsa) dan dihitung satu kali
+   * di `isBatchTrackingEnabled()`. Sebelumnya flag ini dipakai sebagai penentu
+   * akses, sehingga bertabrakan dengan src/lib/plan-limits.ts.
+   */
   batchTracking: boolean;
   /** Kategori default usaha (dipakai modul saat menambah produk/pengeluaran). */
   categories: string[];
@@ -24,79 +53,119 @@ const OTHER_PRESET: BusinessPreset = {
   businessType: "OTHER",
   label: "Usaha Lainnya",
   description: "Jenis usaha yang belum tercantum di atas.",
-  enabledModules: ["INVENTORY", "BILLING"],
+  enabledModules: [...MODUL_DASAR],
+  defaultItemKind: "GOODS",
   batchTracking: false,
   categories: ["Umum"],
 };
 
-// Urutan array ini juga menentukan urutan kartu di halaman registrasi.
+// Urutan array ini juga menentukan urutan kartu di halaman registrasi,
+// mengikuti urutan pada PRD Bagian 4.C.
 export const BUSINESS_PRESETS: readonly BusinessPreset[] = [
   {
-    businessType: "RETAIL",
-    label: "Toko / Ritel",
-    description: "Minimarket, kelontong, pakaian, dan toko fisik lainnya.",
-    enabledModules: ["INVENTORY", "BILLING"],
+    businessType: "RETAIL_FNB",
+    label: "Toko & Kuliner",
+    description: "Minimarket, kelontong, catering, restoran, dan kafe.",
+    enabledModules: [...MODUL_DASAR],
+    defaultItemKind: "GOODS",
     batchTracking: true,
     categories: [
       "Sembako",
       "Makanan & Minuman",
+      "Camilan",
       "Perawatan Diri",
       "Perlengkapan Rumah",
       "Lainnya",
     ],
   },
   {
-    businessType: "FNB",
-    label: "Kuliner (F&B)",
-    description: "Restoran, kafe, katering, dan usaha makanan-minuman.",
-    enabledModules: ["INVENTORY", "BILLING"],
-    batchTracking: true,
+    businessType: "TRAVEL_UMROH",
+    label: "Travel Umrah & Haji",
+    description: "Travel umrah, haji, dan penjualan tiket.",
+    enabledModules: [...MODUL_DASAR],
+    defaultItemKind: "SERVICE",
+    batchTracking: false,
     categories: [
-      "Makanan Utama",
-      "Minuman",
-      "Camilan",
-      "Dessert",
-      "Bahan Baku",
+      "Paket Umrah",
+      "Paket Haji",
+      "Tiket & Visa",
+      "Layanan Tambahan",
     ],
   },
   {
-    businessType: "PHARMACY",
-    label: "Farmasi / Klinik",
-    description: "Apotek, klinik, dan layanan kesehatan.",
-    enabledModules: ["INVENTORY", "BILLING"],
+    businessType: "JASA_ORDER",
+    label: "Jasa Pesanan",
+    description: "Laundry, aqiqah, konveksi, dan jasa berdasarkan pesanan.",
+    enabledModules: [...MODUL_DASAR],
+    defaultItemKind: "SERVICE",
     batchTracking: false,
+    categories: [
+      "Laundry",
+      "Aqiqah & Katering",
+      "Konveksi & Jahit",
+      "Perawatan",
+      "Lainnya",
+    ],
+  },
+  {
+    businessType: "PROJECT_BASED",
+    label: "Proyek & Event",
+    description: "Kontraktor, event organizer, dan pekerjaan berbasis proyek.",
+    enabledModules: [...MODUL_DASAR],
+    defaultItemKind: "SERVICE",
+    batchTracking: false,
+    categories: [
+      "Material Bangunan",
+      "Alat & Sewa",
+      "Tenaga Kerja",
+      "Jasa Profesional",
+      "Lainnya",
+    ],
+  },
+  {
+    businessType: "TRADING",
+    label: "Perdagangan & Distribusi",
+    description: "Distributor, ekspor-impor, dan perdagangan grosir.",
+    enabledModules: [...MODUL_DASAR],
+    defaultItemKind: "GOODS",
+    batchTracking: false,
+    categories: [
+      "Barang Dagangan",
+      "Bahan Baku",
+      "Kemasan",
+      "Lainnya",
+    ],
+  },
+  {
+    businessType: "EDUCATION",
+    label: "Pendidikan",
+    description: "Sekolah, bimbingan belajar, dan pesantren.",
+    enabledModules: [...MODUL_DASAR],
+    defaultItemKind: "SERVICE",
+    batchTracking: false,
+    categories: [
+      "SPP & Uang Sekolah",
+      "Pendaftaran",
+      "Buku & Seragam",
+      "Kegiatan",
+      "Lainnya",
+    ],
+  },
+  {
+    businessType: "HEALTH_CLINIC",
+    label: "Klinik & Apotek",
+    description: "Klinik, apotek, dan layanan kesehatan.",
+    enabledModules: [...MODUL_DASAR],
+    // Klinik menjual obat (barang) sekaligus layanan konsultasi (jasa).
+    defaultItemKind: "GOODS",
+    // PRD Bagian 3: tanggal kedaluwarsa wajib untuk F&B dan Farmasi.
+    batchTracking: true,
     categories: [
       "Obat Bebas",
       "Obat Keras",
       "Vitamin & Suplemen",
       "Alat Kesehatan",
       "Bahan Medis Habis Pakai",
-    ],
-  },
-  {
-    businessType: "SERVICE",
-    label: "Jasa",
-    description: "Konsultasi, perbaikan, dan layanan berbasis jasa.",
-    enabledModules: ["BILLING"],
-    batchTracking: false,
-    categories: [
-      "Jasa Konsultasi",
-      "Jasa Perbaikan",
-      "Jasa Instalasi",
-      "Langganan",
-    ],
-  },
-  {
-    businessType: "MANUFACTURING",
-    label: "Manufaktur / Produksi",
-    description: "Usaha produksi dengan bahan baku dan barang jadi.",
-    enabledModules: ["INVENTORY", "BILLING"],
-    batchTracking: false,
-    categories: [
-      "Bahan Baku",
-      "Barang Setengah Jadi",
-      "Barang Jadi",
-      "Kemasan",
     ],
   },
   OTHER_PRESET,
@@ -114,12 +183,14 @@ export function getPresetConfig(businessType: BusinessType): BusinessPreset {
 // masuk menumpuk di satu batch per varian.
 export const DEFAULT_BATCH_NUMBER = "UMUM";
 
-// Kebijakan fitur batch (nomor batch & tanggal kedaluwarsa):
-// plan PRO selalu boleh, selain itu mengikuti preset jenis usaha (RETAIL/FNB).
-export function isBatchTrackingEnabled(
-  plan: PlanType,
-  businessType: BusinessType,
-): boolean {
-  if (plan === "PRO") return true;
-  return getPresetConfig(businessType).batchTracking;
+/**
+ * Apakah fitur batch (nomor batch & tanggal kedaluwarsa) aktif?
+ *
+ * Satu-satunya sumber kebenaran adalah paket langganan (PRD Bagian 4.D: paket
+ * FREE tanpa batch/kedaluwarsa, PRO dapat). Fungsi ini sengaja mendelegasikan ke
+ * plan-limits.ts supaya aturan yang sama tidak ditulis dua kali — dulu ada dua
+ * aturan berbeda dan keduanya bertabrakan.
+ */
+export function isBatchTrackingEnabled(plan: PlanType): boolean {
+  return ambilBatasFitur(plan, "BATCH");
 }

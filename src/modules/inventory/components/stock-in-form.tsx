@@ -37,7 +37,7 @@ import type { VariantOption } from "../types";
 
 type Props = {
   variants: VariantOption[];
-  /** Fitur batch aktif? (plan PRO atau jenis usaha RETAIL/FNB) */
+  /** Fitur batch aktif? Hanya paket PRO (PRD Bagian 4.D). */
   batchEnabled: boolean;
 };
 

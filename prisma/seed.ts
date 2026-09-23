@@ -58,7 +58,7 @@ async function upsertOwnerWithTenant(): Promise<void> {
       name: tenantName,
       slug,
       plan: "FREE",
-      businessType: "RETAIL",
+      businessType: "RETAIL_FNB",
       enabledModules: ["INVENTORY", "BILLING"],
     },
   });

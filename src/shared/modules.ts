@@ -5,9 +5,11 @@ export const MODULE_KEYS = ["INVENTORY", "BILLING", "ACCOUNTING"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
 export const AVAILABLE_MODULES: { key: ModuleKey; label: string }[] = [
-  { key: "INVENTORY", label: "Inventory (Stok & Batch)" },
+  { key: "INVENTORY", label: "Inventory (Katalog, Stok & Batch)" },
   { key: "BILLING", label: "Billing (Invoice & Piutang)" },
-  { key: "ACCOUNTING", label: "Akuntansi (Fase 2)" },
+  // Label lama menyebut "(Fase 2)", padahal pengeluaran & zakat sudah jalan
+  // dan sekarang diaktifkan untuk semua tenant baru.
+  { key: "ACCOUNTING", label: "Akuntansi (Pengeluaran & Zakat)" },
 ];
 
 // PRD Bagian 6: selalu cek feature flag sebelum merender UI modul.

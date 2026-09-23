@@ -13,6 +13,7 @@ import {
   Package,
   ReceiptText,
   Store,
+  UserCog,
   Users,
   Wallet,
   type LucideIcon,
@@ -33,6 +34,7 @@ const IKON: Record<NavIcon, LucideIcon> = {
   expenses: Wallet,
   zakat: HeartHandshake,
   settings: Store,
+  users: UserCog,
   tenants: Building2,
 };
 

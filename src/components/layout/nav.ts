@@ -13,6 +13,7 @@ export type NavIcon =
   | "expenses"
   | "zakat"
   | "settings"
+  | "users"
   | "tenants";
 
 export type NavItem = {
@@ -59,7 +60,8 @@ export const SEGMEN_LABEL: Record<string, string> = {
   keuangan: "Keuangan",
   pengeluaran: "Pengeluaran",
   zakat: "Zakat",
-  settings: "Pengaturan Branding",
+  settings: "Pengaturan Toko",
+  users: "Pengguna",
   admin: "Admin",
   tenants: "Tenant",
 };

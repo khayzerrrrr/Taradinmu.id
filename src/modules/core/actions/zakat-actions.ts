@@ -2,6 +2,7 @@
 
 import { pesanErrorUmum, pesanValidasi } from "@/lib/action";
 import { checkLimit } from "@/lib/feature-guards";
+import { awalBulan, labelPeriode, periodeDari } from "@/lib/periode";
 import { prisma } from "@/lib/prisma";
 import { getCurrentTenant } from "@/lib/tenant";
 import { assertTenantMember } from "@/lib/tenant-access";
@@ -43,29 +44,17 @@ async function aksesZakat(): Promise<AksesZakat> {
   return { ok: true, tenantId: tenant.id };
 }
 
-function awalBulanIni(): Date {
-  const sekarang = new Date();
-  return new Date(Date.UTC(sekarang.getUTCFullYear(), sekarang.getUTCMonth(), 1));
-}
-
-function labelPeriode(): string {
-  const sekarang = new Date();
-  return `${sekarang.getUTCFullYear()}-${String(
-    sekarang.getUTCMonth() + 1,
-  ).padStart(2, "0")}`;
-}
-
 // Pendapatan (invoice PAID) & pengeluaran bulan berjalan.
 async function ringkasanBulanIni(tenantId: string) {
-  const awalBulan = awalBulanIni();
+  const batasBulanIni = awalBulan();
   const [pendapatan, pengeluaran] = await Promise.all([
     prisma.invoice.aggregate({
-      where: { tenantId, status: "PAID", paidAt: { gte: awalBulan } },
+      where: { tenantId, status: "PAID", paidAt: { gte: batasBulanIni } },
       _sum: { totalAmount: true },
       _count: true,
     }),
     prisma.expense.aggregate({
-      where: { tenantId, expenseDate: { gte: awalBulan } },
+      where: { tenantId, expenseDate: { gte: batasBulanIni } },
       _sum: { amount: true },
       _count: true,
     }),
@@ -200,11 +189,16 @@ export async function tandaiZakatDibayar(
     const netAssets = round2(totalAssets - totalLiabilities);
     const hasil = hitungZakat(netAssets, nisab);
     const catatan = parsed.data.notes?.trim();
+    // Periode laporan diambil dari bulan berjalan di server (tidak pernah dari
+    // klien), supaya riwayat bisa dikelompokkan dan dicetak per bulan.
+    const { tahun, bulan } = periodeDari();
 
     const records = await prisma.zakatCalculation.create({
       data: {
         tenantId: akses.tenantId,
         type: parsed.data.type,
+        periodYear: tahun,
+        periodMonth: bulan,
         totalAssets: totalAssets.toFixed(2),
         totalLiabilities: totalLiabilities.toFixed(2),
         netAssets: netAssets.toFixed(2),
@@ -246,7 +240,14 @@ export async function getZakatHistory(): Promise<
   try {
     const rows = await prisma.zakatCalculation.findMany({
       where: { tenantId: akses.tenantId },
-      orderBy: [{ calculationDate: "desc" }, { createdAt: "desc" }],
+      // Diurutkan per periode laporan lebih dulu, sehingga riwayat sudah
+      // terkelompok saat ditampilkan. `nulls: "last"` menjaga baris tanpa
+      // periode tidak menyerobot ke atas (PostgreSQL menaruh NULL di awal DESC).
+      orderBy: [
+        { periodYear: { sort: "desc", nulls: "last" } },
+        { periodMonth: { sort: "desc", nulls: "last" } },
+        { calculationDate: "desc" },
+      ],
       take: 20,
     });
 
@@ -257,6 +258,8 @@ export async function getZakatHistory(): Promise<
         id: row.id,
         type: row.type,
         calculationDate: row.calculationDate.toISOString(),
+        periodYear: row.periodYear,
+        periodMonth: row.periodMonth,
         totalAssets: row.totalAssets.toString(),
         totalLiabilities: row.totalLiabilities.toString(),
         netAssets: row.netAssets.toString(),

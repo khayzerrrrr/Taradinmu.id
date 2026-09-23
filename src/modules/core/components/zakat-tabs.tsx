@@ -1,5 +1,7 @@
 "use client";
 
+import { Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { LockedFeature } from "@/components/shared/locked-feature";
 import {
   Tabs,
@@ -39,14 +41,28 @@ export function ZakatTabs({
       <Tabs
         defaultValue={tabAwal === "perniagaan" ? "perniagaan" : "penghasilan"}
       >
-        <TabsList>
-          <TabsTrigger value="penghasilan">
-            Zakat Penghasilan (Otomatis)
-          </TabsTrigger>
-          <TabsTrigger value="perniagaan">
-            Zakat Perniagaan (Manual)
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <TabsList>
+            <TabsTrigger value="penghasilan">
+              Zakat Penghasilan (Otomatis)
+            </TabsTrigger>
+            <TabsTrigger value="perniagaan">
+              Zakat Perniagaan (Manual)
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Laporan dicetak dari komponen ZakatReport di halaman ini; CSS
+              `.cetak-laporan` yang menyembunyikannya di layar (PRD 4.D.3). */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => window.print()}
+          >
+            <Printer />
+            Cetak Laporan Zakat
+          </Button>
+        </div>
 
         <TabsContent value="penghasilan" className="pt-4">
           <LockedFeature

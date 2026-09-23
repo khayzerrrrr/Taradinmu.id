@@ -41,8 +41,8 @@ export default async function StockInPage() {
   const variants: VariantOption[] = variantsRes.data ?? [];
   const movements: StockMovementItem[] = movementsRes.data ?? [];
 
-  // Fitur batch dibatasi: plan PRO atau jenis usaha RETAIL/FNB (lihat preset).
-  const batchEnabled = isBatchTrackingEnabled(tenant.plan, tenant.businessType);
+  // Fitur batch mengikuti paket langganan (PRD 4.D): hanya PRO.
+  const batchEnabled = isBatchTrackingEnabled(tenant.plan);
 
   return (
     <div className="flex flex-col gap-6">

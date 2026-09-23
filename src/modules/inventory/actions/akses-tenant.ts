@@ -25,6 +25,6 @@ export async function aksesTenant(): Promise<AksesTenant> {
   return {
     ok: true,
     tenantId: tenant.id,
-    batchEnabled: isBatchTrackingEnabled(tenant.plan, tenant.businessType),
+    batchEnabled: isBatchTrackingEnabled(tenant.plan),
   };
 }

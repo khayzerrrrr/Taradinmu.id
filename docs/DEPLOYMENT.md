@@ -17,9 +17,17 @@ Auth.js v5 (JWT) + AI SDK v7 (DeepSeek).
    **`NEXTAUTH_URL`/`AUTH_URL` tidak diperlukan** (host dideteksi dari request).
    Menambah `NEXTAUTH_SECRET` tidak akan dipakai — sesi jadi tidak valid.
 
-2. **Belum ada folder `prisma/migrations/`.** Sampai sekarang skema di-`push`
-   dengan `prisma db push`. Akibatnya `prisma migrate deploy` di Vercel **belum
-   melakukan apa-apa**. Langkah membuat migration ada di Bagian 4.
+2. **Migrasi sudah ada (7 berkas di `prisma/migrations/`) dan urutannya penting.**
+   Database produksi yang lebih dulu dibuat dengan `prisma db push` **belum punya
+   tabel `_prisma_migrations`**, sehingga `prisma migrate deploy` akan mencoba
+   menjalankan `0_init` dari nol dan gagal dengan `type "Role" already exists`.
+   Basiskan dulu — caranya di Bagian 4.
+
+   Kode yang sekarang juga **membutuhkan kolom/tabel baru** (`Product.kind`,
+   `ZakatCalculation.periodMonth`/`periodYear`, tabel `RateLimit`, index pada
+   `Invoice`). Jadi migrasi wajib dijalankan di produksi **sebelum atau
+   bersamaan** dengan deploy kode; kalau tidak, halaman katalog, invoice, stok,
+   dan zakat akan error.
 
 3. **Upload logo tenant sudah aman** — logo disimpan sebagai data URI di kolom
    `Tenant.customLogoUrl` (bukan berkas di disk), jadi fitur white-label PRO
@@ -75,6 +83,8 @@ Tambahkan di **Vercel → Project → Settings → Environment Variables**
 | `DEEPSEEK_MODEL` | Default `deepseek-chat` |
 | `DEEPSEEK_BASE_URL` | Default `https://api.deepseek.com/v1` |
 | `HARGA_EMAS_PER_GRAM` | Dasar hitung nisab zakat (default `1500000`). **Isi dengan harga emas nyata** agar angka zakat kredibel |
+| `RESEND_API_KEY` | Mengaktifkan pengiriman email untuk fitur **Lupa Kata Sandi** (`src/lib/email.ts`, HTTP API Resend — tanpa dependensi baru). Tanpa ini, produksi menolak permintaan reset dengan pesan jelas, bukan diam-diam mengaku terkirim |
+| `EMAIL_FROM` | Pengirim email reset sandi, mis. `TaradinMu <no-reply@taradinmu.id>`. Default sudah ada, tetapi domain pengirim harus terverifikasi di Resend |
 | `SUPER_ADMIN_NAME` / `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` | Hanya bila ingin menjalankan seed dari dashboard Vercel |
 | `OWNER_NAME` / `OWNER_EMAIL` / `OWNER_PASSWORD` / `DEMO_TENANT_NAME` / `DEMO_TENANT_SLUG` | Hanya untuk `npm run db:seed` |
 | `DEMO_OWNER_PASSWORD` | Hanya untuk `npm run db:seed:demo` |
@@ -111,56 +121,106 @@ rm -rf .next/dev/types           # macOS/Linux
 
 ---
 
-## 4. Membuat Migration Prisma (sekali saja, di lokal)
+## 4. Migrasi database (lokal & produksi)
 
-Ini yang membuat `prisma migrate deploy` punya sesuatu untuk dijalankan.
+### 4.1 Membuat migrasi baru (di lokal)
+
+> **`npx prisma migrate dev` tidak bisa dipakai di repo ini.** Ia memakai *shadow
+> database*, sedangkan baseline `0_init` dibuat lewat `migrate resolve` (bukan run
+> sungguhan) sehingga tidak idempoten — hasilnya `ERROR: type "Role" already
+> exists`. Ini perilaku yang sudah diketahui, bukan kerusakan baru.
+
+Prosedur yang dipakai sejak fase C:
 
 ```bash
-npx prisma migrate dev --name init
+# 1. ubah prisma/schema.prisma
+# 2. tulis SQL-nya sendiri:
+#    prisma/migrations/<YYYYMMDDHHMMSS>_<nama_snake_case>/migration.sql
+#    (komentar bahasa Indonesia + langkah bernomor, seperti migrasi yang ada)
+npx prisma db execute --file prisma/migrations/<folder>/migration.sql
+npx prisma migrate resolve --applied <nama_folder>
+npx prisma generate
+
+# 3. pastikan bersih
+npx prisma migrate status
+npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script
+#    → harus berbunyi "-- This is an empty migration."
 ```
 
-- Perintah ini akan menawarkan **reset database lokal** (karena skema selama ini
-  di-`push`, bukan di-migrate). Database lokal (`localhost:51214` dari
-  `npx prisma dev`) memang sekali pakai — jawab **yes**.
-- Setelah itu, isi ulang data:
-  ```bash
-  npm run db:seed        # akun SUPER_ADMIN + OWNER dasar
-  npx prisma db seed     # data demo presentasi
-  ```
-- Folder `prisma/migrations/` kini berisi SQL awal → **commit ke Git**.
+### 4.2 Menerapkan ke database produksi
 
-### Menjalankan otomatis saat deploy
+Arahkan ke koneksi **direct** produksi (DDL sebaiknya tidak lewat pooler):
 
-Tambahkan script ini ke `package.json` (Vercel otomatis memakai `vercel-build`
-bila ada):
+```bash
+$env:DATABASE_URL="<connection string DIRECT produksi>"
+npx prisma migrate status
+```
+
+- Bila berbunyi **"Database schema is up to date!"** → sudah terbaseline, lanjut
+  `npx prisma migrate deploy`.
+- Bila **semua migrasi tampil sebagai "not yet applied"** (kasus paling mungkin
+  untuk database hasil `db push`) → perlu dibaseline dulu, kalau tidak
+  `migrate deploy` akan gagal di `0_init`.
+
+**Membaseline** — menandai migrasi yang isinya *sudah ada* di produksi sebagai
+applied, **tanpa menjalankannya**:
+
+```bash
+npx prisma migrate resolve --applied 0_init
+# tambahkan baris berikut HANYA bila migrasi itu pun sudah diterapkan manual:
+npx prisma migrate resolve --applied 20260922150000_selaraskan_business_type_dengan_prd
+```
+
+> **Hati-hati:** `migrate resolve --applied` hanya mencatat di
+> `_prisma_migrations`, ia tidak menyentuh skema. Pastikan dulu isinya
+> benar-benar sudah ada, kalau tidak skema produksi akan dianggap lengkap padahal
+> belum.
+
+Setelah terbaseline, terapkan sisanya:
+
+```bash
+npx prisma migrate deploy
+npx prisma migrate status      # harus "Database schema is up to date!"
+```
+
+**Urutan aman untuk rilis ini: migrasi produksi dulu → baru push kode.**
+Kode sekarang membaca `Product.kind`, jadi halaman katalog/invoice/stok/zakat
+akan error bila kolom itu belum ada.
+
+### 4.3 Menjalankan otomatis saat deploy (opsional)
+
+Vercel memakai `vercel-build` bila script itu ada:
 
 ```json
 "vercel-build": "prisma migrate deploy && next build"
 ```
 
-Lalu di Vercel set **Build Command** = `npm run vercel-build` (atau biarkan
-Vercel memakai `vercel-build` secara otomatis).
+Saat ini script itu **belum ditambahkan** — Vercel hanya menjalankan
+`npm run build`, sehingga migrasi tidak dijalankan otomatis. Tambahkan **hanya
+setelah produksi terbaseline**; selama belum, perintah itu akan menggagalkan
+build (dan itu memang lebih baik daripada deploy "sukses" dengan aplikasi rusak).
 
-> **Catatan pooler:** migration (DDL) sebaiknya lewat koneksi **direct**, bukan
-> pooler. Karena `prisma7.config.ts` saat ini hanya membaca `DATABASE_URL`,
-> pilihannya: (a) untuk langkah migration, sementara isi `DATABASE_URL` dengan
-> string *direct*, atau (b) minta saya ubah `prisma7.config.ts` agar membaca
-> `DIRECT_URL` khusus untuk migration. Opsi (b) paling rapi.
+Catatan: `prisma7.config.ts` hanya membaca `DATABASE_URL`. Bila kelak ingin
+migrasi otomatis dengan koneksi direct, ubah berkas itu agar memakai `DIRECT_URL`
+untuk keperluan migrasi.
 
 ---
 
 ## 5. Push ke GitHub
 
-Proyek ini **belum berupa repository Git** (`git status` → *not a git repository*).
+Repo ini **sudah** terhubung ke GitHub: `origin` =
+`https://github.com/khayzerrrrr/Taradinmu.id.git`, branch `main`. Jadi tidak perlu
+`git init` lagi — cukup:
 
 ```bash
-git init
 git add .
-git commit -m "TaradinMu: siap deploy"
-git branch -M main
-git remote add origin https://github.com/<akun>/<repo>.git
-git push -u origin main
+git commit -m "<pesan>"
+git push
 ```
+
+Vercel terhubung lewat integrasi GitHub (bukan CLI — tidak ada folder `.vercel`
+di repo ini), sehingga **push ke `main` = deploy**. Ingat urutan di Bagian 4:
+migrasi produksi lebih dulu, baru push.
 
 **.env sudah otomatis ter-ignore** (`.gitignore` memuat `.env*`), jadi kredensial
 tidak akan ikut ter-push. Periksa sekali lagi dengan:
@@ -226,6 +286,16 @@ Kapan sebaiknya pindah ke storage eksternal:
 - [ ] `/berkah-haramain/dashboard/billing` → badge "Jatuh Tempo" terlihat
 - [ ] `POST /api/chat` dari UI/aplikasi mengembalikan jawaban (atau 503 rapi bila key kosong)
 - [ ] Nomor WA pada modal upgrade mengarah ke admin yang benar
+
+### Khusus rilis ini (Tahap 1 — membuka jalan usaha jasa)
+
+- [ ] `/berkah-haramain/dashboard/inventory` → menu berbunyi **"Produk & Layanan"**, dan form tambah menawarkan **Jenis: Barang / Jasa**
+- [ ] Buat item **Jasa** → buat invoice untuk item itu → **berhasil tanpa stok**, pesannya menyebut "tidak ada stok yang dipotong"
+- [ ] Buat invoice item **Barang** → stok tetap terpotong (periksa halaman Stok)
+- [ ] Invoice item barang dengan jumlah melebihi stok → **tetap ditolak** dengan pesan stok
+- [ ] Tenant yang hanya punya item jasa → menu **Stok / Stok Masuk / Stok Keluar tidak muncul**, katalog tetap ada
+- [ ] `/lupa-sandi` mengirim tautan bila `RESEND_API_KEY` terisi; bila kosong muncul pesan "belum dikonfigurasi", bukan error 500
+- [ ] Beberapa kali login dengan sandi salah → mulai ditolak (tanda tabel `RateLimit` bekerja)
 
 ---
 

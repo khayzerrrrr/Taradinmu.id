@@ -39,8 +39,8 @@ export const listMovementsSchema = z.object({
 
 export const stockInSchema = z.object({
   variantId: z.string().min(1, "Varian wajib dipilih."),
-  // Opsional: wajib hanya bila fitur batch aktif (plan PRO atau jenis usaha
-  // RETAIL/FNB). Kewajibannya diputuskan & divalidasi di Server Action.
+  // Opsional: wajib hanya bila fitur batch aktif (paket PRO).
+  // Kewajibannya diputuskan & divalidasi di Server Action.
   batchNumber: z
     .union([
       z.literal(""),

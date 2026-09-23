@@ -9,6 +9,7 @@ import {
   getZakatHistory,
 } from "@/modules/core/actions/zakat-actions";
 import { KeuanganLocked } from "@/modules/core/components/keuangan-locked";
+import { ZakatReport } from "@/modules/core/components/zakat-report";
 import { ZakatTabs } from "@/modules/core/components/zakat-tabs";
 import type {
   ZakatHistoryItem,
@@ -51,23 +52,37 @@ export default async function ZakatPage({
   const riwayat: ZakatHistoryItem[] = hasilRiwayat.data ?? [];
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Zakat"
-        description={`Estimasi zakat penghasilan dan perniagaan ${tenant.name}.`}
-      />
+    <>
+      {/* UI interaktif halaman — disembunyikan saat mencetak (.cetak-sembunyi). */}
+      <div className="cetak-sembunyi flex flex-col gap-6">
+        <PageHeader
+          title="Zakat"
+          description={`Estimasi zakat penghasilan dan perniagaan ${tenant.name}.`}
+        />
 
-      <ZakatTabs
+        <ZakatTabs
+          penghasilan={penghasilan}
+          pesanPenghasilan={
+            hasilPenghasilan.success ? undefined : hasilPenghasilan.message
+          }
+          terkunciPro={tenant.plan === "FREE"}
+          nisabPerdagangan={NISAB_PERDAGANGAN}
+          rate={ZAKAT_RATE}
+          riwayat={riwayat}
+          tabAwal={tabAwal}
+        />
+      </div>
+
+      {/* Laporan siap cetak: tersembunyi di layar, hanya tampil saat dicetak.
+          Bagian zakat otomatis tidak ikut dicetak untuk paket FREE (PRD 4.D). */}
+      <ZakatReport
+        tenantName={tenant.name}
         penghasilan={penghasilan}
-        pesanPenghasilan={
-          hasilPenghasilan.success ? undefined : hasilPenghasilan.message
-        }
-        terkunciPro={tenant.plan === "FREE"}
+        riwayat={riwayat}
         nisabPerdagangan={NISAB_PERDAGANGAN}
         rate={ZAKAT_RATE}
-        riwayat={riwayat}
-        tabAwal={tabAwal}
+        bolehZakatOtomatis={tenant.plan === "PRO"}
       />
-    </div>
+    </>
   );
 }

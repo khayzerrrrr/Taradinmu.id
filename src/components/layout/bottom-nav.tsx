@@ -67,7 +67,7 @@ export function BottomNav({ sections, tenant, branding, basePath }: Props) {
   return (
     <nav
       aria-label="Navigasi utama (bawah)"
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="cetak-sembunyi fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <ul className="grid grid-cols-5">
         {tujuan.map(({ Ikon, ...item }) => {

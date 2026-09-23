@@ -18,6 +18,7 @@ import {
 import { DataTableToolbar } from "@/components/shared/data-table-toolbar";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatTanggal } from "@/lib/format";
+import { ITEM_KIND_LABELS, type ItemKindValue } from "@/shared/item-kind";
 import type { PaginationMeta } from "@/shared/types";
 import type { ProductListItem } from "../types";
 import { formatRupiah } from "../utils";
@@ -30,9 +31,17 @@ type Props = {
   products: ProductListItem[];
   meta: PaginationMeta;
   search: string;
+  /** Nilai awal jenis item pada form tambah, mengikuti preset jenis usaha. */
+  defaultKind: ItemKindValue;
 };
 
-export function ProductTable({ products, meta, search }: Props) {
+// Barang vs jasa lebih mudah dibaca sebagai warna daripada teks polos.
+const VARIAN_BADGE_KIND: Record<ItemKindValue, "outline" | "info"> = {
+  GOODS: "outline",
+  SERVICE: "info",
+};
+
+export function ProductTable({ products, meta, search, defaultKind }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [kataKunci, setKataKunci] = useState(search);
@@ -52,7 +61,7 @@ export function ProductTable({ products, meta, search }: Props) {
 
   return (
     <Card className="overflow-hidden p-0">
-      <DataTableToolbar aksi={<ProductFormDialog />}>
+      <DataTableToolbar aksi={<ProductFormDialog defaultKind={defaultKind} />}>
         <form
           className="flex items-center gap-2"
           onSubmit={(event) => {
@@ -78,6 +87,7 @@ export function ProductTable({ products, meta, search }: Props) {
         <TableHeader>
           <TableRow>
             <TableHead>Produk</TableHead>
+            <TableHead>Jenis</TableHead>
             <TableHead>Varian</TableHead>
             <TableHead>Rentang Harga</TableHead>
             <TableHead>Dibuat</TableHead>
@@ -87,12 +97,12 @@ export function ProductTable({ products, meta, search }: Props) {
         <TableBody>
           {products.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={5}>
+              <TableCell colSpan={6}>
                 <EmptyState
                   icon={Package}
-                  title="Belum ada produk"
-                  description="Mulai tambahkan produk untuk mengisi katalog."
-                  aksi={<ProductFormDialog />}
+                  title="Belum ada item"
+                  description="Mulai tambahkan barang atau jasa untuk mengisi katalog."
+                  aksi={<ProductFormDialog defaultKind={defaultKind} />}
                 />
               </TableCell>
             </TableRow>
@@ -115,6 +125,11 @@ export function ProductTable({ products, meta, search }: Props) {
                         </span>
                       ) : null}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={VARIAN_BADGE_KIND[product.kind]}>
+                      {ITEM_KIND_LABELS[product.kind]}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     {product.variants.length === 0 ? (
