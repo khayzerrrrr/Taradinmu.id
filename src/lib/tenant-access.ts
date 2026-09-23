@@ -1,93 +1,76 @@
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import type { Role } from "@/generated/prisma/client";
 import { auth } from "@/modules/core/auth";
 import { getTenantRequestInfo, type TenantIndex } from "@/lib/tenant";
+import {
+  nilaiAksesTenant,
+  PESAN_PERAN_OWNER,
+  PESAN_PERAN_PENGGUNA,
+  PESAN_PERAN_UMUM,
+  TENANT_MANAGER_ROLES,
+  TENANT_OWNER_ROLES,
+  TENANT_USER_MANAGER_ROLES,
+  type HasilIzinTenant,
+} from "@/lib/tenant-rules";
 
 // Infrastruktur akses tenant — dipakai modul mana pun lewat src/lib,
 // sehingga modul tidak perlu saling mengimpor.
-
-// Role tenant yang boleh mengelola data (SUPER_ADMIN selalu boleh).
-const TENANT_MANAGER_ROLES: readonly Role[] = ["OWNER", "ADMIN", "STAFF"];
-// Role yang boleh mengubah identitas/branding tenant.
-const TENANT_OWNER_ROLES: readonly Role[] = ["OWNER"];
-// Role yang boleh mengelola pengguna tenant (PRD Bagian 4.D: PRO dapat menambah
-// Admin, Staff, dan Akuntan; yang boleh mengundang adalah OWNER dan ADMIN).
-const TENANT_USER_MANAGER_ROLES: readonly Role[] = ["OWNER", "ADMIN"];
+//
+// Berkas ini hanya urusan I/O (membaca sesi, mengarahkan halaman). Aturan
+// izinnya sendiri ada di `tenant-rules.ts` supaya bisa diuji tanpa Next.js.
 
 export const getSessionUser = cache(async () => {
   const session = await auth();
   return session?.user ?? null;
 });
 
-export type TenantGuardResult =
-  | { ok: true; userId: string }
-  | { ok: false; message: string };
-
 // Untuk Server Action: kembalikan status, jangan redirect.
 export async function assertTenantMember(
   tenantId: string,
-): Promise<TenantGuardResult> {
-  const user = await getSessionUser();
-  if (!user) {
-    return { ok: false, message: "Sesi tidak ditemukan. Silakan masuk terlebih dahulu." };
-  }
-  if (user.role === "SUPER_ADMIN") return { ok: true, userId: user.id };
-  if (user.tenantId !== tenantId) {
-    return { ok: false, message: "Akses ditolak. Anda bukan anggota tenant ini." };
-  }
-  if (!TENANT_MANAGER_ROLES.includes(user.role)) {
-    return { ok: false, message: "Akses ditolak. Role Anda tidak diizinkan." };
-  }
-  return { ok: true, userId: user.id };
+): Promise<HasilIzinTenant> {
+  return nilaiAksesTenant(
+    await getSessionUser(),
+    tenantId,
+    TENANT_MANAGER_ROLES,
+    PESAN_PERAN_UMUM,
+  );
 }
 
 // Hanya OWNER (atau SUPER_ADMIN) — untuk pengaturan identitas/branding tenant.
 export async function assertTenantOwner(
   tenantId: string,
-): Promise<TenantGuardResult> {
-  const user = await getSessionUser();
-  if (!user) {
-    return { ok: false, message: "Sesi tidak ditemukan. Silakan masuk terlebih dahulu." };
-  }
-  if (user.role === "SUPER_ADMIN") return { ok: true, userId: user.id };
-  if (user.tenantId !== tenantId) {
-    return { ok: false, message: "Akses ditolak. Anda bukan anggota tenant ini." };
-  }
-  if (!TENANT_OWNER_ROLES.includes(user.role)) {
-    return { ok: false, message: "Akses ditolak. Hanya pemilik (OWNER) yang boleh mengubah pengaturan toko." };
-  }
-  return { ok: true, userId: user.id };
+): Promise<HasilIzinTenant> {
+  return nilaiAksesTenant(
+    await getSessionUser(),
+    tenantId,
+    TENANT_OWNER_ROLES,
+    PESAN_PERAN_OWNER,
+  );
 }
 
 // Hanya OWNER/ADMIN (atau SUPER_ADMIN) — untuk mengelola pengguna tenant.
 export async function assertTenantUserManager(
   tenantId: string,
-): Promise<TenantGuardResult> {
-  const user = await getSessionUser();
-  if (!user) {
-    return { ok: false, message: "Sesi tidak ditemukan. Silakan masuk terlebih dahulu." };
-  }
-  if (user.role === "SUPER_ADMIN") return { ok: true, userId: user.id };
-  if (user.tenantId !== tenantId) {
-    return { ok: false, message: "Akses ditolak. Anda bukan anggota tenant ini." };
-  }
-  if (!TENANT_USER_MANAGER_ROLES.includes(user.role)) {
-    return {
-      ok: false,
-      message: "Akses ditolak. Hanya pemilik atau admin yang boleh mengelola pengguna.",
-    };
-  }
-  return { ok: true, userId: user.id };
+): Promise<HasilIzinTenant> {
+  return nilaiAksesTenant(
+    await getSessionUser(),
+    tenantId,
+    TENANT_USER_MANAGER_ROLES,
+    PESAN_PERAN_PENGGUNA,
+  );
 }
 
 // Untuk halaman: redirect bila belum masuk / bukan anggota tenant.
 export async function requireTenantMember(tenant: TenantIndex) {
   const user = await getSessionUser();
   if (!user) redirect(await keLogin(tenant));
-  if (user.role === "SUPER_ADMIN") return user;
-  if (user.tenantId !== tenant.id) redirect("/");
-  if (!TENANT_MANAGER_ROLES.includes(user.role)) redirect("/");
+  const hasil = nilaiAksesTenant(
+    user,
+    tenant.id,
+    TENANT_MANAGER_ROLES,
+    PESAN_PERAN_UMUM,
+  );
+  if (!hasil.ok) redirect("/");
   return user;
 }
 
@@ -95,9 +78,13 @@ export async function requireTenantMember(tenant: TenantIndex) {
 export async function requireTenantOwner(tenant: TenantIndex) {
   const user = await getSessionUser();
   if (!user) redirect(await keLogin(tenant));
-  if (user.role === "SUPER_ADMIN") return user;
-  if (user.tenantId !== tenant.id) redirect("/");
-  if (!TENANT_OWNER_ROLES.includes(user.role)) redirect("/");
+  const hasil = nilaiAksesTenant(
+    user,
+    tenant.id,
+    TENANT_OWNER_ROLES,
+    PESAN_PERAN_OWNER,
+  );
+  if (!hasil.ok) redirect("/");
   return user;
 }
 
@@ -105,9 +92,13 @@ export async function requireTenantOwner(tenant: TenantIndex) {
 export async function requireTenantUserManager(tenant: TenantIndex) {
   const user = await getSessionUser();
   if (!user) redirect(await keLogin(tenant));
-  if (user.role === "SUPER_ADMIN") return user;
-  if (user.tenantId !== tenant.id) redirect("/");
-  if (!TENANT_USER_MANAGER_ROLES.includes(user.role)) redirect("/");
+  const hasil = nilaiAksesTenant(
+    user,
+    tenant.id,
+    TENANT_USER_MANAGER_ROLES,
+    PESAN_PERAN_PENGGUNA,
+  );
+  if (!hasil.ok) redirect("/");
   return user;
 }
 
