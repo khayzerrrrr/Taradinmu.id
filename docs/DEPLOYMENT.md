@@ -62,23 +62,66 @@ akan error karena kode membaca kolom/tabel yang belum ada (`Product.kind`,
 `ZakatCalculation.periodMonth`, `RateLimit`). Halaman lain — landing, login,
 `/admin`, dashboard owner, dan pengeluaran — tetap jalan.
 
-### Catatan jaringan RDS
+### Catatan jaringan database
 
-RDS lazimnya berada di subnet privat di balik *security group*, sehingga
-**migrasi belum tentu bisa dijalankan dari laptop**. Dua pilihan:
-- jalankan dari server EC2 yang sudah punya akses ke RDS (paling mudah), atau
+Saat ini database berjalan **di server yang sama** (`localhost:5432`), jadi migrasi
+dijalankan langsung dari EC2 dan tidak ada urusan security group.
+
+Kalau kelak pindah ke **Amazon RDS**, RDS biasanya berada di subnet privat di balik
+security group sehingga migrasi belum tentu bisa dijalankan dari laptop. Dua pilihan:
+- jalankan dari server EC2 yang punya akses ke RDS (paling mudah), atau
 - buka sementara security group untuk IP Anda, jalankan migrasi, lalu tutup lagi.
 
-### Yang belum diketahui (perlu dilengkapi)
+### Keadaan server produksi (terverifikasi 2026-09-23)
 
-Proses deploy AWS proyek ini belum terdokumentasi di repo: tidak ada `Dockerfile`,
-`docker-compose`, `ecosystem.config` (PM2), `.github/workflows`, maupun konfigurasi
-nginx. Setelah jelas, lengkapi bagian ini supaya rilis berikutnya tidak menebak:
+| Hal | Nilai |
+|---|---|
+| Host | EC2 Ubuntu 22.04, `ubuntu@56.10.70.36` — alias SSH: `ssh taradinmu-ec2` |
+| Direktori proyek | `/var/www/taradinmu` |
+| Proses | PM2, nama `taradinmu`, menjalankan `npm start` (`next start`) |
+| Node.js | 22.23.2 |
+| Port aplikasi | `3000`; nginx di port 80 sebagai pintu depan |
+| Database | **PostgreSQL 14.24 di server yang sama** (`localhost:5432/taradinmu`) — **bukan RDS** |
+| Backup | `~/backup-taradinmu/` — `pg_dump` sebelum setiap migrasi |
+| Konfigurasi | `.env` di `/var/www/taradinmu` (memuat `DATABASE_URL`, `AUTH_SECRET`, `ROOT_DOMAIN`, `DEEPSEEK_*`) |
+| Autostart | `pm2-ubuntu.service` (enabled) + `~/.pm2/dump.pm2` — aman setelah reboot |
 
-- [ ] Kode dijalankan bagaimana di server? (`next start` via PM2/systemd, Docker, Elastic Beanstalk, App Runner, …)
-- [ ] Perintah build & restart persisnya apa?
-- [ ] Variabel environment diletakkan di mana (`.env` di server, Parameter Store, …)?
-- [ ] Apakah `RESEND_API_KEY` sudah diisi (fitur lupa kata sandi)?
+Catatan: `RESEND_API_KEY` **belum diisi** di server, sehingga fitur Lupa Kata
+Sandi menolak dengan pesan "belum dikonfigurasi" (bukan error). Isi bila fitur
+itu ingin dipakai.
+
+### Perintah deploy (ini yang dipakai 2026-09-23)
+
+```bash
+ssh taradinmu-ec2
+cd /var/www/taradinmu
+
+# 1. Backup database
+DBURL=$(grep -E '^DATABASE_URL=' .env | cut -d= -f2- | tr -d '"' | sed 's/?schema=public//')
+pg_dump "$DBURL" -f ~/backup-taradinmu/taradinmu-$(date +%Y%m%d-%H%M%S).sql
+
+# 2. Tarik kode baru — aplikasi lama tetap melayani
+git pull --ff-only
+npx prisma generate
+
+# 3. Build DULU
+npm run build
+
+# 4. Baru stop -> migrasi -> start
+pm2 stop taradinmu
+npm run db:migrate
+npm run db:migrate:status        # harus "Database schema is up to date!"
+pm2 start taradinmu
+
+# 5. Verifikasi
+curl -s -o /dev/null -w 'login HTTP %{http_code}\n' http://localhost:3000/login
+```
+
+> **Kenapa build dulu, baru stop?** Migrasi `20260922150000_selaraskan_business_type_dengan_prd`
+> mengubah nilai `BusinessType` (mis. `SERVICE` → `TRAVEL_UMROH`). Klien Prisma
+> **lama** tidak mengenal nilai baru itu, sehingga membaca tenant akan gagal.
+> Urutan di atas memastikan aplikasi yang berjalan selalu cocok dengan skema,
+> dengan jendela pemeliharaan hanya selama proses migrasi berlangsung.
 
 ---
 

@@ -236,6 +236,13 @@ Konflik gating batch (K7) juga diselesaikan di fase D: `isBatchTrackingEnabled()
   Keuangan/Zakat tenant ini terkunci; `[dikoreksi]`),
   `berkah-haramain` (PRO, TRAVEL_UMROH), `toko-berkah` (FREE, RETAIL_FNB).
 - **Seeder**: `npm run db:seed` (akun dasar) dan `npm run db:seed:demo` (data demo).
+- **Produksi**: EC2 Ubuntu (`ssh taradinmu-ec2`), proyek di `/var/www/taradinmu`,
+  dijalankan PM2 (`npm start`, port 3000 di balik nginx), database PostgreSQL 14
+  **di server yang sama** (`localhost:5432`) — **bukan RDS**. Backup `pg_dump` ke
+  `~/backup-taradinmu/` sebelum tiap migrasi. Prosedur deploy lengkap (termasuk
+  alasan "build dulu, baru stop") ada di [`DEPLOYMENT.md`](./DEPLOYMENT.md) §0.
+  Catatan: `RESEND_API_KEY` belum diisi di server, jadi fitur lupa kata sandi
+  menolak dengan pesan jelas sampai diisi.
 
 ### Perintah verifikasi
 
