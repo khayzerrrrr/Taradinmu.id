@@ -35,6 +35,53 @@ Auth.js v5 (JWT) + AI SDK v7 (DeepSeek).
 
 ---
 
+## 0. Target deploy saat ini: server AWS + Amazon RDS
+
+> Bagian 1–6 di bawah ditulis untuk **Vercel**. Target yang berlaku sekarang
+> adalah **server AWS dengan database Amazon RDS**, jadi bagian Vercel disimpan
+> sebagai alternatif saja. Langkah migrasi di Bagian 4 tetap berlaku untuk
+> keduanya.
+
+### Urutan rilis yang benar (jangan dibalik)
+
+1. **Migrasi database produksi lebih dulu**, sebelum kode baru berjalan:
+
+   ```bash
+   # dari mesin yang punya akses jaringan ke RDS — biasanya server EC2 itu
+   # sendiri, bukan laptop (lihat catatan security group di bawah)
+   $env:DATABASE_URL="<connection string RDS>"
+   npm run db:migrate:status     # periksa keadaan
+   npm run db:migrate            # terapkan
+   npm run db:migrate:status     # harus "Database schema is up to date!"
+   ```
+
+2. **Baru** deploy kode (`git pull` + `npm ci` + `npm run build` + restart proses).
+
+Kalau dibalik, halaman **Produk & Layanan**, **Invoice**, **Stok**, dan **Zakat**
+akan error karena kode membaca kolom/tabel yang belum ada (`Product.kind`,
+`ZakatCalculation.periodMonth`, `RateLimit`). Halaman lain — landing, login,
+`/admin`, dashboard owner, dan pengeluaran — tetap jalan.
+
+### Catatan jaringan RDS
+
+RDS lazimnya berada di subnet privat di balik *security group*, sehingga
+**migrasi belum tentu bisa dijalankan dari laptop**. Dua pilihan:
+- jalankan dari server EC2 yang sudah punya akses ke RDS (paling mudah), atau
+- buka sementara security group untuk IP Anda, jalankan migrasi, lalu tutup lagi.
+
+### Yang belum diketahui (perlu dilengkapi)
+
+Proses deploy AWS proyek ini belum terdokumentasi di repo: tidak ada `Dockerfile`,
+`docker-compose`, `ecosystem.config` (PM2), `.github/workflows`, maupun konfigurasi
+nginx. Setelah jelas, lengkapi bagian ini supaya rilis berikutnya tidak menebak:
+
+- [ ] Kode dijalankan bagaimana di server? (`next start` via PM2/systemd, Docker, Elastic Beanstalk, App Runner, …)
+- [ ] Perintah build & restart persisnya apa?
+- [ ] Variabel environment diletakkan di mana (`.env` di server, Parameter Store, …)?
+- [ ] Apakah `RESEND_API_KEY` sudah diisi (fitur lupa kata sandi)?
+
+---
+
 ## 1. Database Production (Neon — rekomendasi)
 
 **Kenapa Neon:** PostgreSQL serverless, free tier cukup untuk demo/tim kecil,
