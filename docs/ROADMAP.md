@@ -164,7 +164,7 @@ bisa diwakili satu mesin: cicilan (Tahap 3), alur status pesanan, dan invoice B2
 ### P4 — Fondasi produksi (tidak ada di PRD, tapi wajib untuk rilis)
 
 - ~~**0 tes otomatis**~~ **Selesai**: `npm run test` memakai Node test runner lewat `tsx`
-  (keduanya sudah tersedia) — **128 tes** untuk logika murni (perhitungan zakat, kontras
+  (keduanya sudah tersedia) — **131 tes** untuk logika murni (perhitungan zakat, kontras
   merek, ringkasan stok, batas paket, batas bulan, transisi invoice, siklus hidup &
   tanggal program, penyamaran nilai rahasia di log), ditambah
   **isolasi tenant** dan **penjaga struktur Server Action** (lihat fase Q). Tanpa
@@ -261,6 +261,8 @@ Setiap entri sudah melewati gerbang wajib (§1 butir 4):
 
 | U | **Modul Program** (PRD 4.F — menjawab P3 travel/kontraktor/pendidikan dengan **satu** mesin, bukan tiga modul vertikal): model `Program` + `ProgramParticipant`, migrasi tulisan tangan `20260924060000_tambah_modul_program`, `programId` nullable pada `Invoice`/`Expense`. **Tanpa ledger kedua** — Terkumpul dihitung dari `Invoice` PAID, Terpakai dari `Expense`, jadi menghapus program hanya melepas label dan uangnya tetap utuh. Peserta menaut `Customer` yang sudah ada (dilarang membuat model Jamaah/Siswa/Klien sendiri), label per industri diambil dari `businessType` saat render (Kloter/Proyek/Tahun Ajaran/Pesanan/Acara), transisi status dijaga di `utils.ts`, gerbang PRO ditegakkan di server lewat `ambilBatasFitur(plan, "PROGRAM")` dengan `code: "UPGRADE_REQUIRED"`; tulis khusus OWNER/ADMIN, STAFF baca saja. Halaman `/dashboard/program` + `/dashboard/program/[programId]`, menu sidebar bergembok untuk FREE. | tsc/lint/**128 tes**/build hijau; migrasi + `migrate status` bersih tanpa drift; **dijalankan ujung ke ujung di Chrome pada tenant buang (sudah dihapus)**: buat → peserta (tambah/keluar/cari) → taut invoice & pengeluaran → angka ringkasan dicocokkan dengan query mentah → transisi status (jalan ilegal tidak ditawarkan) → ubah → hapus. Penghapusan dibuktikan aman: 3 invoice Rp 5.000.000 dan pengeluaran Rp 750.000 **bertahan** dengan `programId=NULL`. Kedua cabang gembok terverbatim di layar (MODUL pada tenant FREE nyata, PAKET setelah plan dibalik), dan STAFF tidak merender satu pun kontrol tulis. **Dua cacat ditemukan oleh pemeriksaan browser ini, bukan oleh tes:** (1) tanggal disimpan sebagai tengah malam *lokal* sehingga "1 Jan 2027" tersimpan & tampil "31 Des 2026" pada zona UTC+7 — kini memakai `parseTanggalInput()` (tengah malam UTC) seperti invoice/pengeluaran, dan pemetaannya dipindah ke `program/utils.ts` agar tertutup tes (mutasi −5 jam memerahkan 2 tes); (2) teks petunjuk uang memakai label peserta alih-alih label program ("…menaut jamaah ini"), diperbaiki lewat prop `sebutanProgram` |
 
+| V | **Menu "Invoice" menunjuk rute yang tidak pernah ada** (dilaporkan pemilik produk: "fitur invoice error di server"): sidebar shell tenant memakai `${basePath}/dashboard/billing/invoices`, padahal daftar invoice memang tinggal di `/dashboard/billing` — jadi tautan itu 404 sejak commit `831add9` dan tidak ada satu pun jalan masuk ke halaman Invoice lewat menu. Diperbaiki dengan mengarahkan barisnya ke `/dashboard/billing` + `exact: true` (induk dari `/billing/customers`, tanpa exact dua menu menyala — aturan yang sudah dilanggar dua kali sebelumnya). Ditambah `src/lib/nav-hrefs.test.ts`: memindai `app/(tenant)/layout.tsx` dari disk dan memastikan (a) tiap href menu punya `page.tsx` sungguhan, (b) href induk selalu `exact`. | tsc/lint/**131 tes**/build hijau; **dibuktikan bisa gagal**: mengembalikan href lama memerahkan tes dengan menyebut `/dashboard/billing/invoices` dan mencantumkan daftar halaman yang benar-benar ada. Versi pertama tes ini sendiri lolos dari jebakan: regex `{[^{}]*}` tidak cocok karena `${basePath}` mengandung kurung akar — **0 tautan terbaca dan tes akan "hijau" tanpa memeriksa apa pun**, sehingga ada penangkal `length >= 10` yang justru menangkapnya |
+
 Konflik gating batch (K7) juga diselesaikan di fase D: `isBatchTrackingEnabled()` kini hanya menerima `plan` dan mendelegasikan ke `plan-limits.ts`, sehingga tidak ada lagi dua aturan yang bertabrakan.
 
 ### Belum dikerjakan (urutan yang disarankan)
@@ -310,7 +312,7 @@ Konflik gating batch (K7) juga diselesaikan di fase D: `isBatchTrackingEnabled()
 ```bash
 npx tsc --noEmit        # tipe
 npm run lint            # eslint
-npm run test            # 128 tes logika murni (Node test runner lewat tsx)
+npm run test            # 131 tes logika murni (Node test runner lewat tsx)
 npm run build           # wajib: sekaligus meregenerasi tipe rute baru
 npx prisma migrate status
 npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script

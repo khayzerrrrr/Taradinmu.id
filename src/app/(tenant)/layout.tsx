@@ -151,8 +151,13 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
             icon: "customers",
           },
           {
-            href: `${basePath}/dashboard/billing/invoices`,
+            // Daftar invoice memang tinggal di /dashboard/billing (bukan
+            // /billing/invoices yang tidak pernah ada). `exact` wajib karena
+            // rute ini juga induk dari /billing/customers: tanpa exact,
+            // membuka "Pelanggan" ikut menyalakan baris "Invoice".
+            href: `${basePath}/dashboard/billing`,
             label: "Invoice",
+            exact: true,
             icon: "invoices",
           },
         ],
