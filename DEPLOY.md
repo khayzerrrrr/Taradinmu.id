@@ -50,7 +50,19 @@ pg_dump "$DBURL" -f ~/backup-taradinmu/taradinmu-$(date +%Y%m%d-%H%M%S).sql
 # 2. Tarik kode — aplikasi lama tetap melayani selama langkah ini
 git pull --ff-only
 npx prisma generate
+```
 
+> **Rintangan yang sudah tercatat di server:** `package-lock.json` di working tree
+> produksi **selalu tampak termodifikasi** — npm versi server lebih tua daripada npm
+> yang menulis lockfile, jadi ia membuang field `"libc": ["glibc"]` (teramati 114
+> baris, 2026-09-24). Isinya metadata benign, bukan perubahan dependensi, dan
+> selama commit yang masuk tidak menyentuh `package-lock.json` maka `git pull
+> --ff-only` tetap jalan. **Bila rilis ini mengubah dependensi**, pull akan
+> menolak — dalam hal itu periksa dulu `git diff package-lock.json` di server,
+> pastikan memang hanya field `libc`, lalu `git checkout -- package-lock.json`
+> sebelum pull. Jangan langsung dibuang tanpa dibaca.
+
+```bash
 # 3. Build DULU, sebelum stop
 npm run build
 
