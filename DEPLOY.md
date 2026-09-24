@@ -98,6 +98,25 @@ psql "$DBURL" -c '\dt'                # tabel baru muncul / kolom baru ada
 
 Selesai. Catat hasilnya di `docs/ROADMAP.md` bila membuka fase baru.
 
+### Tempat log yang benar (jangan salah baca)
+
+Domain produksi adalah **`taradinmu.skulv.online`**, dan blok server nginx-nya punya
+log sendiri:
+
+| Berkas | Isi |
+|---|---|
+| `/var/log/nginx/taradinmu.access.log` | **lalu lintas aplikasi sungguhan** — pakai ini |
+| `/var/log/nginx/taradinmu.error.log` | error nginx untuk vhost itu |
+| `/var/log/nginx/access.log` | hampir semuanya scanner/bot (Host tidak cocok, jadi tidak pernah kena vhost) — jangan disimpulkan dari sini |
+| `~/.pm2/logs/taradinmu-out.log` | stdout Next.js + baris JSON logger fase R (`pesanErrorUmum`) |
+| `~/.pm2/logs/taradinmu-error.log` | stderr, termasuk `[auth][error] CredentialsSignin` dari percobaan login salah |
+
+Cara tercepat menegakkan keluhan pengguna: `sudo grep <sebagian-path-url>
+/var/log/nginx/taradinmu.access.log` lalu lihat kode statusnya. Contoh nyata:
+keluhan "fitur invoice error di server" ternyata 20 baris `404` pada
+`/dashboard/billing/invoices` — tautan menu yang menunjuk rute mati, bukan crash
+(log aplikasi bersih sama sekali).
+
 ## 4. Bila gagal di tengah jalan
 
 Urutan kejadian menentukan pemulihan:
