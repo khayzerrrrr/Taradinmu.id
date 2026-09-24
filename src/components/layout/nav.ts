@@ -57,8 +57,11 @@ export const SEGMEN_LABEL: Record<string, string> = {
   "stock-out": "Stok Keluar",
   billing: "Billing",
   customers: "Pelanggan",
-  invoices: "Invoice",
-  keuangan: "Keuangan",
+  // "keuangan" SENGAJA tidak diberi label: segmen itu hanya folder pengelompok
+  // di URL (/dashboard/keuangan/pengeluaran) dan tidak punya halaman sendiri.
+  // Breadcrumbs merakit tautan dari tiap segmen berlabel, jadi melabelinya
+  // menghasilkan remah yang menunjuk ke 404 — persis cacat "Invoice" yang
+  // dilaporkan pengguna. Lihat penjaga aturannya di nav-hrefs.test.ts.
   pengeluaran: "Pengeluaran",
   zakat: "Zakat",
   program: "Program",

@@ -22,6 +22,7 @@ import { describe, it } from "node:test";
 const DIR_INI = dirname(fileURLToPath(import.meta.url));
 const AKAR_SRC = resolve(DIR_INI, "..");
 const BERKAS_CANGKANG = join(AKAR_SRC, "app", "(tenant)", "layout.tsx");
+const BERKAS_NAV = join(AKAR_SRC, "components", "layout", "nav.ts");
 const AKAR_TENANT = join(AKAR_SRC, "app", "(tenant)", "[tenantSlug]");
 
 /** Kumpulkan path halaman dari folder `app/(tenant)/[tenantSlug]`. */
@@ -68,6 +69,14 @@ function tautanMenu(): Tautan[] {
   return hasil;
 }
 
+/** Nama segmen yang boleh diklik di remah lokasi (dibaca dari `nav.ts`). */
+function segmenBerLabel(): string[] {
+  const isi = readFileSync(BERKAS_NAV, "utf8");
+  const blok = isi.match(/SEGMEN_LABEL[^=]*=\s*\{([\s\S]*?)\n\}/);
+  assert.ok(blok, "peta SEGMEN_LABEL tidak ditemukan di nav.ts");
+  return [...blok[1].matchAll(/^\s*([a-zA-Z][\w-]*):/gm)].map((m) => m[1]);
+}
+
 const DAFTAR_TAUTAN = tautanMenu();
 const DAFTAR_HALAMAN = halamanTenant(AKAR_TENANT);
 
@@ -109,6 +118,39 @@ describe("tautan menu shell tenant", () => {
       indukTanpaExact,
       [],
       `induk tanpa exact: ${indukTanpaExact.join(", ")} — itemAktif() akan menyalakan induk dan anaknya sekaligus`,
+    );
+  });
+});
+
+describe("remah lokasi tidak merakit tautan mati", () => {
+  it("setiap segmen penengah yang berlabel punya halaman sendiri", () => {
+    // Breadcrumbs (src/components/layout/breadcrumbs.tsx) merakit href dari
+    // tiap awalan segmen dan hanya membuang remah yang TIDAK ada di
+    // SEGMEN_LABEL. Artinya segmen pengelompok URL yang diberi label tapi tidak
+    // punya page.tsx menghasilkan remah yang menunjuk ke 404 — persis cara
+    // "Dashboard › Keuangan › Pengeluaran" meledak di produksi: folder
+    // `keuangan` tidak punya halaman, hanya `keuangan/pengeluaran`.
+    const berlabel = new Set(segmenBerLabel());
+    assert.ok(berlabel.size >= 8, `label terbaca: ${[...berlabel].join(", ")}`);
+
+    const remahMati = new Set<string>();
+    for (const halaman of DAFTAR_HALAMAN) {
+      const segmen = halaman.split("/").filter(Boolean);
+      for (let i = 0; i < segmen.length - 1; i += 1) {
+        // Hanya segmen dinamis ([id]) yang boleh mewakili apa pun; ia tidak
+        // pernah muncul sebagai kunci SEGMEN_LABEL.
+        if (segmen[i] === "*") continue;
+        if (!berlabel.has(segmen[i])) continue;
+        const awalan = `/${segmen.slice(0, i + 1).join("/")}`;
+        if (!DAFTAR_HALAMAN.includes(awalan)) remahMati.add(`${awalan} (label "${segmen[i]}")`);
+      }
+    }
+
+    assert.deepEqual(
+      [...remahMati],
+      [],
+      `segmen berlabel tanpa page.tsx — remahnya jadi tautan 404: ${[...remahMati].join(", ")}. ` +
+        "Entah buat halamannya, entah buang labelnya dari SEGMEN_LABEL.",
     );
   });
 });
