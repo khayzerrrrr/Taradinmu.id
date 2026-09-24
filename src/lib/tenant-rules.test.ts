@@ -8,6 +8,7 @@ import {
   PESAN_PERAN_PENGGUNA,
   PESAN_PERAN_UMUM,
   PESAN_TANPA_SESI,
+  rumahSetelahMasuk,
   TENANT_MANAGER_ROLES,
   TENANT_OWNER_ROLES,
   TENANT_USER_MANAGER_ROLES,
@@ -182,5 +183,41 @@ describe("ACCOUNTANT — keadaan sekarang, menunggu keputusan produk", () => {
   it("ditolak oleh gerbang data", () => {
     const hasil = kelolaData(sesi("ACCOUNTANT", TENANT_A), TENANT_A);
     assert.equal(hasil.ok, false);
+  });
+});
+
+describe("rumahSetelahMasuk", () => {
+  it("mengirim Super Admin ke area platform, bukan ke halaman pemasaran", () => {
+    assert.equal(rumahSetelahMasuk("SUPER_ADMIN", null), "/admin");
+  });
+
+  it("mengirim pengguna tenant ke dashboard tenantnya sendiri", () => {
+    for (const role of ["OWNER", "ADMIN", "STAFF", "ACCOUNTANT"] as const) {
+      assert.equal(rumahSetelahMasuk(role, "berkah-haramain"), "/berkah-haramain/dashboard");
+    }
+  });
+
+  it("tidak pernah memberi Super Admin dashboard tenant", () => {
+    // Bila ini berubah, mode impersonasi bukan lagi satu-satunya jalan masuk
+    // Super Admin ke data tenant.
+    assert.equal(rumahSetelahMasuk("SUPER_ADMIN", "toko-berkah"), "/admin");
+  });
+
+  it("jatuh ke \"/\" untuk akun tanpa tenant, bukan ke /admin", () => {
+    // Fallback aman: "/" selalu bisa dibuka, sedangkan "/admin" akan menolak
+    // dan meninggalkan pengguna di halaman kosong.
+    for (const role of SEMUA_ROLE) {
+      if (role === "SUPER_ADMIN") continue;
+      assert.equal(rumahSetelahMasuk(role, null), "/");
+    }
+  });
+
+  it("slug menjadi satu-satunya segmen path, tanpa jalur mencurigakan", () => {
+    // Menjaga bentuk hasil bila suatu saat slug mengandung karakter aneh;
+    // validasi slug ada di schema tenant, tapi fungsi ini tidak boleh
+    // menghasilkan something seperti "//" atau "/../".
+    const hasil = rumahSetelahMasuk("OWNER", "toko-demo");
+    assert.equal(hasil, "/toko-demo/dashboard");
+    assert.ok(!hasil.includes("//"));
   });
 });

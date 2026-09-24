@@ -277,6 +277,10 @@ model Expense {
 }
 
 4. FITUR UNGGULAN & ATURAN BISNIS
+Aturan tujuan setelah masuk (berlaku untuk login dan daftar):
+SUPER_ADMIN -> /admin; pengguna tenant -> /<slug>/dashboard; akun tanpa tenant -> /.
+  Halaman "/" adalah halaman pemasaran, jadi tidak pernah menjadi tujuan otomatis setelah masuk.
+  Bila permintaan masuk membawa ?callbackUrl (mis. pengguna sebelumnya ditahan guard di halaman tertentu), callbackUrl itu yang dipakai — aturan rumah hanya jadi cadangan.
 A. Subdomain & White-label (Fitur Premium / PRO)
 Routing: Gunakan Next.js Middleware (src/middleware.ts) untuk mendeteksi subdomain.
 Jika user akses toko.taradinmu.id -> Load tenant dengan subdomain "toko".
@@ -434,4 +438,87 @@ Fitur "TaradinMu AI Assistant" adalah chatbot cerdas yang terintegrasi langsung 
    - **Drafting Messages:** Membuat draf pesan WhatsApp untuk penagihan atau marketing.
    - **Syariah Advisor:** Memberikan panduan singkat terkait hitungan zakat dan etika bisnis Islami.
 4. **Teknis:** Menggunakan Vercel AI SDK atau streaming API sederhana. AI hanya diberikan akses *read-only* ke data via Server Actions yang aman, atau *write access* terbatas (hanya untuk create Expense/Invoice) dengan konfirmasi user.
+
+### 4.F. MODUL PROGRAM (satu mesin untuk kloter, proyek, dan tahun ajaran)
+
+**Keputusan desain yang harus dipahami sebelum menambah modul industri apa pun:**
+kebutuhan "CRM Data Jamaah" (travel), "Billing per Proyek" (kontraktor/EO), dan
+penagihan SPP per tahun ajaran (pendidikan) pada 4.C **bukan tiga modul berbeda** —
+ketiganya adalah objek yang sama dengan label industri: sekumpulan orang, satu
+rentang waktu, target uang yang harus masuk, dan anggaran yang akan keluar.
+Membangun satu entitas `Program` dan memberi label per `businessType` jauh lebih
+kecil permukaannya daripada tiga modul vertikal yang masing-masing punya tabel,
+halaman, dan gerbang sendiri. Modul lain menyusul memakai mesin yang sama.
+
+#### 1. Definisi
+Sebuah **Program** adalah pusat biaya dan pusat tagih, bukan catatan pembukuan baru.
+Isinya: nama, keterangan, tanggal mulai, tanggal selesai (boleh kosong selama
+program masih berjalan), status, target dana (opsional),
+anggaran (opsional), dan peserta.
+
+#### 2. Aturan uang — bagian paling penting
+Program **tidak pernah** menyimpan uang sendiri. Tidak ada tabel pembayaran, tidak
+ada ledger kedua.
+- **Terkumpul** = jumlah `Invoice` ber-status `PAID` yang `programId`-nya menunjuk program ini.
+- **Terpakai** = jumlah `Expense` yang `programId`-nya menunjuk program ini.
+- Karena itu kolom `programId` pada `Invoice` dan `Expense` bersifat **nullable**:
+  invoice dan pengeluaran biasa tetap ada seperti sebelumnya, program hanya
+  *melabeli* uang yang sudah tercatat.
+- Alasan larangan ledger kedua: dua sumber kebenaran angka adalah cara paling
+  pasti menghasilkan laporan yang berbeda sendiri saat salah satunya diperbaiki.
+
+#### 3. Peserta memakai Customer yang sudah ada
+Peserta program ditautkan lewat tabel `ProgramParticipant (programId, customerId)`.
+**Dilarang** membuat model `Jamaah`/`Siswa`/`Klien` sendiri: untuk tagihan, jamaah
+umrah dan siswa pesantren sama-sama pihak yang ditagih, dan `Customer` sudah
+menyimpan nama, telepon, email, dan alamat. Duplikasi identitas membuat satu orang
+bisa punya dua catatan yang tidak pernah bertemu.
+
+#### 4. Label per industri
+Label diambil dari `businessType` tenant saat render, **bukan** disimpan di baris
+program — supaya satu tenant yang jenis usahanya diubah tidak punya data yang
+menyimpang. Pemetaan: `TRAVEL_UMROH` -> "Keberangkatan / Kloter",
+`PROJECT_BASED` -> "Proyek", `EDUCATION` -> "Tahun Ajaran / Kelas",
+`JASA_ORDER` -> "Pesanan", `RETAIL_FNB` -> "Acara", lainnya -> "Program".
+
+#### 5. Status
+`PLANNING` (direncanakan) -> `ACTIVE` (berjalan) -> `COMPLETED` (selesai);
+`CANCELLED` (dibatalkan) dapat dicapai dari status mana pun. Status tidak mengubah
+angka apa pun — ia hanya menyaring daftar.
+
+#### 6. Gating: EKSKLUSIF PRO
+Mengikuti 4.D: fitur baru yang menambah kemampuan bayar adalah alasan upgrade,
+maka Program hanya untuk `plan === 'PRO'`.
+- Ditegakkan **di server** lewat `ambilBatasFitur(plan, "PROGRAM")`, bukan hanya
+  disembunyikan di UI. Menutup menu tanpa menutup Server Action-nya hanya
+  menyembunyikan pintunya.
+- Tenant FREE melihat baris menu dengan ikon gembok dan modal upgrade sesuai 4.D.3,
+  bukan pesan error merah.
+
+#### 7. Hak akses
+- Baca: semua role anggota tenant (OWNER, ADMIN, STAFF) dan SUPER_ADMIN.
+- Tulis (buat/ubah/hapus, tambah/keluar peserta, menautkan invoice & pengeluaran):
+  OWNER, ADMIN, SUPER_ADMIN. STAFF hanya membaca.
+- Semua aksi wajib melewati `aksesTenant()` modul PROGRAM; tidak ada pengecualian
+  publik, dan `server-action-guards.test.ts` ikut memindai berkas modul ini.
+
+#### 8. Preset yang mengaktifkannya
+`TRAVEL_UMROH`, `PROJECT_BASED`, `EDUCATION`, dan `JASA_ORDER` mendapat `PROGRAM`
+saat registrasi. `RETAIL_FNB`, `TRADING`, `HEALTH_CLINIC`, `OTHER` tidak — bagi
+mereka program biasanya hanya jadi folder kosong; Super Admin tetap bisa
+menyalakannya lewat `/admin`.
+
+#### 9. Batasan yang diterima dan dicatat jujur
+- **Tenant PRO yang sudah ada** tidak punya `PROGRAM` di `enabledModules`-nya
+  (kolom itu diisi sekali saat registrasi). Migrasi harus menambahkannya ke tenant
+  PRO yang sudah terdaftar, kalau tidak, satu-satunya pelanggan berbayar justru
+  tidak melihat fitur barunya.
+- **Menghapus program tidak boleh menghapus uangnya.** Program yang sudah ditauti
+  invoice/pengeluaran tidak bisa dihapus begitu saja: tautannya dilepas
+  (`programId` kembali `null`) dan jumlahnya dilaporkan ke pengguna lebih dulu.
+- **Peserta yang masih punya tagihan berjalan** boleh keluar dari program; ia tidak
+  ikut terhapus.
+- Program tidak memaksa tanggal selesai setelah tanggal mulai pada data lama;
+  validasi itu hanya berlaku untuk input baru.
+
 

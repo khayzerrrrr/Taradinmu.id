@@ -82,6 +82,16 @@ enum ItemKind {
   SERVICE // Jasa: tanpa stok; invoice tidak menyentuh stok
 }
 
+// Siklus hidup Program (PRD 4.F). Status hanya menyaring daftar — ia tidak
+// mengubah angka terkumpul/terpakai, karena angka itu berasal dari invoice dan
+// pengeluaran yang ditautkan, bukan dari status.
+enum ProgramStatus {
+  PLANNING  // Direncanakan
+  ACTIVE    // Berjalan
+  COMPLETED // Selesai
+  CANCELLED // Dibatalkan (bisa dari status mana pun)
+}
+
 model Tenant {
   id              String   @id @default(cuid())
   name            String // Nama Usaha (e.g., "Klinik Sehat Muhammadiyah")
@@ -107,6 +117,7 @@ model Tenant {
   invoices        Invoice[]
   expenses        Expense[]
   zakatCalculations ZakatCalculation[]
+  programs          Program[]
 }
 
 model User {
@@ -221,6 +232,9 @@ model Customer {
   email       String?
   address     String?
   invoices    Invoice[]
+  // Keikutsertaan pada program (PRD 4.F). Peserta memakai Customer yang sudah
+  // ada — sengaja tidak dibuat model Jamaah/Siswa sendiri.
+  programParticipations ProgramParticipant[]
   createdAt   DateTime @default(now())
 }
 
@@ -237,12 +251,18 @@ model Invoice {
   dueDate       DateTime
   paidAt        DateTime? // diisi saat status menjadi PAID (dasar pendapatan)
   notes         String?
+  // Label program (PRD 4.F). Nullable: invoice biasa tetap ada seperti sebelum
+  // modul ini ada, dan menghapus program melepas tautannya tanpa menghapus uang.
+  programId     String?
+  program       Program? @relation(fields: [programId], references: [id], onDelete: SetNull)
   items         InvoiceItem[]
   createdAt     DateTime @default(now())
 
   // Kuota FREE dihitung per bulan (PRD 4.D): `createdAt >= awal bulan`.
   // Tanpa index ini setiap pemeriksaan kuota menjadi pemindaian penuh.
   @@index([tenantId, createdAt])
+  // Roll-up "terkumpul" per program menyaring pada kolom ini.
+  @@index([programId])
 }
 
 // Baris item invoice: menautkan invoice ke varian (dasar pemotongan stok).
@@ -269,10 +289,62 @@ model Expense {
   paymentMethod String? // e.g., "CASH", "TRANSFER"
   reference     String? // Nota/bukti terkait
   notes         String?
+  // Label program (PRD 4.F); dasar "terpakai" pada ringkasan program.
+  programId     String?
+  program       Program?        @relation(fields: [programId], references: [id], onDelete: SetNull)
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
   @@index([tenantId, expenseDate])
+  @@index([programId])
+}
+
+// --- MODUL PROGRAM (PRD 4.F) ---
+//
+// Satu mesin untuk kebutuhan yang dulu tertulis sebagai tiga modul industri
+// berbeda: "CRM Data Jamaah" (travel), "Billing per Proyek" (kontraktor/EO), dan
+// penagihan per tahun ajaran (pendidikan). Ketiganya objek yang sama: sekumpulan
+// orang, satu rentang waktu, target dana masuk, anggaran keluar.
+model Program {
+  id           String        @id @default(cuid())
+  tenantId     String
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  startDate    DateTime
+  // Boleh kosong selama program masih berjalan (PRD 4.F.1).
+  endDate      DateTime?
+  status       ProgramStatus @default(PLANNING)
+  // Target dana masuk dan anggaran keluar, keduanya opsional: travel umrah
+  // peduli pada target dana, kontraktor pada anggaran. Memaksa dua-duanya
+  // hanya menghasilkan kolom kosong yang diisi asal.
+  targetAmount Decimal?      @db.Decimal(14, 2)
+  budgetAmount Decimal?      @db.Decimal(14, 2)
+
+  participants ProgramParticipant[]
+  invoices     Invoice[]
+  expenses     Expense[]
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  // Daftar program aktif per tenant adalah tampilan utamanya.
+  @@index([tenantId, status])
+}
+
+// Peserta program. Tabel perantara murni: identitas peserta tetap milik Customer.
+model ProgramParticipant {
+  id         String   @id @default(cuid())
+  programId  String
+  program    Program  @relation(fields: [programId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  joinedAt   DateTime @default(now())
+  notes      String?
+
+  // Satu orang tidak boleh terdaftar dua kali pada program yang sama.
+  @@unique([programId, customerId])
+  @@index([customerId])
 }
 
 // --- MODUL ZAKAT ---

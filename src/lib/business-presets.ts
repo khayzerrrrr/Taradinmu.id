@@ -23,6 +23,16 @@ import type { ModuleKey } from "@/shared/modules";
  */
 const MODUL_DASAR: ModuleKey[] = ["INVENTORY", "BILLING", "ACCOUNTING"];
 
+/**
+ * Ditambah modul Program (PRD 4.F) untuk usaha yang benar-benar bekerja per
+ * kegiatan: kloter keberangkatan, proyek, pesanan jasa, dan tahun ajaran.
+ *
+ * Sengaja TIDAK diberikan ke RETAIL_FNB, TRADING, dan HEALTH_CLINIC: bagi
+ * mereka program hampir selalu hanya folder kosong. Super Admin tetap bisa
+ * menyalakannya per tenant lewat /admin.
+ */
+const MODUL_PROGRAM: ModuleKey[] = [...MODUL_DASAR, "PROGRAM"];
+
 export type BusinessPreset = {
   businessType: BusinessType;
   /** Label singkat untuk kartu pilihan. */
@@ -82,7 +92,7 @@ export const BUSINESS_PRESETS: readonly BusinessPreset[] = [
     businessType: "TRAVEL_UMROH",
     label: "Travel Umrah & Haji",
     description: "Travel umrah, haji, dan penjualan tiket.",
-    enabledModules: [...MODUL_DASAR],
+    enabledModules: [...MODUL_PROGRAM],
     defaultItemKind: "SERVICE",
     batchTracking: false,
     categories: [
@@ -96,7 +106,7 @@ export const BUSINESS_PRESETS: readonly BusinessPreset[] = [
     businessType: "JASA_ORDER",
     label: "Jasa Pesanan",
     description: "Laundry, aqiqah, konveksi, dan jasa berdasarkan pesanan.",
-    enabledModules: [...MODUL_DASAR],
+    enabledModules: [...MODUL_PROGRAM],
     defaultItemKind: "SERVICE",
     batchTracking: false,
     categories: [
@@ -111,7 +121,7 @@ export const BUSINESS_PRESETS: readonly BusinessPreset[] = [
     businessType: "PROJECT_BASED",
     label: "Proyek & Event",
     description: "Kontraktor, event organizer, dan pekerjaan berbasis proyek.",
-    enabledModules: [...MODUL_DASAR],
+    enabledModules: [...MODUL_PROGRAM],
     defaultItemKind: "SERVICE",
     batchTracking: false,
     categories: [
@@ -140,7 +150,7 @@ export const BUSINESS_PRESETS: readonly BusinessPreset[] = [
     businessType: "EDUCATION",
     label: "Pendidikan",
     description: "Sekolah, bimbingan belajar, dan pesantren.",
-    enabledModules: [...MODUL_DASAR],
+    enabledModules: [...MODUL_PROGRAM],
     defaultItemKind: "SERVICE",
     batchTracking: false,
     categories: [

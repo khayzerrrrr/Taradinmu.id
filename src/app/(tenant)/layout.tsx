@@ -14,6 +14,7 @@ import {
 import { getSessionUser } from "@/lib/tenant-access";
 import { logoutAction } from "@/modules/core/actions/auth-actions";
 import { ImpersonationBanner } from "@/modules/core/components/impersonation-banner";
+import { labelProgram } from "@/modules/program/utils";
 import { isModuleEnabled } from "@/shared/modules";
 
 // Layout area tenant: sidebar + bilah atas + kanvas konten.
@@ -51,6 +52,10 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
   const inventoryAktif = isModuleEnabled(tenant.enabledModules, "INVENTORY");
   const billingAktif = isModuleEnabled(tenant.enabledModules, "BILLING");
   const accountingAktif = isModuleEnabled(tenant.enabledModules, "ACCOUNTING");
+  const programAktif = isModuleEnabled(tenant.enabledModules, "PROGRAM");
+  // Menu memakai sebutan industri, bukan "Program" generik: travel umrah harus
+  // membaca "Kloter", sekolah membaca "Tahun Ajaran" (PRD 4.F.4).
+  const sebutanProgram = labelProgram(tenant.businessType).program;
   // Menu stok hanya relevan bila katalog tenant memang berisi barang, bukan
   // hanya jasa (travel/laundry/pendidikan).
   const adaItemBarang = inventoryAktif ? await punyaItemBarang(tenant.id) : false;
@@ -72,6 +77,9 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
       href: `${basePath}/dashboard/settings`,
       label: "Pengaturan Toko",
       icon: "settings",
+      // `exact`: tanpa ini baris ini ikut menyala saat sub-halamannya dibuka
+      // (mis. /dashboard/settings/users), sehingga dua menu tampak aktif.
+      exact: true,
       // Branding/white-label hanya untuk PRO: FREE melihat gembok upgrade.
       kunciPro: tenant.plan === "FREE",
     },
@@ -93,6 +101,8 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
       href: `${basePath}/dashboard/inventory`,
       label: "Produk & Layanan",
       icon: "products",
+      // Sama seperti "Pengaturan Toko": menu stok adalah sub-halaman dari sini.
+      exact: true,
     },
   ];
 
@@ -165,6 +175,22 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
           },
         ],
         accountingAktif,
+      ),
+    },
+    {
+      judul: "Program",
+      items: tandai(
+        [
+          {
+            href: `${basePath}/dashboard/program`,
+            label: sebutanProgram,
+            icon: "programs",
+            // PRO saja (PRD 4.F.6): paket FREE melihat gembok + modal upgrade,
+            // dan Server Action-nya tetap menolak — bukan hanya menunya.
+            kunciPro: tenant.plan === "FREE",
+          },
+        ],
+        programAktif,
       ),
     },
     {

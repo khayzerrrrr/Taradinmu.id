@@ -18,7 +18,7 @@ import {
 const initialState: LoginActionState = { success: false, message: "" };
 
 type Props = {
-  /** Path relatif tujuan setelah login berhasil. */
+  /** Path relatif tujuan setelah login berhasil. Kosong = pakai rumah pengguna. */
   callbackUrl: string;
 };
 

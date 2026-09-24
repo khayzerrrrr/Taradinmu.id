@@ -7,6 +7,7 @@ import {
   ArrowUpFromLine,
   Boxes,
   Building2,
+  FolderKanban,
   HeartHandshake,
   LayoutDashboard,
   Lock,
@@ -17,8 +18,7 @@ import {
   Users,
   Wallet,
   type LucideIcon,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+} from "lucide-react";import { cn } from "@/lib/utils";
 import { UpgradeModal } from "@/components/shared/upgrade-modal";
 import type { NavIcon, NavItem, NavSection } from "@/components/layout/nav";
 import { itemAktif } from "@/components/layout/nav";
@@ -33,6 +33,7 @@ const IKON: Record<NavIcon, LucideIcon> = {
   invoices: ReceiptText,
   expenses: Wallet,
   zakat: HeartHandshake,
+  programs: FolderKanban,
   settings: Store,
   users: UserCog,
   tenants: Building2,

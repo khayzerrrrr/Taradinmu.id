@@ -52,7 +52,10 @@ export function SidebarPanel({
       <div className="shrink-0 border-t border-sidebar-border p-3">
         <div className="flex items-center justify-between gap-2 px-1">
           <div className="flex min-w-0 flex-col">
-            <span className="truncate text-xs font-medium">
+            {/* `title`: nama tenant panjang benar-benar terpotong oleh `truncate`
+                (terukur: 371px isi dalam 180px ruang), jadi nilai lengkapnya
+                harus tetap bisa dibaca lewat tooltip. */}
+            <span className="truncate text-xs font-medium" title={tenant.name}>
               {tenant.name}
             </span>
             <span className="truncate text-2xs text-sidebar-foreground/50">

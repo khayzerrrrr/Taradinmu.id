@@ -2,6 +2,7 @@
 
 import { AuthError } from "next-auth";
 import { BATAS_LOGIN_EMAIL, lihatBatas } from "@/lib/rate-limit";
+import { rumahUntukEmail } from "@/lib/tenant-access";
 import { signIn, signOut } from "@/modules/core/auth";
 
 export type LoginActionState = {
@@ -9,11 +10,12 @@ export type LoginActionState = {
   message: string;
 };
 
-// Hanya izinkan path relatif (cegah open redirect).
-function ambilCallbackUrl(formData: FormData): string {
+// Hanya izinkan path relatif (cegah open redirect). `null` berarti pemanggil
+// tidak menyebut tujuan, dan rumah pengguna dipakai sebagai gantinya.
+function ambilCallbackUrl(formData: FormData): string | null {
   const raw = formData.get("callbackUrl");
   if (typeof raw === "string" && /^\/(?!\/)/.test(raw)) return raw;
-  return "/";
+  return null;
 }
 
 // Server Action login; dipanggil dari <form> via useActionState.
@@ -41,7 +43,8 @@ export async function loginAction(
     await signIn("credentials", {
       email: String(formData.get("email") ?? ""),
       password: String(formData.get("password") ?? ""),
-      redirectTo: ambilCallbackUrl(formData),
+      redirectTo:
+        ambilCallbackUrl(formData) ?? (await rumahUntukEmail(email)),
     });
     return { success: true, message: "Berhasil masuk." };
   } catch (error) {

@@ -10,12 +10,16 @@ import {
 } from "@/components/ui/card";
 import { getCurrentUser } from "@/modules/core/auth/dal";
 import { LoginForm } from "@/modules/core/components/login-form";
+import { rumahUntukEmail } from "@/lib/tenant-access";
 
-// Hanya menerima path relatif (cegah open redirect).
-function ambilCallbackUrl(nilai: string | string[] | undefined): string {
+// Hanya menerima path relatif (cegah open redirect). `null` berarti tidak ada
+// tujuan eksplisit, dan rumah pengguna dipakai sebagai gantinya.
+function ambilCallbackUrl(
+  nilai: string | string[] | undefined,
+): string | null {
   const raw = typeof nilai === "string" ? nilai : Array.isArray(nilai) ? nilai[0] : undefined;
   if (raw && /^\/(?!\/)/.test(raw)) return raw;
-  return "/";
+  return null;
 }
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
@@ -23,7 +27,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const callbackUrl = ambilCallbackUrl(params.callbackUrl);
 
   const user = await getCurrentUser();
-  if (user) redirect(callbackUrl);
+  if (user) redirect(callbackUrl ?? (await rumahUntukEmail(user.email ?? "")));
 
   return (
     <div className="flex w-full max-w-sm flex-col gap-6">
@@ -46,7 +50,9 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <LoginForm callbackUrl={callbackUrl} />
+          {/* String kosong, bukan "/": `loginAction` memakainya sebagai tanda
+              "tidak ada tujuan eksplisit" lalu mengirim ke rumah pengguna. */}
+          <LoginForm callbackUrl={callbackUrl ?? ""} />
         </CardContent>
       </Card>
 

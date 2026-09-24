@@ -153,14 +153,20 @@ penuh kepada pemegang akun Super Admin).
 
 ### P3 — Kapabilitas per preset (PRD 4.C) yang belum dibangun
 
-`RETAIL_FNB` → POS · `TRAVEL_UMROH` → CRM Jamaah + cicilan · `JASA_ORDER` → Order Tracking/status workflow · `PROJECT_BASED` → Billing per proyek · `TRADING` → Invoice B2B
+`RETAIL_FNB` → POS · `TRAVEL_UMROH` → ~~CRM Jamaah~~ + cicilan · `JASA_ORDER` → Order Tracking/status workflow · `PROJECT_BASED` → ~~Billing per proyek~~ · `TRADING` → Invoice B2B
+
+Yang dicoret sudah dilayani **mesin Program** (fase U, PRD 4.F): satu entitas berlabel
+industri — Kloter untuk travel, Proyek untuk kontraktor/EO, Tahun Ajaran untuk
+pendidikan, Pesanan untuk jasa — dengan peserta menaut `Customer` dan uang dihitung
+dari `Invoice`/`Expense` yang sudah ada. Sisa pekerjaan tiap preset adalah yang **tidak**
+bisa diwakili satu mesin: cicilan (Tahap 3), alur status pesanan, dan invoice B2B.
 
 ### P4 — Fondasi produksi (tidak ada di PRD, tapi wajib untuk rilis)
 
 - ~~**0 tes otomatis**~~ **Selesai**: `npm run test` memakai Node test runner lewat `tsx`
-  (keduanya sudah tersedia) — **97 tes** untuk logika murni (perhitungan zakat, kontras
-  merek, ringkasan stok, batas paket, batas bulan, transisi invoice, penyamaran nilai
-  rahasia di log), ditambah
+  (keduanya sudah tersedia) — **128 tes** untuk logika murni (perhitungan zakat, kontras
+  merek, ringkasan stok, batas paket, batas bulan, transisi invoice, siklus hidup &
+  tanggal program, penyamaran nilai rahasia di log), ditambah
   **isolasi tenant** dan **penjaga struktur Server Action** (lihat fase Q). Tanpa
   dependensi baru.
 - ~~Tidak ada `prisma/migrations/`~~ `[dikoreksi]` **tidak lagi berlaku**:
@@ -251,6 +257,10 @@ Setiap entri sudah melewati gerbang wajib (§1 butir 4):
 | R | **Pencatatan error + pagar error** (P4): `src/lib/log.ts` (satu baris JSON ke stdout, tanpa dependensi baru) dipasang di dalam `pesanErrorUmum()` sehingga 44 catch block tercakup sekaligus; `pesanValidasi`/`isUniqueConstraintError`/`isRecordNotFoundError`/`pesanErrorUmum` yang selama ini dityalin secara lokal di `tenant-actions.ts` dihapus dan diganti impor dari `src/lib/action.ts` — akibat duplikasi itu, aksi Super Admin justru satu-satunya yang tidak tercatat. Ditambah `src/app/error.tsx` + `src/app/global-error.tsx`; sebelumnya **nol** pagar error di seluruh aplikasi. `global-error` memakai gaya inline karena tidak ikut memuat `globals.css`, dan memakai `retry` bukan `reset` (`retry` baru stabil di Next.js 16.3.0). | tsc/lint/**85 tes**/build hijau; **diuji terhadap server produksi sungguhan** (`next start -p 3100` + rute sementara yang melempar error): balasan 500, teks error mentah **tidak** bocor ke HTML, `digest` terkirim untuk korelasi. **Penyamaran nilai rahasia diuji 18 tes, dan tes itu menemukan dua bug pada versi pertama:** `Authorization: Bearer <token>` hanya menyamarkan kata "Bearer" sehingga tokennya tetap lolos, dan "sandi" tanpa pemisah `:`/`=` tidak ikut tersamar. Rute sementara sudah dihapus. |
 | S | **Pemulihan akun oleh Super Admin** (§4 P0 / PRD 4.B): `resetKataSandiAkun()` di `user-actions.ts` — satu-satunya jalur yang boleh menyentuh akun OWNER dan SUPER_ADMIN, dijaga `assertSuperAdmin()`, target dipilih lewat email, token reset target yang masih hidup ikut dicabut, kejadiannya dicatat `catatPeringatan()` (dua field baru `aktorId`/`targetId` di `KonteksLog`). UI: dialog di bilah alat daftar tenant `/admin`. Prefix & hash token reset dipindah ke `src/modules/core/auth/reset-token.ts` karena kini dipakai dua pihak (yang memasang dan yang mencabut). | tsc/lint/**97 tes**/build hijau; **diuji lewat HTTP sungguhan** dengan rute sementara (sudah dihapus): dengan sesi SUPER_ADMIN sandi OWNER benar-benar berganti (cocok `bcrypt.compare`), sandi lama ditolak, tautan reset lama hilang, email tak dikenal dan konfirmasi beda sama-sama ditolak; tanpa sesi rute menjawab 403. **Tes struktur dibuktikan bisa gagal:** menghapus baris `assertSuperAdmin()` memerahkan `server-action-guards.test.ts` dengan menyebut `user-actions.ts -> resetKataSandiAkun()`. Baris log hasil uji diperiksa tidak memuat kata sandi. |
 
+| T | **Diperbaiki lewat pemeriksaan browser** (temuan yang tidak terlihat dari tes): (1) sidebar menyalakan dua menu sekaligus — `Pengaturan Toko` dan `Produk & Layanan` adalah induk dari baris lain tetapi tidak diberi `exact`, sehingga `itemAktif()` ikut cocok lewat `startsWith`; (2) login tanpa `?callbackUrl` mendarat di `/` yang merupakan halaman pemasaran, bukan dashboard pengguna — aturan rumah per peran kini hidup di fungsi murni `rumahSetelahMasuk()` di `tenant-rules.ts`, dibaca `loginAction` dan halaman `/login` lewat `rumahUntukEmail()` yang sama, dan selaras dengan alur daftar yang sejak awal mengirim ke `/${slug}/dashboard`; (3) nama tenant panjang benar-benar terpotong di footer sidebar (terukur 371px isi dalam 180px ruang) — ditambah `title` supaya nilai lengkapnya tetap terjangkau. | tsc/lint/**102 tes**/build hijau; **ketiganya diverifikasi di Chrome**, bukan hanya dibaca dari kode: login sebagai OWNER menghasilkan alamat `/berkah-haramain/dashboard` dan sebagai SUPER_ADMIN `/admin` (sebelumnya dua-duanya mendarat di `/`); di `/settings/users` hanya "Pengguna" yang membawa `aria-current="page"`, di `/inventory/stock` hanya "Stok"; `title` terpasang pada baris nama tenant. Mutasi pada cabang `SUPER_ADMIN` di `rumahSetelahMasuk()` memerahkan 2 tes. |
+
+| U | **Modul Program** (PRD 4.F — menjawab P3 travel/kontraktor/pendidikan dengan **satu** mesin, bukan tiga modul vertikal): model `Program` + `ProgramParticipant`, migrasi tulisan tangan `20260924060000_tambah_modul_program`, `programId` nullable pada `Invoice`/`Expense`. **Tanpa ledger kedua** — Terkumpul dihitung dari `Invoice` PAID, Terpakai dari `Expense`, jadi menghapus program hanya melepas label dan uangnya tetap utuh. Peserta menaut `Customer` yang sudah ada (dilarang membuat model Jamaah/Siswa/Klien sendiri), label per industri diambil dari `businessType` saat render (Kloter/Proyek/Tahun Ajaran/Pesanan/Acara), transisi status dijaga di `utils.ts`, gerbang PRO ditegakkan di server lewat `ambilBatasFitur(plan, "PROGRAM")` dengan `code: "UPGRADE_REQUIRED"`; tulis khusus OWNER/ADMIN, STAFF baca saja. Halaman `/dashboard/program` + `/dashboard/program/[programId]`, menu sidebar bergembok untuk FREE. | tsc/lint/**128 tes**/build hijau; migrasi + `migrate status` bersih tanpa drift; **dijalankan ujung ke ujung di Chrome pada tenant buang (sudah dihapus)**: buat → peserta (tambah/keluar/cari) → taut invoice & pengeluaran → angka ringkasan dicocokkan dengan query mentah → transisi status (jalan ilegal tidak ditawarkan) → ubah → hapus. Penghapusan dibuktikan aman: 3 invoice Rp 5.000.000 dan pengeluaran Rp 750.000 **bertahan** dengan `programId=NULL`. Kedua cabang gembok terverbatim di layar (MODUL pada tenant FREE nyata, PAKET setelah plan dibalik), dan STAFF tidak merender satu pun kontrol tulis. **Dua cacat ditemukan oleh pemeriksaan browser ini, bukan oleh tes:** (1) tanggal disimpan sebagai tengah malam *lokal* sehingga "1 Jan 2027" tersimpan & tampil "31 Des 2026" pada zona UTC+7 — kini memakai `parseTanggalInput()` (tengah malam UTC) seperti invoice/pengeluaran, dan pemetaannya dipindah ke `program/utils.ts` agar tertutup tes (mutasi −5 jam memerahkan 2 tes); (2) teks petunjuk uang memakai label peserta alih-alih label program ("…menaut jamaah ini"), diperbaiki lewat prop `sebutanProgram` |
+
 Konflik gating batch (K7) juga diselesaikan di fase D: `isBatchTrackingEnabled()` kini hanya menerima `plan` dan mendelegasikan ke `plan-limits.ts`, sehingga tidak ada lagi dua aturan yang bertabrakan.
 
 ### Belum dikerjakan (urutan yang disarankan)
@@ -300,7 +310,7 @@ Konflik gating batch (K7) juga diselesaikan di fase D: `isBatchTrackingEnabled()
 ```bash
 npx tsc --noEmit        # tipe
 npm run lint            # eslint
-npm run test            # 97 tes logika murni (Node test runner lewat tsx)
+npm run test            # 128 tes logika murni (Node test runner lewat tsx)
 npm run build           # wajib: sekaligus meregenerasi tipe rute baru
 npx prisma migrate status
 npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script
@@ -340,8 +350,7 @@ npm run start -- -p 3100
 # 3. GET halaman dengan cookie yang sama
 ```
 
-Enam jebakan yang sudah memakan waktu dan sebaiknya dihindari lagi:
-
+Tujuh jebakan yang sudah memakan waktu dan sebaiknya dihindari lagi:
 1. **Nilai `.env` ditulis dengan tanda kutip**, dan `dotenv` membuangnya sedangkan
    parser buatan sendiri tidak. Baca kredensial dengan membuang kutip di ujung,
    atau login akan selalu gagal (`error=CredentialsSignin`).
@@ -364,6 +373,15 @@ Enam jebakan yang sudah memakan waktu dan sebaiknya dihindari lagi:
    menyebut berkas yang sudah tidak ada dan `npm run build` gagal
    (`TS2307: Cannot find module .../route.js`). Hapus folder `.next/dev`, lalu
    build ulang.
+7. **`next dev` mencetak argumen Server Action ke stdout**, jadi sandi plaintext
+   ikut masuk log: `ƒ resetKataSandiAkun({"password":"..."})`. Ini berasal dari
+   `next/dist/server/dev/log-requests.js` yang hanya dipakai `next-dev-server`,
+   jadi `next start` (yang dijalankan PM2) **tidak** melakukannya. Tapi jangan
+   pernah menjalankan `next dev` di mesin produksi dan menahan stdout-nya ke
+   berkas. `loginAction` kebetulan aman karena menerima `FormData` — tracer
+   mencetaknya sebagai `{}`. Aksi baru yang menerima objek biasa akan bocisi
+   isinya di log dev; kalau aksinya membawa rahasia, pakai `FormData` atau
+   jangan percaya log dev bersih.
 
 Tiga hal yang bisa diuji lewat rute sementara seperti ini (pola yang sama dipakai
 fase R dan S): memanggil Server Action dengan sesi asli dari cookie, memeriksa

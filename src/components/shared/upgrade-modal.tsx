@@ -19,6 +19,7 @@ const MANFAAT = [
   "Invoice & produk tanpa batas",
   "Batch + tanggal kedaluwarsa",
   "Zakat otomatis & laporan keuangan",
+  "Program: kloter, proyek & tahun ajaran",
   "Branding kustom (logo & warna)",
 ];
 

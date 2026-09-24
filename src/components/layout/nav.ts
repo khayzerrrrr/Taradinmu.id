@@ -12,6 +12,7 @@ export type NavIcon =
   | "invoices"
   | "expenses"
   | "zakat"
+  | "programs"
   | "settings"
   | "users"
   | "tenants";
@@ -60,6 +61,7 @@ export const SEGMEN_LABEL: Record<string, string> = {
   keuangan: "Keuangan",
   pengeluaran: "Pengeluaran",
   zakat: "Zakat",
+  program: "Program",
   settings: "Pengaturan Toko",
   users: "Pengguna",
   admin: "Admin",

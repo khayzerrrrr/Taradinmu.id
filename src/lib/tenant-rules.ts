@@ -61,3 +61,18 @@ export function nilaiAksesTenant(
   }
   return { ok: true, userId: user.id };
 }
+
+// Tujuan standar setelah masuk, supaya login tidak mendarat di "/" yang merupakan
+// halaman pemasaran. Polanya sama dengan alur daftar (PRD Bagian 4.A) yang sudah
+// mengirim pemilik usaha baru ke `/${slug}/dashboard`.
+//
+// Fallback "/" disengaja untuk akun tanpa tenant: lebih baik mendarat di halaman
+// publik daripada di `/admin` yang pasti menolak.
+export function rumahSetelahMasuk(
+  role: Role,
+  tenantSlug: string | null,
+): string {
+  if (role === "SUPER_ADMIN") return "/admin";
+  if (tenantSlug) return `/${tenantSlug}/dashboard`;
+  return "/";
+}

@@ -4,13 +4,13 @@ import type { PlanType } from "@/generated/prisma/client";
 // File murni data (tanpa dependensi server) agar aman dipakai client & server.
 
 /** Jenis batas yang bisa diperiksa lewat checkLimit(). */
-export type LimitKey = "INVOICE" | "PRODUCT" | "USERS" | "BATCH" | "ZAKAT";
+export type LimitKey = "INVOICE" | "PRODUCT" | "USERS" | "BATCH" | "ZAKAT" | "PROGRAM";
 
 /** Batas berbasis jumlah (dihitung dari data tenant). */
 export type LimitJumlahKey = Extract<LimitKey, "INVOICE" | "PRODUCT" | "USERS">;
 
 /** Batas berbasis fitur (aktif/tidak untuk paket). */
-export type LimitFiturKey = Extract<LimitKey, "BATCH" | "ZAKAT">;
+export type LimitFiturKey = Extract<LimitKey, "BATCH" | "ZAKAT" | "PROGRAM">;
 
 export type PlanLimits = {
   /**
@@ -26,17 +26,27 @@ export type PlanLimits = {
   batch: boolean;
   /** Perhitungan zakat otomatis dari invoice & pengeluaran. */
   autoZakat: boolean;
+  /** Modul Program — pusat biaya & tagih per industri (PRD 4.F). */
+  program: boolean;
 };
 
 export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
   // FREE: 1 pengguna (hanya Owner), 50 invoice per bulan — PRD Bagian 4.D.
-  FREE: { invoice: 50, product: 100, users: 1, batch: false, autoZakat: false },
+  FREE: {
+    invoice: 50,
+    product: 100,
+    users: 1,
+    batch: false,
+    autoZakat: false,
+    program: false,
+  },
   PRO: {
     invoice: null,
     product: null,
     users: null,
     batch: true,
     autoZakat: true,
+    program: true,
   },
 };
 
@@ -47,6 +57,7 @@ export const LIMIT_LABELS: Record<LimitKey, string> = {
   USERS: "pengguna",
   BATCH: "fitur batch (nomor batch & kedaluwarsa)",
   ZAKAT: "zakat otomatis",
+  PROGRAM: "modul Program",
 };
 
 /**
@@ -79,11 +90,13 @@ export function ambilBatasJumlah(
   return limits.users;
 }
 
-/** Status fitur untuk BATCH/ZAKAT. */
+/** Status fitur untuk BATCH/ZAKAT/PROGRAM. */
 export function ambilBatasFitur(
   plan: PlanType,
   key: LimitFiturKey,
 ): boolean {
   const limits = ambilPlanLimits(plan);
-  return key === "BATCH" ? limits.batch : limits.autoZakat;
+  if (key === "BATCH") return limits.batch;
+  if (key === "ZAKAT") return limits.autoZakat;
+  return limits.program;
 }

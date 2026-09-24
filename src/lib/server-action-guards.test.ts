@@ -27,6 +27,7 @@ const GERBANG_PLATFORM = [
   /\bassertTenantMember\s*\(/,
   /\bassertTenantOwner\s*\(/,
   /\bassertTenantUserManager\s*\(/,
+  /\bassertTenantEditor\s*\(/,
   /\bassertSuperAdmin\s*\(/,
 ];
 
@@ -36,6 +37,9 @@ const GERBANG_LOKAL = [
   /\baksesKeuangan\s*\(\s*\)/,
   /\baksesPengguna\s*\(\s*\)/,
   /\baksesZakat\s*\(\s*\)/,
+  // Program (PRD 4.F.7): baca untuk semua anggota, tulis hanya OWNER/ADMIN.
+  /\baksesProgram\s*\(\s*\)/,
+  /\baksesProgramTulis\s*\(\s*\)/,
 ];
 
 // Berkas Server Action yang memang TIDAK boleh memakai gerbang tenant, karena
