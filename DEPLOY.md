@@ -117,6 +117,14 @@ keluhan "fitur invoice error di server" ternyata 20 baris `404` pada
 `/dashboard/billing/invoices` — tautan menu yang menunjuk rute mati, bukan crash
 (log aplikasi bersih sama sekali).
 
+> **`curl` tanpa sesi TIDAK membuktikan sebuah rute ada.** Setiap path di bawah
+> `/<slug>/dashboard/...` diarahkan ke `/login` oleh `proxy.ts` **sebelum** Next
+> mencocokkan rute, jadi rute yang benar-benar mati pun menjawab `307` — sama seperti
+> rute yang hidup. (Ini kesalahan yang sempat dibuat saat menelusuri bug invoice di
+> atas: `307` disimpulkan sebagai "rutenya ada".) Bukti yang sah: daftar rute keluaran
+> `npm run build`, `npm run test` (tes `src/lib/nav-hrefs.test.ts` menguji tiap href
+> menu terhadap `page.tsx` di disk), atau satu klik di sesi asli.
+
 ## 4. Bila gagal di tengah jalan
 
 Urutan kejadian menentukan pemulihan:
