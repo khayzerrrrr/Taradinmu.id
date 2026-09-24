@@ -291,6 +291,15 @@ Membuat tenant baru secara manual (Provisioning) & membuatkan akun Owner.
 Mengubah plan tenant (dari FREE ke PRO).
 Mengaktifkan/menonaktifkan modul (enabledModules) untuk tenant tertentu.
 Login sebagai tenant (Impersonate) untuk debugging.
+Memulihkan akun yang terkunci: mereset kata sandi akun mana pun, TERMASUK OWNER dan SUPER_ADMIN, dari halaman /admin.
+  Alasan fitur ini ada: paket FREE hanya boleh punya 1 pengguna, yaitu OWNER, dan tautan /lupa-sandi bergantung pada penyuplai email yang terkonfigurasi. Tanpa jalur kedua ini, pemilik toko yang lupa kata sandi hanya bisa dipulihkan dengan SQL manual ke database produksi.
+  Aturannya:
+  - Dijaga assertSuperAdmin(); tidak dipanggil dari halaman mana pun di dalam tenant. Proteksi akun OWNER di halaman Pengguna tenant tetap utuh — jalur khusus ini hanya terbuka dari konteks Super Admin.
+  - Target ditentukan lewat email akun, bukan id, karena itulah yang dimiliki orang saat menghubungi admin.
+  - Kata sandi lama tidak diminta (justru itu gunanya), tetapi konfirmasi ketik ulang wajib.
+  - Semua token reset milik target yang masih hidup dibatalkan, supaya tautan lama tidak bisa menimpa sandi baru.
+  - Kejadian dicatat ke log server: siapa mereset akun siapa. Log dianggap data rahasia.
+  - Batasan yang diterima: sesi JWT yang sedang aktif tidak berakhir hanya karena kata sandi diganti. Bila yang dicurigai adalah pembajakan akun, pengguna tetap harus keluar sendiri atau menunggu sesi kedaluwarsa.
 5. UI/UX & BRAND GUIDELINES
 Logo Resmi: "Ta Node" (Huruf Ta Arab abstrak dengan 2 node emas).
 Color Palette:

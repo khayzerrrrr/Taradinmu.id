@@ -1,11 +1,16 @@
 "use server";
 
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { hash } from "bcryptjs";
 import { pesanErrorUmum, pesanValidasi } from "@/lib/action";
 import { kirimEmail } from "@/lib/email";
 import { prisma } from "@/lib/prisma";
 import { BATAS_RESET, periksaBatas } from "@/lib/rate-limit";
+import {
+  PREFIX_TOKEN_RESET,
+  hashTokenReset,
+  identifierReset,
+} from "@/modules/core/auth/reset-token";
 import type { ActionResponse } from "@/shared/types";
 import {
   mintaResetSchema,
@@ -22,16 +27,10 @@ import {
 // token milik pengguna itu dihapus.
 
 const MASA_BERLAKU_MS = 30 * 60 * 1000;
-/** Prefix identifier agar token reset tidak tertukar dengan token Auth.js lain. */
-const PREFIX = "reset-sandi:";
 
 /** Jawaban netral — tidak membocorkan apakah email terdaftar atau tidak. */
 const PESAN_NETRAL =
   "Jika email tersebut terdaftar, kami sudah mengirim tautan untuk mengatur ulang kata sandi.";
-
-function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
 
 function dasarAplikasi(): string {
   if (process.env.NODE_ENV === "production") {
@@ -75,12 +74,12 @@ export async function mintaResetSandi(input: unknown): Promise<ActionResponse> {
     // Satu token aktif per pengguna: permintaan baru membatalkan yang lama.
     await prisma.$transaction([
       prisma.verificationToken.deleteMany({
-        where: { identifier: `${PREFIX}${user.id}` },
+        where: { identifier: identifierReset(user.id) },
       }),
       prisma.verificationToken.create({
         data: {
-          identifier: `${PREFIX}${user.id}`,
-          token: hashToken(token),
+          identifier: identifierReset(user.id),
+          token: hashTokenReset(token),
           expires,
         },
       }),
@@ -126,9 +125,9 @@ export async function simpanSandiBaru(input: unknown): Promise<ActionResponse> {
   try {
     const baris = await prisma.verificationToken.findFirst({
       where: {
-        token: hashToken(parsed.data.token),
+        token: hashTokenReset(parsed.data.token),
         expires: { gt: new Date() },
-        identifier: { startsWith: PREFIX },
+        identifier: { startsWith: PREFIX_TOKEN_RESET },
       },
       select: { identifier: true },
     });
@@ -141,7 +140,7 @@ export async function simpanSandiBaru(input: unknown): Promise<ActionResponse> {
       };
     }
 
-    const userId = baris.identifier.slice(PREFIX.length);
+    const userId = baris.identifier.slice(PREFIX_TOKEN_RESET.length);
     const passwordHash = await hash(parsed.data.password, 10);
 
     await prisma.$transaction([

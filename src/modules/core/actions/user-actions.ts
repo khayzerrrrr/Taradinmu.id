@@ -9,18 +9,24 @@ import {
   pesanValidasi,
 } from "@/lib/action";
 import { checkLimit } from "@/lib/feature-guards";
+import { catatPeringatan } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 import { getCurrentTenant } from "@/lib/tenant";
 import { assertTenantUserManager } from "@/lib/tenant-access";
+import { assertSuperAdmin } from "../auth/dal";
+import { identifierReset } from "../auth/reset-token";
 import {
   createUserSchema,
   deleteUserSchema,
   listUsersSchema,
+  resetSandiAkunSchema,
+  SEMUA_ROLE_LABELS,
   updateUserSchema,
 } from "../schemas/user-schema";
 import type { ActionResponse, UserListData, UserListItem } from "../types";
 
-// Gerbang seragam untuk semua Server Action manajemen pengguna:
+// Gerbang seragam untuk Server Action manajemen pengguna DI DALAM TENANT
+// (bagian PLATFORM di ujung berkas ini punya gerbangnya sendiri):
 // 1) konteks tenant (dari request, bukan dari input klien),
 // 2) peran pengelola (OWNER/ADMIN atau SUPER_ADMIN),
 // 3) identitas pemanggil (untuk mencegah menghapus/menurunkan diri sendiri).
@@ -288,6 +294,84 @@ export async function deleteUser(input: unknown): Promise<ActionResponse> {
     return {
       success: false,
       message: "Gagal menghapus pengguna.",
+      error: pesanErrorUmum(error),
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PLATFORM — pemulihan akun yang terkunci (PRD 4.B)
+// ---------------------------------------------------------------------------
+
+// Sengaja TIDAK lewat aksesPengguna(): aksi ini berjalan lintas tenant dari
+// konteks Super Admin, dan targetnya justru akun OWNER yang dilarang disentuh
+// dari dalam tenant. Proteksi PESAN_AKUN_ISTIMEWA di atas tetap utuh — jalur
+// khusus ini hanya terbuka bila pemanggilnya SUPER_ADMIN sejati.
+//
+// Batasan yang diterima: sesi JWT yang sedang aktif tidak ikut berakhir, jadi
+// reset ini memulihkan akses tetapi tidak mengusir penyusup.
+export async function resetKataSandiAkun(
+  input: unknown,
+): Promise<ActionResponse<{ userId: string }>> {
+  const akses = await assertSuperAdmin();
+  if (!akses.ok) return { success: false, message: akses.message };
+
+  const parsed = resetSandiAkunSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, message: pesanValidasi(parsed.error) };
+  }
+
+  const email = parsed.data.email.toLowerCase();
+
+  try {
+    const target = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, name: true, role: true, tenantId: true },
+    });
+    if (!target) {
+      // Jawaban spesifik, bukan netral seperti di /lupa-sandi: halamannya
+      // sendiri sudah tertutup untuk publik, jadi menebak email tidak mungkin.
+      return {
+        success: false,
+        message: `Akun dengan email ${email} tidak ditemukan.`,
+      };
+    }
+
+    const passwordHash = await hash(parsed.data.password, 10);
+
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: target.id },
+        data: { password: passwordHash },
+      }),
+      // Cabut tautan reset yang masih hidup milik target. Tanpa langkah ini,
+      // siapa pun yang membuka email lama itu bisa menimpa sandi baru.
+      prisma.verificationToken.deleteMany({
+        where: { identifier: identifierReset(target.id) },
+      }),
+    ]);
+
+    // Jejak audit: reset ini melewati bukti kepemilikan email, jadi "siapa
+    // mereset akun siapa" harus tertinggal di log server.
+    catatPeringatan("Kata sandi akun direset oleh Super Admin", {
+      aksi: "resetKataSandiAkun",
+      aktorId: akses.userId,
+      targetId: target.id,
+      tenantId: target.tenantId ?? undefined,
+    });
+
+    return {
+      success: true,
+      message: `Kata sandi akun "${target.name}" (${SEMUA_ROLE_LABELS[target.role]}) berhasil direset.`,
+      data: { userId: target.id },
+    };
+  } catch (error) {
+    if (isRecordNotFoundError(error)) {
+      return { success: false, message: "Pengguna tidak ditemukan." };
+    }
+    return {
+      success: false,
+      message: "Gagal mereset kata sandi.",
       error: pesanErrorUmum(error),
     };
   }

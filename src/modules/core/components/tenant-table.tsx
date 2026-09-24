@@ -16,6 +16,7 @@ import {
 import { DataTableToolbar } from "@/components/shared/data-table-toolbar";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ImpersonateTenantDialog } from "./impersonate-tenant-dialog";
+import { ResetSandiAkunDialog } from "./reset-sandi-akun-dialog";
 import { TenantEditDialog } from "./tenant-edit-dialog";
 import { TenantFormDialog } from "./tenant-form-dialog";
 import type { PaginationMeta, TenantListItem } from "@/modules/core/types";
@@ -33,7 +34,14 @@ export function TenantTable({ tenants, meta }: Props) {
 
   return (
     <Card className="overflow-hidden p-0">
-      <DataTableToolbar aksi={<TenantFormDialog />}>
+      <DataTableToolbar
+        aksi={
+          <>
+            <ResetSandiAkunDialog />
+            <TenantFormDialog />
+          </>
+        }
+      >
         <p className="text-sm text-muted-foreground">
           {meta.total} tenant terdaftar
         </p>

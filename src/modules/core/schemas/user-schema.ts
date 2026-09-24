@@ -76,7 +76,27 @@ export const deleteUserSchema = z.object({
   userId: z.string().min(1, "Pengguna tidak valid."),
 });
 
+/**
+ * Reset kata sandi oleh Super Admin (PRD 4.B: pemulihan akun yang terkunci).
+ *
+ * Targetnya email, bukan id pengguna, karena itulah yang dimiliki orang saat
+ * menghubungi admin. Konfirmasi ketik ulang diminta di sini meskipun bukan
+ * aturan keamanan: jalur ini sengaja tidak menanyakan kata sandi lama, jadi
+ * tidak ada jaring pengaman lain bila satu karakter tersalah ketik.
+ */
+export const resetSandiAkunSchema = z
+  .object({
+    email: emailField,
+    password: passwordField,
+    konfirmasi: z.string().min(1, "Ulangi kata sandi wajib diisi."),
+  })
+  .refine((data) => data.password === data.konfirmasi, {
+    message: "Ulangi kata sandi tidak sama.",
+    path: ["konfirmasi"],
+  });
+
 export type ListUsersInput = z.infer<typeof listUsersSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 export type DeleteUserInput = z.infer<typeof deleteUserSchema>;
+export type ResetSandiAkunInput = z.infer<typeof resetSandiAkunSchema>;

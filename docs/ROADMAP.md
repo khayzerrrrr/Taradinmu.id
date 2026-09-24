@@ -99,6 +99,37 @@ B2B Marketplace antar tenant, modul khusus Klinik, modul khusus Sekolah (integra
 
 Diurutkan berdasarkan dampak. Semua diverifikasi dari kode.
 
+### P0 — Tenant aktif bisa terkunci permanen (ditemukan 2026-09-24, **jalur pemulihannya sudah dibangun** — lihat fase S)
+
+Empat fakta yang masing-masing masuk akal, tapi bila bertemu menghasilkan jalan
+buntu bagi pemilik toko yang lupa kata sandi:
+
+1. Paket FREE dibatasi **1 pengguna** (`plan-limits.ts`) → satu-satunya akun tenant
+   FREE adalah **OWNER**. Tidak ada rekan kerja yang bisa tolong-menolong.
+2. `/lupa-sandi` memerlukan `RESEND_API_KEY`. Di produksi kosong, jadi `email.ts`
+   menolak mengirim — perilaku yang benar, tetapi **waktu itu tidak ada jalur kedua**.
+3. Super Admin pun tidak bisa menolong: `updateUser` dan `deleteUser` menolak akun
+   ber-role OWNER (`PESAN_AKUN_ISTIMEWA`), dan halaman Pengguna menandai
+   barisnya `tidakDapatDiubah`. Larangan ini tepat untuk sesama anggota tenant
+   (mencegah perebutan kepemilikan) — yang belum dipikirkan adalah pemulihan.
+4. Verifikasi email belum ada, jadi belum ada jaminan alamat email tenant benar
+   sejak awal.
+
+**Akibatnya (sebelum fase S):** satu-satunya pemulihan adalah menulis SQL manual ke database produksi
+— membuat hash bcrypt sendiri dan menimpa kolom `User.password`. Tidak teraudit,
+mudah salah, dan berisiko salah sasaran.
+
+**Sudah ditutup sebagian (fase S, 2026-09-24):** fakta 1–3 tidak lagi jadi jalan
+buntu. `resetKataSandiAkun()` boleh mengubah sandi akun mana pun, termasuk OWNER
+dan SUPER_ADMIN, dari `/admin`, dijaga `assertSuperAdmin()`, dan tercatat ke log.
+Proteksi `PESAN_AKUN_ISTIMEWA` di halaman Pengguna tenant **tetap utuh** — ia
+hanya melarang jalur dari dalam tenant.
+
+Yang masih terbuka: fakta 2 (belum ada penyuplai email terkonfigurasi di produksi,
+jadi pemulihan rutin tetap harus lewat Super Admin sampai `RESEND_API_KEY` diisi)
+dan fakta 4 (email belum diverifikasi, jadi langkah ini bertumpu pada kepercayaan
+penuh kepada pemegang akun Super Admin).
+
 ### P1 — Lubang Fase 1 (PRD sendiri menyebut ini bagian MVP)
 
 | # | Yang PRD minta | Kondisi kode |
@@ -127,8 +158,11 @@ Diurutkan berdasarkan dampak. Semua diverifikasi dari kode.
 ### P4 — Fondasi produksi (tidak ada di PRD, tapi wajib untuk rilis)
 
 - ~~**0 tes otomatis**~~ **Selesai**: `npm run test` memakai Node test runner lewat `tsx`
-  (keduanya sudah tersedia) — **40 tes** untuk logika murni (perhitungan zakat, kontras
-  merek, ringkasan stok, batas paket, batas bulan, transisi invoice). Tanpa dependensi baru.
+  (keduanya sudah tersedia) — **97 tes** untuk logika murni (perhitungan zakat, kontras
+  merek, ringkasan stok, batas paket, batas bulan, transisi invoice, penyamaran nilai
+  rahasia di log), ditambah
+  **isolasi tenant** dan **penjaga struktur Server Action** (lihat fase Q). Tanpa
+  dependensi baru.
 - ~~Tidak ada `prisma/migrations/`~~ `[dikoreksi]` **tidak lagi berlaku**:
   `prisma/migrations/` sudah ada (`0_init`, `20260922150000_selaraskan_business_type_dengan_prd`,
   `migration_lock.toml`) sejak fase C — lihat §6.
@@ -140,7 +174,19 @@ Diurutkan berdasarkan dampak. Semua diverifikasi dari kode.
   **Prasyarat produksi:** `RESEND_API_KEY` untuk pengiriman email; tanpa itu produksi
   menolak dengan pesan jelas, bukan diam-diam mengaku terkirim.
 - Belum ada verifikasi email
-- Belum ada error tracking / logging terpusat
+- ~~Belum ada error tracking / logging terpusat~~ **Selesai** (fase R): `src/lib/log.ts`
+  menulis satu baris JSON per kejadian ke stdout (ditangkap `pm2 logs`), dipasang di
+  dalam `pesanErrorUmum()` sehingga **44** catch block Server Action tercakup tanpa
+  mengubah call site-nya. Ditambah `src/app/error.tsx` + `global-error.tsx`
+  (sebelumnya: **nol** pagar error di seluruh aplikasi). Tanpa dependensi baru.
+  Dua batas yang diterima dan sengaja dicatat:
+  1. Pagar error **tidak** menampilkan UI-nya saat SSR crash sebelum shell terkirim —
+     jalur itu tetap balas 500 dengan dokumen `__next_error__` (dibuktikan di server
+     produksi). Cakupan nyatanya: navigasi sisi klien, komponen klien, dan segmen
+     yang error setelah shell ter-flush.
+  2. Logger Next sendiri mencetak error mentah ke stdout dan tidak bisa disaring,
+     jadi penyamaran nilai rahasia di `log.ts` hanya melindungi baris milik kita.
+     Berkas log harus diperlakukan sebagai data rahasia.
 
 ---
 
@@ -201,6 +247,9 @@ Setiap entri sudah melewati gerbang wajib (§1 butir 4):
 | I | **Zakat periode + Cetak Laporan** (P2 #9): `periodMonth`/`periodYear` pada `ZakatCalculation` + backfill, riwayat dikelompokkan per periode, komponen `zakat-report.tsx`, tombol cetak, dan blok `@media print` pertama di repo (`.cetak-sembunyi`/`.cetak-laporan`). | tsc/lint/build hijau; diuji lewat HTTP: label periode ter-render, dan laporan tenant FREE **tidak** memuat bagian zakat otomatis |
 | K | **Pengerasan produksi** (P4): rate limit berbasis tabel `RateLimit` (login per email & per IP di `authorize()`, `/api/chat` per pengguna), reset password `/lupa-sandi` + `/reset-sandi` dengan token di-hash sekali pakai, adapter email `src/lib/email.ts`, dan `npm run test` (Node test runner lewat `tsx`, 40 tes, tanpa dependensi baru). | tsc/lint/build hijau; 40 tes lulus; **rate limit diuji lewat HTTP dengan menembak `/api/auth/callback/credentials` langsung** — sandi yang benar pun ditolak setelah kuota habis; alur reset diuji ujung ke ujung terhadap database (token sekali pakai, token palsu ditolak, email tak terdaftar dijawab netral) |
 | Tahap 1 | **Membuka jalan usaha jasa** (P5 #12, #13, #15): `enum ItemKind` + `Product.kind`, invoice melewati potong stok untuk item jasa, preset memberi INVENTORY+ACCOUNTING ke semua jenis usaha (+ `defaultItemKind`), navigasi adaptif (menu stok disembunyikan bila tenant tidak punya item barang), dan migrasi data untuk tenant lama. | tsc/lint/**47 tes**/build hijau; 2 migrasi bersih tanpa drift; **diuji lewat Server Action sungguhan**: invoice item JASA berhasil tanpa stok (`INV-...-0006`, nol `StockMovement`), invoice BARANG tetap memotong stok (3→1) dan tetap ditolak saat stok kurang; menu stok hilang pada tenant jasa, tetap ada pada tenant barang |
+| Q | **Tes isolasi tenant** (risiko terbesar yang belum dijaga): aturan izin dipindahkan dari `tenant-access.ts` ke berkas murni baru `src/lib/tenant-rules.ts` (`nilaiAksesTenant`), sehingga halaman (`requireTenantX`) dan Server Action (`assertTenantX`) kini memakai **satu** aturan yang sama — sebelumnya aturan yang sama ditulis dua kali dan bisa menyimpang. Ditambah dua lapis tes: `tenant-rules.test.ts` (matriks role × tenant) dan `server-action-guards.test.ts` (memindai berkas dari disk, memastikan setiap fungsi yang diekspor dari `*-actions.ts` memanggil gerbang, dengan daftar pengecualian publik yang beralasan). | tsc/lint/**67 tes**/build hijau; **tes dibuktikan bisa gagal lewat dua mutasi**: membalik `user.tenantId !== tenantId` menjadi `===` memerahkan 7 tes, dan menghapus satu baris `aksesTenant()` dari `getProducts()` memerahkan tes struktur dengan menyebut `product-actions -> getProducts()` |
+| R | **Pencatatan error + pagar error** (P4): `src/lib/log.ts` (satu baris JSON ke stdout, tanpa dependensi baru) dipasang di dalam `pesanErrorUmum()` sehingga 44 catch block tercakup sekaligus; `pesanValidasi`/`isUniqueConstraintError`/`isRecordNotFoundError`/`pesanErrorUmum` yang selama ini dityalin secara lokal di `tenant-actions.ts` dihapus dan diganti impor dari `src/lib/action.ts` — akibat duplikasi itu, aksi Super Admin justru satu-satunya yang tidak tercatat. Ditambah `src/app/error.tsx` + `src/app/global-error.tsx`; sebelumnya **nol** pagar error di seluruh aplikasi. `global-error` memakai gaya inline karena tidak ikut memuat `globals.css`, dan memakai `retry` bukan `reset` (`retry` baru stabil di Next.js 16.3.0). | tsc/lint/**85 tes**/build hijau; **diuji terhadap server produksi sungguhan** (`next start -p 3100` + rute sementara yang melempar error): balasan 500, teks error mentah **tidak** bocor ke HTML, `digest` terkirim untuk korelasi. **Penyamaran nilai rahasia diuji 18 tes, dan tes itu menemukan dua bug pada versi pertama:** `Authorization: Bearer <token>` hanya menyamarkan kata "Bearer" sehingga tokennya tetap lolos, dan "sandi" tanpa pemisah `:`/`=` tidak ikut tersamar. Rute sementara sudah dihapus. |
+| S | **Pemulihan akun oleh Super Admin** (§4 P0 / PRD 4.B): `resetKataSandiAkun()` di `user-actions.ts` — satu-satunya jalur yang boleh menyentuh akun OWNER dan SUPER_ADMIN, dijaga `assertSuperAdmin()`, target dipilih lewat email, token reset target yang masih hidup ikut dicabut, kejadiannya dicatat `catatPeringatan()` (dua field baru `aktorId`/`targetId` di `KonteksLog`). UI: dialog di bilah alat daftar tenant `/admin`. Prefix & hash token reset dipindah ke `src/modules/core/auth/reset-token.ts` karena kini dipakai dua pihak (yang memasang dan yang mencabut). | tsc/lint/**97 tes**/build hijau; **diuji lewat HTTP sungguhan** dengan rute sementara (sudah dihapus): dengan sesi SUPER_ADMIN sandi OWNER benar-benar berganti (cocok `bcrypt.compare`), sandi lama ditolak, tautan reset lama hilang, email tak dikenal dan konfirmasi beda sama-sama ditolak; tanpa sesi rute menjawab 403. **Tes struktur dibuktikan bisa gagal:** menghapus baris `assertSuperAdmin()` memerahkan `server-action-guards.test.ts` dengan menyebut `user-actions.ts -> resetKataSandiAkun()`. Baris log hasil uji diperiksa tidak memuat kata sandi. |
 
 Konflik gating batch (K7) juga diselesaikan di fase D: `isBatchTrackingEnabled()` kini hanya menerima `plan` dan mendelegasikan ke `plan-limits.ts`, sehingga tidak ada lagi dua aturan yang bertabrakan.
 
@@ -216,6 +265,7 @@ Konflik gating batch (K7) juga diselesaikan di fase D: `isBatchTrackingEnabled()
 | L | **Pemilih periode zakat** di UI | Fase I baru menyimpan & mengelompokkan periode; memilih periode lain untuk dicetak belum ada |
 | M | **Asisten AI tersambung ke data tenant** (PRD 4.E) | Perlu tools/RAG *read-only* + konfirmasi untuk aksi tulis |
 | N | **Verifikasi email** | Reset password sudah ada; verifikasi email belum |
+| Sandi | **Ganti kata sandi untuk pengguna yang sudah masuk** | Sampai hari ini tidak ada caranya: `updateUser` melarang menyentuh baris OWNER milik sendiri, jadi pemilik tenant FREE tidak pernah bisa mengganti sandinya secara sukarela. Fase S hanya menutup kasus *lupa* sandi. Kecil: satu form + satu action berpemanggil-sama (`getSessionUser()`, wajib cocokkan sandi lama) |
 | O | Error tracking / logging terpusat; pertimbangkan limiter berbasis Redis bila trafik naik | Limiter sekarang berbasis database — cukup untuk skala kini, tetapi menambah satu query per percobaan login |
 | POS | Keputusan produk tersendiri untuk RETAIL_FNB | POS sungguhan butuh offline, barcode, printer struk, laci uang — praktisnya produk kedua. Jangan dibangun setengah jalan |
 
@@ -242,14 +292,15 @@ Konflik gating batch (K7) juga diselesaikan di fase D: `isBatchTrackingEnabled()
   `~/backup-taradinmu/` sebelum tiap migrasi. Prosedur deploy lengkap (termasuk
   alasan "build dulu, baru stop") ada di [`DEPLOYMENT.md`](./DEPLOYMENT.md) §0.
   Catatan: `RESEND_API_KEY` belum diisi di server, jadi fitur lupa kata sandi
-  menolak dengan pesan jelas sampai diisi.
+  menolak dengan pesan jelas sampai diisi. Sejak fase S ada jalur kedua: Super Admin
+  bisa mereset kata sandi akun mana pun dari `/admin`.
 
 ### Perintah verifikasi
 
 ```bash
 npx tsc --noEmit        # tipe
 npm run lint            # eslint
-npm run test            # 40 tes logika murni (Node test runner lewat tsx)
+npm run test            # 97 tes logika murni (Node test runner lewat tsx)
 npm run build           # wajib: sekaligus meregenerasi tipe rute baru
 npx prisma migrate status
 npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script
@@ -289,7 +340,7 @@ npm run start -- -p 3100
 # 3. GET halaman dengan cookie yang sama
 ```
 
-Tiga jebakan yang sudah memakan waktu dan sebaiknya dihindari lagi:
+Enam jebakan yang sudah memakan waktu dan sebaiknya dihindari lagi:
 
 1. **Nilai `.env` ditulis dengan tanda kutip**, dan `dotenv` membuangnya sedangkan
    parser buatan sendiri tidak. Baca kredensial dengan membuang kutip di ujung,
@@ -300,6 +351,23 @@ Tiga jebakan yang sudah memakan waktu dan sebaiknya dihindari lagi:
 3. Bila skrip PowerShell memuat tanda baca non-ASCII, baca dengan
    `Get-Content -Raw -Encoding UTF8` saat menjalankan lewat `Invoke-Expression`;
    tanpa itu teks terbaca sebagai ANSI dan skripnya gagal di-parse.
+4. Skrip `tsx` yang memakai `DATABASE_URL` berisi `localhost` bisa kena
+   `ECONNREFUSED` di Windows sementara `npx prisma migrate status` biasa saja —
+   Node mencoba `::1` lebih dulu, sedangkan `prisma dev` hanya listen di
+   `127.0.0.1`. Tulis ulang `@localhost` → `@127.0.0.1` di `process.env`
+   **sebelum** modul `@/lib/prisma` diimpor.
+5. Server `next start`/`next dev` dari sesi sebelumnya bisa masih hidup dan
+   melayani **build lama**. Kalau port-nya sudah dipakai, `npm run start` hanya
+   gagal pelan di log. Cek dengan `netstat -ano | grep ":3100"` sebelum percaya
+   pada hasil uji.
+6. Setelah menghapus rute sementara, `.next/dev/types/validator.ts` masih
+   menyebut berkas yang sudah tidak ada dan `npm run build` gagal
+   (`TS2307: Cannot find module .../route.js`). Hapus folder `.next/dev`, lalu
+   build ulang.
+
+Tiga hal yang bisa diuji lewat rute sementara seperti ini (pola yang sama dipakai
+fase R dan S): memanggil Server Action dengan sesi asli dari cookie, memeriksa
+baris log yang dihasilkannya, dan memastikan nilai rahasia tidak ikut tercetak.
 
 Akun demo hasil `npm run db:seed:demo`: `owner@berkah-haramain.id` (PRO) dan
 `owner@toko-berkah.id` (FREE), sandi `DemoTaradinMu#2026` (dicetak oleh seeder).
@@ -315,7 +383,9 @@ Akun demo hasil `npm run db:seed:demo`: `owner@berkah-haramain.id` (PRO) dan
 ### Keputusan yang masih menunggu pemilik produk
 
 Sudah diputuskan (jangan dibuka lagi): **K5** (invoice 50 per bulan), **Kas**
-(arus kas, bukan saldo kas), **K8** (kata "Kasir" dihapus dari PRD).
+(arus kas, bukan saldo kas), **K8** (kata "Kasir" dihapus dari PRD), dan
+**pemulihan akun OWNER** — dipilih jalur reset khusus Super Admin, dibangun di
+fase S (§4 P0).
 
 1. **Penyedia email — memblokir peluncuran fitur.** Fitur lupa kata sandi sudah
    jadi dan teruji, tetapi produksi menolak mengirim selama `RESEND_API_KEY`
@@ -329,3 +399,22 @@ Sudah diputuskan (jangan dibuka lagi): **K5** (invoice 50 per bulan), **Kas**
    20 pesan/5 menit untuk Asisten AI, dan 3 permintaan tautan reset/15 menit.
    Semuanya terpusat di `src/lib/rate-limit.ts` bila perlu disetel setelah melihat
    trafik nyata.
+6. **Role `ACCOUNTANT` saat ini tidak bisa apa-apa — perlu keputusan.** Ditemukan
+   saat menulis tes isolasi tenant (fase Q). Akun Akuntan **bisa dibuat** (tercantum
+   di `ASSIGNABLE_ROLES`, `src/modules/core/schemas/user-schema.ts:13`, dan diberi
+   label "Akuntan" di UI) dan PRD 4.D memang menjanjikan PRO dapat menambah Akuntan,
+   tetapi `ACCOUNTANT` tidak masuk `TENANT_MANAGER_ROLES`, sehingga
+   `requireTenantMember()` langsung mengalihkannya ke `/` — akun itu bisa masuk lalu
+   tidak bisa membuka apa pun. Pilihannya: (a) masukkan `ACCOUNTANT` ke
+   `TENANT_MANAGER_ROLES`, atau (b) jadikan akuntan **hanya baca** (butuh peran baru
+   di setiap gerbang tulis), atau (c) hapus dari `ASSIGNABLE_ROLES` bila memang belum
+   dipakai. Keadaan sekarang dikunci apa adanya oleh
+   `src/lib/tenant-rules.test.ts` supaya tidak berubah diam-diam; ubah keduanya
+   bersamaan setelah diputuskan.
+7. **Verifikasi email — jadi lebih penting setelah fase S.** Pemulihan akun OWNER
+   sudah ada jalurnya (butir di atas), tetapi aksi itu sendiri melewati bukti
+   kepemilikan email: yang menjamin identitas penelepon hanyalah kepercayaan kepada
+   pemegang akun Super Admin. Dua hal yang masih diterima apa adanya dan perlu
+   diputuskan nanti: (a) belum ada verifikasi email saat pendaftaran (fase N), dan
+   (b) mengganti kata sandi **tidak** mengakhiri sesi JWT yang sedang aktif, jadi
+   reset karena curiga akun dibajak tidak mengusir penyusupnya.
