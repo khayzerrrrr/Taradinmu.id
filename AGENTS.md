@@ -7,3 +7,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Deploy ke produksi — WAJIB baca `DEPLOY.md` dulu
+
+Produksi live dengan tenant nyata. Sebelum menjalankan deploy, buka
+[`DEPLOY.md`](./DEPLOY.md) di root repo: gerbang lokal, urutan backup → pull →
+build → migrasi → start, verifikasi, pemulihan bila gagal, dan larangan mutlak.
+Uraian lengkap ada di [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md).
