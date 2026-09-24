@@ -90,7 +90,7 @@ Catatan: `RESEND_API_KEY` **belum diisi** di server, sehingga fitur Lupa Kata
 Sandi menolak dengan pesan "belum dikonfigurasi" (bukan error). Isi bila fitur
 itu ingin dipakai.
 
-### Perintah deploy (ini yang dipakai 2026-09-23)
+### Perintah deploy (dipakai 2026-09-23 untuk fase Q–T, dan 2026-09-24 untuk fase U/modul Program — prosedur sama, lulus tanpa kejadian)
 
 ```bash
 ssh taradinmu-ec2
