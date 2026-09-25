@@ -8,6 +8,8 @@ import {
   pesanValidasi,
 } from "@/lib/action";
 import { checkLimit } from "@/lib/feature-guards";
+import { labaKotor } from "@/lib/hpp";
+import { hppDokumen } from "@/lib/hpp-query";
 import { prisma } from "@/lib/prisma";
 import { parseTanggalInput, ringkasStok } from "@/lib/stock";
 import {
@@ -253,12 +255,27 @@ export async function getInvoiceDetail(
       return { success: false, message: "Invoice tidak ditemukan." };
     }
 
+    // Laporan HPP dokumen ditegakkan di server (PRD 4.G.5): angka margin tidak
+    // pernah dikirim ke paket FREE, jadi menyembunyikan kolomnya di UI bukan
+    // satu-satunya penjaga.
+    let laporanHpp: InvoiceDetail["laporanHpp"] = null;
+    const bolehHpp = await checkLimit(akses.tenantId, "HPP");
+    if (bolehHpp.allowed) {
+      const hasil = await hppDokumen(akses.tenantId, invoice.invoiceNumber);
+      laporanHpp = {
+        hpp: hasil.hpp,
+        labaKotor: labaKotor(Number(invoice.totalAmount), hasil.hpp),
+        unitModalBelumTercatat: hasil.unitTanpaModal,
+      };
+    }
+
     return {
       success: true,
       message: "Detail invoice dimuat.",
       data: {
         ...keListItem(invoice),
         notes: invoice.notes,
+        laporanHpp,
         customer: invoice.customer,
         items: invoice.items.map((item) => ({
           id: item.id,

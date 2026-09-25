@@ -56,16 +56,22 @@ export function ZakatPenghasilanPanel({ data, pesan }: Props) {
           icon={TrendingUp}
         />
         <MetricCard
-          label="Pengeluaran"
-          value={formatRupiah(data.pengeluaran)}
-          hint={`${data.jumlahPengeluaran} pengeluaran bulan ini`}
+          label="Beban Usaha"
+          value={formatRupiah(data.bebanOperasional)}
+          hint={
+            data.pembelianStok > 0
+              ? `${data.jumlahPengeluaran} pengeluaran · di luar pembelian stok ${formatRupiah(
+                  data.pembelianStok,
+                )} yang masih jadi aset`
+              : `${data.jumlahPengeluaran} pengeluaran bulan ini`
+          }
           icon={TrendingDown}
           style={{ animationDelay: "60ms" }}
         />
         <MetricCard
           label="Laba Bersih"
           value={formatRupiah(data.labaBersih)}
-          hint={`Pendapatan − pengeluaran · periode ${data.periode}`}
+          hint={`Pendapatan − beban usaha − HPP ${formatRupiah(data.hpp)} · periode ${data.periode}`}
           icon={Wallet}
           style={{ animationDelay: "120ms" }}
         />
@@ -96,6 +102,15 @@ export function ZakatPenghasilanPanel({ data, pesan }: Props) {
               {formatRupiah(data.estimasi)}
             </span>
           </div>
+
+          {/* Jujur soal data yang belum lengkap: HPP 0 bukan berarti margin 100%. */}
+          {data.unitModalBelumTercatat > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {data.unitModalBelumTercatat} unit yang sudah keluar belum punya
+              catatan harga modal, jadi HPP — dan laba bersih di atas — masih
+              kurang besar.
+            </p>
+          ) : null}
 
           <p className="text-xs text-muted-foreground">
             Nisab bulan ini {formatRupiah(data.nisab)} (setara 85 gram emas per

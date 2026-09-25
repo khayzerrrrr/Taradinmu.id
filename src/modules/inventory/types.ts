@@ -34,6 +34,9 @@ export type BatchItem = {
   quantity: number;
   expiredDate: string | null;
   isExpired: boolean;
+  /** null = belum ada catatan harga modal; HPP unit ini tidak bisa dihitung. */
+  costPrice: string | null;
+  supplierName: string | null;
 };
 
 export type VariantOption = {
@@ -86,4 +89,36 @@ export type StockOutAllocation = {
   batchNumber: string;
   expiredDate: string | null;
   quantity: number;
+  /**
+   * Harga modal per unit batch asal (PRD 4.G.3); null bila batch itu tidak punya
+   * catatan harga modal.
+   */
+  unitCost: number | null;
+};
+
+// --- Pemasok (PRD 4.G.4) ---
+
+export type SupplierItem = {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  notes: string | null;
+  createdAt: string;
+  /** Batch yang masih tercatat berasal dari pemasok ini. */
+  batchCount: number;
+  /** Nilai stok (unit x harga modal) yang masih ada di batch tersebut. */
+  nilaiModal: string;
+};
+
+export type SupplierListData = {
+  suppliers: SupplierItem[];
+  meta: PaginationMeta;
+};
+
+/** Opsi pemasok untuk form stok masuk. */
+export type SupplierOption = {
+  id: string;
+  name: string;
 };

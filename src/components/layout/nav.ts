@@ -8,6 +8,7 @@ export type NavIcon =
   | "stock"
   | "stockIn"
   | "stockOut"
+  | "suppliers"
   | "customers"
   | "invoices"
   | "expenses"
@@ -55,6 +56,9 @@ export const SEGMEN_LABEL: Record<string, string> = {
   stock: "Stok",
   "stock-in": "Stok Masuk",
   "stock-out": "Stok Keluar",
+  // Pemasok berada di bawah folder inventory, jadi segmen induknya wajib tetap
+  // punya halaman sendiri — sudah, dan dicek oleh nav-hrefs.test.ts.
+  suppliers: "Pemasok",
   billing: "Billing",
   customers: "Pelanggan",
   // "keuangan" SENGAJA tidak diberi label: segmen itu hanya folder pengelompok

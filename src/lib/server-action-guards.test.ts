@@ -34,6 +34,8 @@ const GERBANG_PLATFORM = [
 // Pembungkus lokal per modul yang meneruskan ke gerbang platform.
 const GERBANG_LOKAL = [
   /\baksesTenant\s*\(\s*\)/,
+  // Inventory: master data pemasok hanya untuk OWNER/ADMIN (PRD 4.G.4).
+  /\baksesTenantTulis\s*\(\s*\)/,
   /\baksesKeuangan\s*\(\s*\)/,
   /\baksesPengguna\s*\(\s*\)/,
   /\baksesZakat\s*\(\s*\)/,

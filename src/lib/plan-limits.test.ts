@@ -4,7 +4,10 @@ import {
   ambilBatasFitur,
   ambilBatasJumlah,
   labelBatasJumlah,
+  LIMIT_LABELS,
   PLAN_LIMITS,
+  type LimitFiturKey,
+  type LimitKey,
 } from "./plan-limits";
 
 // Matriks paket: perubahan yang tidak sengaja di sini langsung memengaruhi
@@ -29,11 +32,49 @@ describe("batas jumlah", () => {
 });
 
 describe("batas fitur", () => {
-  it("batch dan zakat otomatis hanya untuk PRO", () => {
-    assert.equal(ambilBatasFitur("FREE", "BATCH"), false);
-    assert.equal(ambilBatasFitur("FREE", "ZAKAT"), false);
-    assert.equal(ambilBatasFitur("PRO", "BATCH"), true);
-    assert.equal(ambilBatasFitur("PRO", "ZAKAT"), true);
+  it("batch, zakat otomatis, program, dan laporan HPP hanya untuk PRO", () => {
+    // Semua LimitFiturKey diperiksa lewat loop yang sama: menambah kunci baru
+    // tanpa mengisi kolomnya di PLAN_LIMITS akan membuat tes ini merah, bukan
+    // diam-diam lolos sebagai `undefined`.
+    const kunci: readonly LimitFiturKey[] = [
+      "BATCH",
+      "ZAKAT",
+      "PROGRAM",
+      "HPP",
+    ];
+    assert.ok(kunci.length >= 4);
+
+    for (const key of kunci) {
+      assert.equal(
+        ambilBatasFitur("FREE", key),
+        false,
+        `${key} tidak boleh aktif pada paket FREE`,
+      );
+      assert.equal(
+        ambilBatasFitur("PRO", key),
+        true,
+        `${key} harus aktif pada paket PRO`,
+      );
+    }
+  });
+
+  it("setiap batas punya label untuk pesan upgrade", () => {
+    // checkLimit merakit pesannya dari LIMIT_LABELS[type]; kunci tanpa label
+    // menghasilkan pesan "Paket FREE tidak termasuk undefined" di UI.
+    const kunci: readonly LimitKey[] = [
+      "INVOICE",
+      "PRODUCT",
+      "USERS",
+      "BATCH",
+      "ZAKAT",
+      "PROGRAM",
+      "HPP",
+    ];
+
+    for (const key of kunci) {
+      const label = LIMIT_LABELS[key];
+      assert.ok(label && label.length > 1, `LIMIT_LABELS[${key}] kosong`);
+    }
   });
 
   it("hanya PRO yang tanpa batas jumlah", () => {

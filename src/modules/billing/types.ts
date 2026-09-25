@@ -50,6 +50,20 @@ export type InvoiceLineItem = {
   subtotal: string;
 };
 
+/**
+ * Laporan HPP satu dokumen (PRD 4.G.5): hanya dikirim bila paket tenant
+ * menyertakannya, supaya penguncian PRO ditegakkan di server, bukan dengan
+ * menyembunyikan kolom di UI.
+ */
+export type LaporanHppDokumen = {
+  /** Modal barang yang keluar untuk dokumen ini. */
+  hpp: number;
+  /** Total tagihan − HPP. */
+  labaKotor: number;
+  /** Unit keluar tanpa catatan harga modal; > 0 berarti HPP kurang besar. */
+  unitModalBelumTercatat: number;
+};
+
 export type InvoiceDetail = InvoiceListItem & {
   notes: string | null;
   customer: {
@@ -60,6 +74,8 @@ export type InvoiceDetail = InvoiceListItem & {
     address: string | null;
   };
   items: InvoiceLineItem[];
+  /** null bila laporan HPP tidak tersedia pada paket ini. */
+  laporanHpp: LaporanHppDokumen | null;
 };
 
 export type InvoiceVariantOption = {

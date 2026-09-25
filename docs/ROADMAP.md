@@ -164,9 +164,10 @@ bisa diwakili satu mesin: cicilan (Tahap 3), alur status pesanan, dan invoice B2
 ### P4 — Fondasi produksi (tidak ada di PRD, tapi wajib untuk rilis)
 
 - ~~**0 tes otomatis**~~ **Selesai**: `npm run test` memakai Node test runner lewat `tsx`
-  (keduanya sudah tersedia) — **132 tes** untuk logika murni (perhitungan zakat, kontras
+  (keduanya sudah tersedia) — **177 tes** untuk logika murni (perhitungan zakat, kontras
   merek, ringkasan stok, batas paket, batas bulan, transisi invoice, siklus hidup &
-  tanggal program, penyamaran nilai rahasia di log), ditambah
+  tanggal program, pemisahan laba vs arus kas, HPP & rata-rata tertimbang harga modal,
+  rencana alokasi FEFO, penyamaran nilai rahasia di log), ditambah
   **isolasi tenant** dan **penjaga struktur Server Action** (lihat fase Q). Tanpa
   dependensi baru.
 - ~~Tidak ada `prisma/migrations/`~~ `[dikoreksi]` **tidak lagi berlaku**:
@@ -205,13 +206,14 @@ hanya yang menjual barang. Semua diverifikasi dari kode.
 |---|---|---|---|
 | 12 | **Invoice selalu memotong stok** — `invoiceItemSchema` mewajibkan `variantId` (`invoice-schema.ts:44`) dan `createInvoice` tanpa syarat memanggil `alokasiFefoKeluar` (`invoice-actions.ts:392`); stok kurang → seluruh invoice dibatalkan | Usaha jasa (travel, laundry, pendidikan, kontraktor, klinik) tidak bisa menagih apa pun kecuali membuat batch stok palsu | **Selesai — Tahap 1** |
 | 13 | **Preset usaha jasa buntu** — `TRAVEL_UMROH:62`, `JASA_ORDER:75`, `EDUCATION:116` hanya memberi `enabledModules: ["BILLING"]`, padahal pembuatan produk & varian digerbangi modul INVENTORY | Tenant yang mendaftar sebagai usaha jasa tidak bisa membuat satu pun item yang bisa ditagih; `seed-demo.ts:132` harus menyalakan INVENTORY manual untuk tenant travel | **Selesai — Tahap 1** |
-| 14 | **Tidak ada harga pokok (HPP)** — `ProductVariant` hanya punya `price`; pembelian stok dicatat sebagai `Expense` kategori `PURCHASE`, dan `dashboard-summary.ts:126` menjumlahkan **semua** kategori tanpa filter | Laba kotor mustahil dihitung, dan membeli stok tampak seperti kerugian pada kartu "Arus Kas Bulan Ini" | Belum — Tahap 2 |
+| 14 | **Tidak ada harga pokok (HPP)** — `ProductVariant` hanya punya `price`; pembelian stok dicatat sebagai `Expense` kategori `PURCHASE`, dan agregat pengeluaran di `dashboard-summary.ts` menjumlahkan **semua** kategori tanpa filter | Laba kotor mustahil dihitung, dan membeli stok tampak seperti kerugian — bukan hanya pada kartu "Arus Kas", tetapi juga pada **laba bersih dan dasar zakat penghasilan** | **Selesai — fase X (PRD 4.G)**: `costPrice` di batch, `unitCost` di movement OUT, entitas `Supplier`, laba = pendapatan − beban usaha − HPP |
 | 15 | **Tidak ada preset yang menyalakan ACCOUNTING** | Tenant baru tidak dapat mencatat pengeluaran; kartu arus kas dan estimasi zakat selalu 0 | **Selesai — Tahap 1** (+ migrasi data) |
 | 16 | **`tenant.categories` ditulis saat registrasi tetapi tidak pernah dibaca** | Kategori preset (mis. "Paket Umrah", "Laundry") tidak muncul di mana pun — preset kategori masih data mati | Belum — butuh kolom kategori di produk |
 | 17 | **Tidak ada impor/ekspor CSV sama sekali** (nol kode, nol dependensi) | Onboarding berarti mengetik ratusan SKU manual, dan tenant sulit menarik datanya keluar | Belum — Tahap 4 |
 
 Urutan pengerjaan yang disetujui pemilik produk: **Tahap 1** (barang vs jasa,
-preset, navigasi adaptif) → **Tahap 2** HPP & pemasok → **Tahap 3** pembayaran
+preset, navigasi adaptif) → **Tahap 2** HPP & pemasok *(selesai 2026-09-24,
+belum dideploy)* → **Tahap 3** pembayaran
 bertahap → **Tahap 4** impor/ekspor CSV & Laba/Rugi → baru memutuskan POS.
 
 ---
@@ -265,14 +267,16 @@ Setiap entri sudah melewati gerbang wajib (§1 butir 4):
 
 | W | **Remah "Keuangan" juga tautan mati** (temuan kedua dari menyisir log produksi dengan cara yang sama): `breadcrumbs.tsx` merakit href dari **tiap awalan segmen URL** dan hanya membuang remah yang tidak ada di `SEGMEN_LABEL`. Folder `keuangan` hanyalah pengelompok di URL (`/dashboard/keuangan/pengeluaran`) tanpa `page.tsx` sendiri, tetapi berlabel — jadi "Dashboard › Keuangan › Pengeluaran" menaut `/dashboard/keuangan` yang 404. Teramati 2 permintaan nyata dari tenant `bang-arsyad-nangka`. Diperbaiki dengan mencabut label `keuangan` (dan `invoices` yang sudah menjadi bangkai config sejak fase V) dari `SEGMEN_LABEL`; remahnya hilang, jalurnya tetap "Dashboard › Pengeluaran". | tsc/lint/**132 tes**/build hijau; invarian baru di `nav-hrefs.test.ts` menegakkan aturannya untuk seluruh rute: *setiap segmen penengah yang berlabel wajib punya halaman sendiri* — **dibuktikan dengan mutasi**: mengembalikan `keuangan: "Keuangan"` memerahkan tes dengan menyebut `/dashboard/keuangan (label "keuangan")`. Audit menyeluruh terhadap ±45 target tautan/redirect internal (landing HTML mentah, bottom-nav, kartu dashboard, admin, auth, URL di email reset, aset manifest PWA) tidak menemukan tautan mati lain |
 
+| X | **HPP & pemasok** (PRD 4.G — menutup cacat uang yang belum pernah dicatat sebagai lubang): satu agregat `expense` tanpa penyaring kategori dipakai sebagai "laba" di dashboard **dan** sebagai dasar zakat penghasilan, jadi setiap rupiah pembelian stok (`PURCHASE`) dua kali menurunkan laba — padahal PRD 4.D.2 sejak awal menulis "Laba Rugi **Operasional**". Yang dibangun: (1) `src/lib/laba.ts` memilah beban usaha vs pembelian stok, `src/lib/hpp.ts` + `src/lib/hpp-query.ts` menghitung HPP dari `StockMovement.unitCost`, `src/lib/stock-allocation.ts` menyimpan potret modal saat FEFO memotong (keputusan pemilihannya dipecah jadi `rencanaAlokasiFefo()` murni agar bisa diuji tanpa DB); (2) entitas `Supplier` sungguhan + `InventoryBatch.costPrice`/`supplierId` + `StockMovement.unitCost` lewat migrasi tulisan tangan `20260924120000_tambah_hpp_dan_pemasok` (`onDelete: SetNull`, menghapus pemasok tidak menghapus batch); (3) halaman `/dashboard/inventory/suppliers` (daftar + form + hapus, tulis khusus OWNER/ADMIN lewat pembungkus baru `aksesTenantTulis()`), kolom modal/pemasok di Stok Masuk & dialog batch; (4) kartu **Laba Bersih** (semua paket — ini koreksi angka) dan **Margin Kotor** (PRO, `LockedFeature`), baris HPP + laba kotor di dialog detail invoice yang angkanya **tidak dikirim** pada paket FREE (`checkLimit(tenantId, "HPP")` di `getInvoiceDetail`); (5) pembatalan invoice DRAFT otomatis membalikkan HPP karena `#BATAL` dikecualikan dari perhitungan. | tsc/lint/**177 tes**/build hijau; 45 tes baru (`laba` 13, `hpp` 22, `stock-allocation` 9, matriks paket +1 — sebelumnya jalur FEFO ini **nol** tes padahal ia memotong uang); `migrate status` bersih + `migrate diff` menghasilkan "empty migration"; `nav-hrefs.test.ts` menjaga menu Pemasok baru (href punya halaman, induk tetap `exact`), `server-action-guards.test.ts` mencatat `aksesTenantTulis()` sebagai gerbang lokal. **Satu jebakan ditemukan sendiri:** menyaring `#BATAL` lewat Prisma `not: { endsWith }` akan ikut membuang `reference: null` (stok keluar manual) sehingga HPP tampak lebih kecil — penyaringan itu kini fungsi murni ber-tes. **Diverifikasi di browser** (build produksi `next start`, tenant uji khusus yang dihapus lagi): CRUD pemasok, Stok Masuk 20 unit @ Rp 60.000 (pemasok tersimpan di batch), invoice 5 unit memotong stok dan menulis `unitCost` 60.000 pada movement OUT, dialog batch menampilkan kolom Modal/unit + Pemasok, dashboard menunjukkan HPP Rp 300.000 / laba Rp 75.000 / zakat 2,5% × Rp 75.000, kartu Margin terkunci di FREE dan terbuka di PRO, dialog detail invoice **tidak** mengirim angka HPP pada FREE. **Verifikasi ini menemukan bug yang lolos keempat gerbang:** HPP periode dihitung dari `movement.createdAt` sedangkan pendapatan dihitung dari invoice PAID — satu invoice draft langsung menjadi rugi phantom sebesar seluruh modalnya (dashboard menunjukkan "Laba Bersih −Rp 300.000" sementara "Total Pendapatan Rp 0"). Perbaikannya: `hppPeriode()` → `hppInvoiceLunas()` (saring `reference` lewat nomor invoice lunas; stok keluar manual tanpa dokumen keluar dari HPP, dicatat di PRD 4.G.3 dan tetap tercatat di sisa Tahap 2), + 3 tes penjaga basis (`hpp.test.ts`) yang membaca sumber `hpp-query.ts`/`dashboard-summary.ts`/`zakat-actions.ts` dari disk agar aturan tidak bisa kembali diam-diam |
+
 Konflik gating batch (K7) juga diselesaikan di fase D: `isBatchTrackingEnabled()` kini hanya menerima `plan` dan mendelegasikan ke `plan-limits.ts`, sehingga tidak ada lagi dua aturan yang bertabrakan.
 
 ### Belum dikerjakan (urutan yang disarankan)
 
 | Fase | Pekerjaan | Catatan penting |
 |---|---|---|
-| Tahap 2 | **HPP & pemasok** (P5 #14) | `InventoryBatch.costPrice` + pemasok pada Stok Masuk; HPP dipetakan ke `InvoiceItem`/`StockMovement` saat barang keluar; pisahkan pembelian stok dari biaya operasional agar arus kas tidak menyesatkan. Prasyarat Laba/Rugi yang benar |
 | Tahap 3 | **Pembayaran bertahap** (P2 #6) | Model pembayaran (DP/cicilan/termin) + pengakuan pendapatan per pembayaran; menyentuh `updateInvoiceStatus` dan `dashboard-summary.ts`. Juga membuka kebutuhan kontraktor |
+| Sisa Tahap 2 | **Yang sengaja ditinggal** (PRD 4.G.6) | Valuasi stok otomatis untuk zakat perniagaan (`costPrice` sudah membuka jalannya); perbaikan massal harga modal batch lama (obyeknya impor stok Tahap 4); laporan Laba/Rugi penuh per periode (bukan hanya kartu dashboard) |
 | Tahap 4 | **Impor & ekspor CSV, lalu Laba/Rugi sederhana** (P5 #17) | Impor produk/pelanggan/piutang awal/stok awal adalah penentu adopsi; Laba/Rugi bergantung Tahap 2 |
 | J | Fitur PRO: **cicilan/bertahap**, **multi-gudang**, **favicon kustom** | Cicilan menyatu dengan Tahap 3. Multi-gudang greenfield (`Warehouse` + `warehouseId` di `InventoryBatch`, `alokasiFefoKeluar`, 4 query baca, 3 tabel, 2 form). Favicon jauh lebih kecil |
 | Kategori | **Kategori produk dari preset** (P5 #16) | Butuh kolom kategori di produk; `tenant.categories` sudah terisi tetapi belum dipakai |
@@ -314,7 +318,7 @@ Konflik gating batch (K7) juga diselesaikan di fase D: `isBatchTrackingEnabled()
 ```bash
 npx tsc --noEmit        # tipe
 npm run lint            # eslint
-npm run test            # 132 tes logika murni (Node test runner lewat tsx)
+npm run test            # 177 tes logika murni (Node test runner lewat tsx)
 npm run build           # wajib: sekaligus meregenerasi tipe rute baru
 npx prisma migrate status
 npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script
@@ -354,7 +358,7 @@ npm run start -- -p 3100
 # 3. GET halaman dengan cookie yang sama
 ```
 
-Tujuh jebakan yang sudah memakan waktu dan sebaiknya dihindari lagi:
+Sembilan jebakan yang sudah memakan waktu dan sebaiknya dihindari lagi:
 1. **Nilai `.env` ditulis dengan tanda kutip**, dan `dotenv` membuangnya sedangkan
    parser buatan sendiri tidak. Baca kredensial dengan membuang kutip di ujung,
    atau login akan selalu gagal (`error=CredentialsSignin`).
@@ -386,6 +390,20 @@ Tujuh jebakan yang sudah memakan waktu dan sebaiknya dihindari lagi:
    mencetaknya sebagai `{}`. Aksi baru yang menerima objek biasa akan bocisi
    isinya di log dev; kalau aksinya membawa rahasia, pakai `FormData` atau
    jangan percaya log dev bersih.
+8. **`prisma generate` tidak membuat `next dev` yang sedang berjalan mengenal
+   kolom baru.** `src/lib/prisma.ts` menyimpan client di `globalThis`, jadi hot
+   reload memakai client lama dan query kolom baru gagal dengan
+   `PrismaClientValidationError: Unknown field 'unitCost' for select statement
+   on model StockMovement` — persis seperti migrasi belum dijalankan. Jangan
+   langsung mengubah kode: cek kolom di DB dan client yang ter-generate, lalu
+   **restart dev server** (atau pakai `next start` hasil build, seperti yang
+   dilakukan verifikasi fase X).
+9. **`window.print()` membekukan CDP.** Tombol "Cetak Laporan Zakat"
+   (`src/modules/core/components/zakat-tabs.tsx`) memanggil print native; begitu
+   dialognya terbuka, setiap perintah chrome-devtools berikutnya
+   timeout (`MCP error -32603`) dan menimpa `window.print` setelahnya tidak
+   menolong — browser harus ditutup paksa. Untuk UI yang bersentuhan dengan
+   pencetakan, verifikasi permukaan lain dulu dan jangan klik tombol cetak.
 
 Tiga hal yang bisa diuji lewat rute sementara seperti ini (pola yang sama dipakai
 fase R dan S): memanggil Server Action dengan sesi asli dari cookie, memeriksa

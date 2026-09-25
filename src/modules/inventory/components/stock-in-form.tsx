@@ -33,15 +33,21 @@ import {
 import { DEFAULT_BATCH_NUMBER } from "@/lib/business-presets";
 import { stockIn } from "../actions/stock-actions";
 import { stockInSchema, type StockInFormValues } from "../schemas/stock-schema";
-import type { VariantOption } from "../types";
+import type { SupplierOption, VariantOption } from "../types";
 
 type Props = {
   variants: VariantOption[];
   /** Fitur batch aktif? Hanya paket PRO (PRD Bagian 4.D). */
   batchEnabled: boolean;
+  /** Pemasok tenant ini, untuk asal barang (PRD 4.G.4). */
+  suppliers: SupplierOption[];
 };
 
-export function StockInForm({ variants, batchEnabled }: Props) {
+// Radix Select tidak mengizinkan value string kosong, jadi "tanpa pemasok"
+// memakai penanda ini lalu diterjemahkan kembali saat submit.
+const TANPA_PEMASOK = "__tanpa_pemasok__";
+
+export function StockInForm({ variants, batchEnabled, suppliers }: Props) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
 
@@ -51,6 +57,8 @@ export function StockInForm({ variants, batchEnabled }: Props) {
       variantId: "",
       batchNumber: "",
       quantity: "",
+      costPrice: "",
+      supplierId: "",
       expiredDate: "",
       reference: "",
       notes: "",
@@ -60,10 +68,15 @@ export function StockInForm({ variants, batchEnabled }: Props) {
   const { errors } = form.formState;
   const variantId = useWatch({ control: form.control, name: "variantId" });
   const dipilih = variants.find((variant) => variant.id === variantId);
+  const supplierId =
+    useWatch({ control: form.control, name: "supplierId" }) ?? "";
 
   async function onSubmit(values: StockInFormValues) {
     setSubmitting(true);
-    const result = await stockIn(values);
+    const result = await stockIn({
+      ...values,
+      supplierId: values.supplierId === TANPA_PEMASOK ? "" : values.supplierId,
+    });
     setSubmitting(false);
 
     if (result.success) {
@@ -153,6 +166,58 @@ export function StockInForm({ variants, batchEnabled }: Props) {
                     {...form.register("quantity")}
                   />
                   <FieldError errors={[errors.quantity]} />
+                </Field>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field data-invalid={Boolean(errors.costPrice)}>
+                  <FieldLabel htmlFor="costPrice">
+                    Harga Modal per Unit (opsional)
+                  </FieldLabel>
+                  <Input
+                    id="costPrice"
+                    inputMode="numeric"
+                    placeholder="12500"
+                    className="tabular-nums"
+                    {...form.register("costPrice")}
+                  />
+                  <FieldDescription>
+                    Modal beli per unit. Kosong berarti belum dicatat — bukan nol,
+                    supaya laba tidak terlihat lebih besar dari sebenarnya. Pada
+                    batch yang sudah ada, harga digabung rata-rata tertimbang.
+                  </FieldDescription>
+                  <FieldError errors={[errors.costPrice]} />
+                </Field>
+
+                <Field data-invalid={Boolean(errors.supplierId)}>
+                  <FieldLabel>Pemasok (opsional)</FieldLabel>
+                  <Select
+                    value={supplierId.length > 0 ? supplierId : TANPA_PEMASOK}
+                    onValueChange={(value) =>
+                      form.setValue("supplierId", value, {
+                        shouldValidate: true,
+                      })
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Tanpa pemasok" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={TANPA_PEMASOK}>
+                        Tanpa pemasok
+                      </SelectItem>
+                      {suppliers.map((supplier) => (
+                        <SelectItem key={supplier.id} value={supplier.id}>
+                          {supplier.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldDescription>
+                    Batch yang sudah punya pemasok tidak diganti oleh stok masuk
+                    berikutnya. {suppliers.length === 0 ? "Belum ada pemasok tercatat — tambahkan di halaman Pemasok." : ""}
+                  </FieldDescription>
+                  <FieldError errors={[errors.supplierId]} />
                 </Field>
               </div>
 

@@ -61,7 +61,29 @@ export function ZakatReport({
   if (penghasilan) {
     barisPenghasilan.push(
       { label: "Pendapatan diterima (invoice lunas)", nilai: formatRupiah(penghasilan.pendapatan) },
-      { label: "Pengeluaran usaha", nilai: formatRupiah(penghasilan.pengeluaran) },
+      { label: "Beban usaha", nilai: formatRupiah(penghasilan.bebanOperasional) },
+      {
+        label: "Harga pokok penjualan (barang terjual)",
+        nilai: formatRupiah(penghasilan.hpp),
+      },
+      ...(penghasilan.unitModalBelumTercatat > 0
+        ? [
+            {
+              label: `Catatan: ${penghasilan.unitModalBelumTercatat} unit keluar tanpa harga modal`,
+              nilai: "HPP & laba belum penuh",
+            },
+          ]
+        : []),
+      // Dicetak supaya dasar hitungnya bisa ditelusuri: pembelian stok memang
+      // sengaja tidak dikurangkan (PRD 4.G.1), bukan hilang dari laporan.
+      ...(penghasilan.pembelianStok > 0
+        ? [
+            {
+              label: "Pembelian stok (masih jadi aset, tidak dikurangkan)",
+              nilai: formatRupiah(penghasilan.pembelianStok),
+            },
+          ]
+        : []),
       { label: "Laba bersih", nilai: formatRupiah(penghasilan.labaBersih) },
       { label: "Nisab bulan ini", nilai: formatRupiah(penghasilan.nisab) },
       { label: `Kadar zakat (${penghasilan.rate * 100}%)`, nilai: formatRupiah(penghasilan.terutang) },

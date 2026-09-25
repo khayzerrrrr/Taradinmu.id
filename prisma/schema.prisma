@@ -113,6 +113,7 @@ model Tenant {
 
   users           User[]
   products        Product[]
+  suppliers       Supplier[]
   customers       Customer[]
   invoices        Invoice[]
   expenses        Expense[]
@@ -200,6 +201,29 @@ model ProductVariant {
   invoiceItems InvoiceItem[]
 }
 
+// Pemasok (PRD 4.G.4): master data tempat barang dibeli.
+// Entitas sungguhan, bukan kolom teks di form stok — pertanyaan "modal siapa yang
+// masih numpuk di pemasok ini" tidak bisa dijawab oleh teks bebas yang beda ejaan
+// tiap kali diisi.
+model Supplier {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  notes     String?
+
+  batches   InventoryBatch[]
+  createdAt DateTime @default(now())
+
+  // Daftar pemasok adalah tampilan utamanya; nama tidak unik dalam tenant karena
+  // dua cabang boleh punya pemasok dengan nama sama, dan menolaknya hanya
+  // menghasilkan kebingungan tanpa memperbaiki angka apa pun.
+  @@index([tenantId])
+}
+
 model InventoryBatch {
   id             String   @id @default(cuid())
   variantId      String
@@ -207,8 +231,20 @@ model InventoryBatch {
   batchNumber    String // e.g., "BATCH-2024-001"
   quantity       Int // Stok saat ini di batch ini
   expiredDate    DateTime? // Wajib untuk F&B dan Farmasi
+  // Harga modal per unit saat batch ini masuk (PRD 4.G.2). Berada di batch, bukan
+  // di varian, karena harga beli berubah antar waktu — satu harga di varian akan
+  // membuat HPP bulan lalu ikut berubah setelah pembelian berikutnya.
+  // Nullable SENGAJA: batch lama tidak punya catatan harga modal, dan memaksa 0
+  // menghasilkan laba yang membengkak palsu — lebih jujur ditulis "belum tahu".
+  costPrice      Decimal? @db.Decimal(12, 2)
+  // Penghapusan pemasok tidak boleh menghapus batch: SetNull, sama seperti
+  // aturan programId pada Invoice/Expense (PRD 4.F.9).
+  supplierId     String?
+  supplier       Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   createdAt      DateTime @default(now())
   movements      StockMovement[]
+
+  @@index([supplierId])
 }
 
 model StockMovement {
@@ -217,9 +253,17 @@ model StockMovement {
   batch       InventoryBatch @relation(fields: [batchId], references: [id])
   type        StockMovementType
   quantity    Int
+  // Salinan costPrice batch pada saat potongan terjadi (PRD 4.G.3): dasar HPP.
+  // Potret sesaat, bukan view turunan — koreksi costPrice belakangan tidak boleh
+  // mengubah HPP yang sudah tercatat.
+  unitCost    Decimal? @db.Decimal(12, 2)
   reference   String? // e.g., "INV-001" atau "PO-002"
   notes       String?
   createdAt   DateTime @default(now())
+
+  // HPP per dokumen (PRD 4.G.3) dan pengembalian stok sama-sama menyaring pada
+  // dua kolom ini; tanpa index keduanya menjadi pemindaian penuh tabel movement.
+  @@index([type, reference])
 }
 
 // --- MODUL BILLING ---

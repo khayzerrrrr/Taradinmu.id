@@ -7,11 +7,13 @@ import {
   getRecentMovements,
   getVariantsForStock,
 } from "@/modules/inventory/actions/stock-actions";
+import { getSupplierOptions } from "@/modules/inventory/actions/supplier-actions";
 import { InventoryLocked } from "@/modules/inventory/components/inventory-locked";
 import { MovementTable } from "@/modules/inventory/components/movement-table";
 import { StockInForm } from "@/modules/inventory/components/stock-in-form";
 import type {
   StockMovementItem,
+  SupplierOption,
   VariantOption,
 } from "@/modules/inventory/types";
 import { isModuleEnabled } from "@/shared/modules";
@@ -33,13 +35,15 @@ export default async function StockInPage() {
     );
   }
 
-  const [variantsRes, movementsRes] = await Promise.all([
+  const [variantsRes, movementsRes, suppliersRes] = await Promise.all([
     getVariantsForStock(),
     getRecentMovements({ perPage: 10, type: "IN" }),
+    getSupplierOptions(),
   ]);
 
   const variants: VariantOption[] = variantsRes.data ?? [];
   const movements: StockMovementItem[] = movementsRes.data ?? [];
+  const suppliers: SupplierOption[] = suppliersRes.data ?? [];
 
   // Fitur batch mengikuti paket langganan (PRD 4.D): hanya PRO.
   const batchEnabled = isBatchTrackingEnabled(tenant.plan);
@@ -59,7 +63,11 @@ export default async function StockInPage() {
         <p className="text-sm text-destructive">{variantsRes.message}</p>
       ) : null}
 
-      <StockInForm variants={variants} batchEnabled={batchEnabled} />
+      <StockInForm
+        variants={variants}
+        batchEnabled={batchEnabled}
+        suppliers={suppliers}
+      />
 
       <MovementTable
         movements={movements}

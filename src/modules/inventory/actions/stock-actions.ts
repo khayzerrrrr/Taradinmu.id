@@ -1,8 +1,9 @@
 "use server";
 
 import type { Prisma } from "@/generated/prisma/client";
-import { prisma } from "@/lib/prisma";
 import { DEFAULT_BATCH_NUMBER } from "@/lib/business-presets";
+import { gabungHargaModal } from "@/lib/hpp";
+import { prisma } from "@/lib/prisma";
 import { ringkasStok } from "@/lib/stock";
 import {
   alokasiFefoKeluar,
@@ -192,7 +193,14 @@ export async function getVariantBatches(
         { expiredDate: { sort: "asc", nulls: "last" } },
         { createdAt: "asc" },
       ],
-      select: { id: true, batchNumber: true, quantity: true, expiredDate: true },
+      select: {
+        id: true,
+        batchNumber: true,
+        quantity: true,
+        expiredDate: true,
+        costPrice: true,
+        supplier: { select: { name: true } },
+      },
     });
 
     const now = new Date();
@@ -202,6 +210,8 @@ export async function getVariantBatches(
       quantity: batch.quantity,
       expiredDate: batch.expiredDate ? batch.expiredDate.toISOString() : null,
       isExpired: isExpired(batch.expiredDate, now),
+      costPrice: batch.costPrice?.toString() ?? null,
+      supplierName: batch.supplier?.name ?? null,
     }));
 
     return { success: true, message: "Daftar batch berhasil dimuat.", data };
@@ -292,6 +302,10 @@ export async function stockIn(input: unknown): Promise<
     batchNumber: string;
     quantity: number;
     batchBaru: boolean;
+    /** Harga modal per unit batch setelah stok masuk (null = belum dicatat). */
+    costPrice: number | null;
+    /** true bila pemasok pilihan user tidak dipakai karena batch sudah punya. */
+    pemasokDipertahankan: boolean;
   }>
 > {
   const akses = await aksesTenant();
@@ -302,8 +316,20 @@ export async function stockIn(input: unknown): Promise<
     return { success: false, message: pesanValidasi(parsed.error) };
   }
 
-  const { variantId, batchNumber, quantity, expiredDate, reference, notes } =
-    parsed.data;
+  const {
+    variantId,
+    batchNumber,
+    quantity,
+    expiredDate,
+    reference,
+    notes,
+    costPrice: costPriceInput,
+    supplierId,
+  } = parsed.data;
+
+  // "" dari form berarti "belum dicatat" — bukan harga nol.
+  const costPrice =
+    costPriceInput && costPriceInput.length > 0 ? Number(costPriceInput) : null;
 
   // Kebijakan batch: nomor batch & tanggal kedaluwarsa hanya dipakai bila fitur
   // batch aktif (paket PRO — PRD Bagian 4.D). Selain itu stok masuk
@@ -318,13 +344,28 @@ export async function stockIn(input: unknown): Promise<
     };
   }
 
+  // id pemasok dari tenant lain tidak boleh tersimpan: diperiksa dengan findFirst
+  // berfilter tenantId, sama seperti variantId di bawah.
+  const pemasokDipilih = supplierId && supplierId.length > 0 ? supplierId : null;
+
   try {
-    const variant = await prisma.productVariant.findFirst({
-      where: { id: variantId, product: { tenantId: akses.tenantId } },
-      select: { id: true },
-    });
+    const [variant, pemasok] = await Promise.all([
+      prisma.productVariant.findFirst({
+        where: { id: variantId, product: { tenantId: akses.tenantId } },
+        select: { id: true },
+      }),
+      pemasokDipilih
+        ? prisma.supplier.findFirst({
+            where: { id: pemasokDipilih, tenantId: akses.tenantId },
+            select: { id: true },
+          })
+        : Promise.resolve(null),
+    ]);
     if (!variant) {
       return { success: false, message: "Varian tidak ditemukan pada tenant ini." };
+    }
+    if (pemasokDipilih && !pemasok) {
+      return { success: false, message: "Pemasok tidak ditemukan pada tenant ini." };
     }
 
     const expired =
@@ -335,17 +376,42 @@ export async function stockIn(input: unknown): Promise<
     const hasil = await prisma.$transaction(async (tx) => {
       const batchLama = await tx.inventoryBatch.findFirst({
         where: { variantId: variant.id, batchNumber: nomorBatch },
-        select: { id: true },
+        select: { id: true, quantity: true, costPrice: true, supplierId: true },
       });
 
       let batchId: string;
       let batchBaru: boolean;
+      let costPriceSetelah = costPrice;
+      let supplierIdSetelah = pemasokDipilih;
+      let pemasokDipertahankan = false;
 
       if (batchLama) {
-        // Digabung: quantity ditambah, expiredDate batch lama dipertahankan.
+        // Batch yang sama = satu sumber pembelian, jadi pemasok asalnya tidak
+        // ditimpa oleh stok masuk berikutnya. Bila batch belum punya pemasok,
+        // pilihan kali ini yang mengisinya.
+        const supplierLama = batchLama.supplierId;
+        supplierIdSetelah = supplierLama ?? pemasokDipilih;
+        pemasokDipertahankan =
+          pemasokDipilih !== null &&
+          supplierLama !== null &&
+          supplierLama !== pemasokDipilih;
+
+        // Harga modal digabung rata-rata tertimbang, bukan "harga terakhir menang"
+        // (alasan lengkapnya di src/lib/hpp.ts).
+        costPriceSetelah = gabungHargaModal({
+          jumlahLama: batchLama.quantity,
+          modalLama: batchLama.costPrice === null ? null : Number(batchLama.costPrice),
+          jumlahBaru: quantity,
+          modalBaru: costPrice,
+        });
+
         await tx.inventoryBatch.update({
           where: { id: batchLama.id },
-          data: { quantity: { increment: quantity } },
+          data: {
+            quantity: { increment: quantity },
+            costPrice: costPriceSetelah,
+            supplierId: supplierIdSetelah,
+          },
         });
         batchId = batchLama.id;
         batchBaru = false;
@@ -356,6 +422,8 @@ export async function stockIn(input: unknown): Promise<
             batchNumber: nomorBatch,
             quantity,
             expiredDate: expired,
+            costPrice,
+            supplierId: pemasokDipilih,
           },
           select: { id: true },
         });
@@ -363,30 +431,35 @@ export async function stockIn(input: unknown): Promise<
         batchBaru = true;
       }
 
-      // Setiap perubahan stok wajib tercatat.
+      // Setiap perubahan stok wajib tercatat. unitCost pada baris IN adalah
+      // harga modal yang dibayar kali ini — HPP hanya membaca baris OUT, jadi
+      // mencatatnya di sini tidak menimbulkan perhitungan ganda.
       await tx.stockMovement.create({
         data: {
           batchId,
           type: "IN",
           quantity,
+          unitCost: costPrice,
           reference: reference && reference.length > 0 ? reference : null,
           notes: notes && notes.length > 0 ? notes : null,
         },
       });
 
-      return { batchId, batchBaru };
+      return { batchId, batchBaru, costPriceSetelah, pemasokDipertahankan };
     });
 
     return {
       success: true,
       message: `Stok masuk ${quantity} unit ke batch ${nomorBatch}${
         hasil.batchBaru ? " (batch baru)" : " (digabung ke batch yang ada)"
-      }.`,
+      }${hasil.pemasokDipertahankan ? " · pemasok batch tetap seperti asalnya" : ""}.`,
       data: {
         batchId: hasil.batchId,
         batchNumber: nomorBatch,
         quantity,
         batchBaru: hasil.batchBaru,
+        costPrice: hasil.costPriceSetelah,
+        pemasokDipertahankan: hasil.pemasokDipertahankan,
       },
     };
   } catch (error) {

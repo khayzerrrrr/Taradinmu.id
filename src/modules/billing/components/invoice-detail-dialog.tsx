@@ -136,6 +136,25 @@ export function InvoiceDetailDialog({ invoiceId, invoiceNumber }: Props) {
               <span className="font-medium tabular-nums">
                 Total: {formatRupiah(detail.totalAmount)}
               </span>
+
+              {/* Laporan HPP dokumen (PRD 4.G.5). `null` = paket tenant ini tidak
+                  menyertainya; angkanya memang tidak dikirim dari server. */}
+              {detail.laporanHpp ? (
+                <>
+                  <span className="mt-1 text-muted-foreground tabular-nums">
+                    HPP barang keluar: {formatRupiah(detail.laporanHpp.hpp)}
+                  </span>
+                  <span className="text-muted-foreground tabular-nums">
+                    Laba kotor: {formatRupiah(detail.laporanHpp.labaKotor)}
+                  </span>
+                  {detail.laporanHpp.unitModalBelumTercatat > 0 ? (
+                    <span className="text-xs text-muted-foreground">
+                      {detail.laporanHpp.unitModalBelumTercatat} unit keluar tanpa
+                      harga modal — HPP di atas belum penuh (PRD 4.G.6).
+                    </span>
+                  ) : null}
+                </>
+              ) : null}
             </div>
 
             {detail.notes ? (

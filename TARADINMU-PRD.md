@@ -410,7 +410,8 @@ Untuk mendorong konversi, kita terapkan batasan penggunaan pada paket FREE.
 - **Zakat:** Hanya Kalkulator Manual (Input angka sendiri) — tab "Zakat Perniagaan"; Zakat Penghasilan otomatis terkunci.
 - **URL:** Hanya Path standar (`taradinmu.id/nama-toko`).
 - **Branding:** Wajib menggunakan Logo & Tema Default TaradinMu.
-- **Laporan:** Hanya Laporan Dasar (Laba Rugi Sederhana).
+- **Laporan:** Hanya Laporan Dasar (Laba Rugi Sederhana). Pemisahan pembelian stok
+  dari laba tetap berlaku (4.G.5); yang tidak ada hanya rincian HPP & margin.
 
 #### 2. Fitur Eksklusif PRO (TaradinMu Pro)
 - **Pengguna:** Unlimited (Bisa tambah Admin, Staff, Akuntan).
@@ -419,7 +420,8 @@ Untuk mendorong konversi, kita terapkan batasan penggunaan pada paket FREE.
 - **Zakat:** **Otomatis** (Tarik data real-time dari Invoice & Pengeluaran).
 - **URL:** Subdomain kustom (`nama-toko.taradinmu.id`).
 - **Branding:** White-label (Ganti Logo, Warna Tema, Favicon).
-- **Laporan:** Laporan Lengkap (Neraca, Arus Kas, Pajak).
+- **Laporan:** Laporan Lengkap (Neraca, Arus Kas, Pajak) + kartu Margin Kotor dan
+  baris HPP per invoice (4.G.5).
 
 #### 3. UI/UX "Upgrade Prompt" (Anti-Frustrasi)
 - Jika user FREE mencoba mengakses fitur PRO, JANGAN langsung tolak dengan error merah.
@@ -520,5 +522,109 @@ menyalakannya lewat `/admin`.
   ikut terhapus.
 - Program tidak memaksa tanggal selesai setelah tanggal mulai pada data lama;
   validasi itu hanya berlaku untuk input baru.
+
+### 4.G. HPP & PEMASOK (harga pokok penjualan yang benar)
+
+**Masalah yang diselesaikan.** Sebelum bagian ini ada, satu rupiah pembelian stok
+mengurangi dua angka sekaligus: "laba bersih" di dashboard dan dasar zakat
+penghasilan. Itu keliru secara pembukuan maupun fikih: belanja sembako yang masih
+menumpuk di rak bukan rugi, ia hanya berpindah bentuk dari kas menjadi aset.
+Tenant yang membeli stok dalam jumlah besar bulan ini akan melihat labanya jatuh —
+dan zakat penghasilannya ikut turun — padahal belum ada satu pun barang terjual.
+
+#### 1. Tiga angka yang harus tetap terpisah
+- **Arus kas** = pendapatan diterima − **seluruh** pengeluaran, termasuk pembelian
+  stok. Ini jawaban atas "uangku ke mana saja".
+- **Laba usaha** = pendapatan − beban operasional − **HPP barang yang benar-benar
+  terjual**. Pembelian stok tidak masuk di sini.
+- **Dasar zakat penghasilan** memakai **laba usaha**, bukan arus kas — zakat
+  dihitung dari hasil usaha yang benar-benar terjadi.
+Karena keduanya berbeda makna, dashboard menampilkannya sebagai dua kartu terpisah
+dengan label yang jelas; tidak boleh ada satu variabel yang dipakai bergantian.
+**Ketiga suku pada kartu laba wajib memakai basis pengakuan yang sama** (lihat
+4.G.3): pendapatan dihitung dari invoice yang sudah dibayar, maka HPP-nya juga.
+Perbaikan pemisahan ini berlaku untuk **semua paket** (FREE maupun PRO): tenant
+gratis tidak boleh disuruh menghitung ulang dengan tangan supaya angkanya benar.
+
+#### 2. Harga modal melekat pada batch, bukan pada produk
+`InventoryBatch.costPrice Decimal(12,2)?` diisi saat Stok Masuk. Alasannya:
+- Harga beli barang **berubah dari waktu ke waktu** (gula naik tiap musim). Satu
+  harga di level `ProductVariant` akan membuat HPP bulan lalu ikut berubah setelah
+  pembelian berikutnya — laporan yang tidak bisa direkonsiliasi.
+- Kolom ini **nullable, dan sengaja dibiarkan begitu.** Batch lama tidak punya
+  catatan harga modal; mengisi paksa 0 akan menghasilkan laba yang membengkak palsu,
+  jauh lebih menyesatkan daripada "belum diketahui". Di mana HPP tidak bisa dihitung,
+  UI menulis keterangan itu alih-alih menampilkan angka.
+- `Decimal(12,2)` sama seperti harga jual, memakai satuan mata uang yang sama.
+
+#### 3. HPP dicatat pada pergerakan stok, tidak diduplikasi di item invoice
+Saat FEFO memotong stok, setiap `StockMovement` type `OUT` ikut menyimpan
+`unitCost Decimal(12,2)?` — salinan `costPrice` batch asal pada saat itu.
+- **HPP sebuah invoice = jumlah `unitCost × quantity` dari movement `OUT`
+  miliknya sendiri** (dibedakan lewat `reference` = nomor invoice).
+- **Dilarang** menambah kolom harga modal di `InvoiceItem`. Itu kolom kedua untuk
+  fakta yang sama, dan dua sumber kebenaran angka adalah cara paling pasti
+  menghasilkan laporan yang berbeda sendiri — aturan yang sama dengan 4.F.2.
+- Movement yang sudah dibatalkan ditandai `#BATAL` pada `reference` (mekanisme
+  pengembalian stok yang sudah ada), jadi **pembatalan invoice DRAFT otomatis
+  membalikkan HPP** tanpa logika tambahan. Perhitungan HPP wajib mengecualikan
+  `reference` berakhiran `#BATAL` dan hanya menghitung movement `OUT`.
+- `unitCost` adalah **potret pada saat potongan terjadi**, bukan view turunan:
+  bila `costPrice` batch dikoreksi belakangan, HPP yang sudah tercatat tidak boleh
+  ikut berubah.
+- **Untuk angka periode (dashboard & zakat): HPP diakui saat invoice-nya dibayar,
+  bukan saat barang meninggalkan rak.** Stok sudah dipotong sejak invoice masih
+  DRAFT, sedangkan pendapatan bulan ini dihitung dari invoice PAID. Kalau HPP
+  mengikuti tanggal movement, satu invoice draft langsung tampil sebagai rugi
+  sebesar seluruh modalnya padahal pendapatannya masih nol — persis kesalahan yang
+  baru saja diperbaiki 4.G.1, hanya pindah sisi. Karena itu `hppInvoiceLunas()`
+  hanya menghitung movement `OUT` yang `reference`-nya cocok dengan invoice
+  berstatus PAID dengan `paidAt >= sejak`.
+- **Stok keluar manual tanpa dokumen invoice tidak masuk HPP.** Bukan dianggap
+  gratis: barang hilang/rusak/konsumsi sendiri memang belum punya jalur pembukuan
+  sendiri. Memaksukannya menjadi harga pokok mencatat kerugian sebagai biaya
+  penjualan; penyediaannya masuk laporan Laba/Rugi penuh (Tahap 4).
+- Aturan periode ini **tidak** berlaku pada HPP per dokumen di dialog invoice:
+  di sana pertanyaannya "berapa modal barang pada invoice ini", jadi seluruh
+  movement dengan nomor itu dihitung, draft maupun lunas.
+
+#### 4. Pemasok adalah entitas sungguhan
+Model `Supplier (tenantId, name, phone?, email?, address?, notes?)` dan
+`InventoryBatch.supplierId String?`.
+- Bukan sekadar kolom teks "nama toko" di form stok: pertanyaan "modal siapa yang
+  masih numpuk di pemasok ini" dan "harga dari pemasok mana yang paling mahal"
+  tidak bisa dijawab oleh teks bebas yang berbeda ejaan setiap kali diisi.
+- Kolom ini nullable: pembelian tanpa pemasok (mis. stok awal) tetap sah.
+- Menghapus pemasok **tidak menghapus batch**: `onDelete: SetNull`, sama seperti
+  aturan 4.F.9 — menghapus master data tidak boleh menghapus uang atau barang.
+- CRUD-nya mengikuti pola modul Pelanggan (daftar + form + hapus, `aksesTenant()`
+  dengan gerbang modul INVENTORY, tulis khusus OWNER/ADMIN/SUPER_ADMIN).
+
+#### 5. Gating
+- **Pemisahan arus kas vs laba: semua paket.** Ini koreksi angka yang salah,
+  bukan fitur baru.
+- **Angka HPP yang mengurangi laba tetap terlihat pada semua paket.** Kartu
+  "Laba Bersih" menulis rumusnya lengkap (`pendapatan − beban usaha − HPP`),
+  karena laba yang tidak bisa dijelaskan asal angkanya hanya memindahkan
+  kesalahan. Yang disembunyikan tanpa HPP adalah kesimpulan, bukan ketelitiannya.
+- **Laporan HPP / margin per invoice: PRO** (`checkLimit(tenantId, "HPP")`
+  ditegakkan di server, bukan hanya disembunyikan): kartu "Margin Kotor" di
+  dashboard dan baris HPP + laba kotor di dialog detail invoice. Pada paket FREE
+  `getInvoiceDetail` bahkan tidak mengirim angkanya. FREE melihat kartu dengan
+  ikon gembok dan modal upgrade sesuai 4.D.3. Alasannya sama dengan 4.F.6:
+  margin per dokumen adalah kemampuan bayar berikutnya, dan sudah disebut di
+  4.D.2 sebagai "Laporan Lengkap".
+
+#### 6. Batasan yang diterima dan dicatat jujur
+- **Batch lama tetap tanpa harga modal.** Tidak ada cara jujur untuk menebaknya;
+  pengisian massal lewat impor stok berikutnya akan memperbaikinya sendiri.
+- **HPP hanya seakurat stoknya.** Penjualan tanpa potongan stok (item `SERVICE`,
+  atau invoice manual yang tidak menautkan varian) tidak punya movement `OUT`,
+  jadi HPP-nya nol — dan itu benar: jasa memang tidak punya harga pokok barang.
+- **Retur sebagian** memakai jalur `#BATAL` yang sama; bila suatu saat perlu retur
+  parsial, mekanisme pembalikannya harus HPP-aware sejak awal, bukan ditambal.
+- **Stok valuasi zakat perniagaan** masih angka yang dimasukkan manual oleh user
+  (4.D.1). `costPrice` membuka jalan menghitungnya otomatis nanti; itu belum
+  bagian dari tahap ini.
 
 

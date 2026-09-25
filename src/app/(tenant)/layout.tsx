@@ -123,6 +123,14 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
         label: "Stok Keluar",
         icon: "stockOut",
       },
+      // Pemasok ikut disenyapkan untuk usaha jasa murni: sama seperti menu stok
+      // lain, page-nya hanya berguna bila katalog punya barang. Tersedia di
+      // semua paket — yang dibatasi PRO hanyalah laporan HPP (PRD 4.G.5).
+      {
+        href: `${basePath}/dashboard/inventory/suppliers`,
+        label: "Pemasok",
+        icon: "suppliers",
+      },
     );
   }
 

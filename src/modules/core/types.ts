@@ -62,8 +62,22 @@ export type ZakatPenghasilan = {
   periode: string;
   /** Total invoice PAID bulan berjalan. */
   pendapatan: number;
-  /** Total pengeluaran bulan berjalan. */
-  pengeluaran: number;
+  /**
+   * Beban usaha bulan berjalan — inilah yang dikurangkan dari pendapatan untuk
+   * mendapat laba bersih. Pembelian stok TIDAK termasuk (PRD 4.G.1).
+   */
+  bebanOperasional: number;
+  /** Pembelian stok bulan berjalan: kas keluar, tapi masih jadi aset. */
+  pembelianStok: number;
+  /** Seluruh kas keluar bulan berjalan (beban usaha + pembelian stok). */
+  pengeluaranKas: number;
+  /**
+   * Modal barang yang keluar (terjual) bulan berjalan — kurangkan ketiga pada
+   * dasar zakat bersama beban usaha (PRD 4.G.1).
+   */
+  hpp: number;
+  /** Unit keluar yang modalnya belum dicatat; > 0 berarti HPP masih kurang besar. */
+  unitModalBelumTercatat: number;
   labaBersih: number;
   nisab: number;
   rate: number;

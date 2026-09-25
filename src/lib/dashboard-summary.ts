@@ -1,4 +1,8 @@
 import type { PlanType } from "@/generated/prisma/client";
+import { HPP_NOL, labaKotor, type HasilHpp } from "@/lib/hpp";
+import { hppInvoiceLunas } from "@/lib/hpp-query";
+import { BEBAN_NOL, hitungArusKas, hitungLaba, pilahBeban } from "@/lib/laba";
+import { ambilBatasFitur } from "@/lib/plan-limits";
 import { awalBulan } from "@/lib/periode";
 import { prisma } from "@/lib/prisma";
 import {
@@ -7,7 +11,7 @@ import {
   LOW_STOCK_THRESHOLD,
   ringkasStok,
 } from "@/lib/stock";
-import { hitungZakat, round2 } from "@/lib/zakat";
+import { hitungZakat } from "@/lib/zakat";
 import { NISAB_PENGHASILAN } from "@/lib/zakat-nisab";
 import { isModuleEnabled } from "@/shared/modules";
 
@@ -49,14 +53,43 @@ export type RingkasanOwner = {
   jumlahInvoiceLunasBulanIni: number;
   jumlahInvoice: number;
 
-  /** Pengeluaran bulan berjalan (0 bila modul Akuntansi tidak aktif). */
-  pengeluaranBulanIni: number;
   /**
-   * Arus kas bulan berjalan = pendapatan yang sudah diterima − pengeluaran.
+   * Seluruh kas keluar bulan berjalan, termasuk pembelian stok.
+   * 0 bila modul Akuntansi tidak aktif.
+   */
+  pengeluaranBulanIni: number;
+  /** Kas keluar yang menjadi beban usaha (di luar pembelian stok). */
+  bebanOperasionalBulanIni: number;
+  /**
+   * Pembelian stok bulan berjalan (kategori PURCHASE): uang keluar, tapi
+   * barangnya masih jadi aset, jadi angka ini tidak mengurangi laba.
+   */
+  pembelianStokBulanIni: number;
+  /**
+   * Arus kas bulan berjalan = pendapatan yang sudah diterima − SELURUH kas keluar,
+   * termasuk pembelian stok.
    * Ini BUKAN saldo kas: sistem tidak menyimpan saldo awal, jadi angkanya
    * menggambarkan pergerakan bulan ini saja.
    */
   arusKasBulanIni: number;
+  /**
+   * Laba bersih bulan berjalan = pendapatan − beban usaha − HPP barang dari
+   * invoice yang lunas. Pembelian stok yang masih di rak sengaja tidak ikut
+   * dikurangi (PRD 4.G.1); inilah dasar estimasi zakat penghasilan.
+   */
+  labaBersihBulanIni: number;
+  /**
+   * Nilai modal barang yang keluar untuk penjualan yang sudah dibayar bulan ini
+   * (PRD 4.G.3). 0 bisa berarti "tidak ada barang terjual" ATAU "terjual tapi
+   * modalnya belum dicatat" — bedanya ada di `unitModalBelumTercatat`.
+   */
+  hppBulanIni: number;
+  /** Unit keluar yang batch-nya tidak punya harga modal; HPP bulan ini kurang besar. */
+  unitModalBelumTercatat: number;
+  /** Pendapatan bulan ini − HPP. Hanya ditampilkan pada paket PRO. */
+  labaKotorBulanIni: number;
+  /** Laporan HPP & margin tersedia pada paket ini (PRD 4.G.5). */
+  laporanHppAktif: boolean;
   /** Estimasi zakat penghasilan bulan ini; null bila fitur PRO belum aktif. */
   estimasiZakat: number | null;
   /** Laba bersih bulan ini sudah mencapai nisab? */
@@ -120,18 +153,42 @@ export async function getOwnerSummary(
     jumlahInvoice = totalInvoice;
   }
 
-  // --- Akuntansi: pengeluaran bulan berjalan ---
-  let pengeluaranBulanIni = 0;
+  // --- Akuntansi: kas keluar bulan berjalan, dipilah per kategori ---
+  // groupBy, bukan satu agregat: pembelian stok harus bisa dipisahkan dari beban
+  // usaha sebelum laba dihitung (PRD 4.G.1).
+  let beban = BEBAN_NOL;
   if (accountingAktif) {
-    const pengeluaran = await prisma.expense.aggregate({
+    const perKategori = await prisma.expense.groupBy({
+      by: ["category"],
       where: { tenantId, expenseDate: { gte: batasBulanIni } },
       _sum: { amount: true },
+      _count: true,
     });
-    pengeluaranBulanIni = Number(pengeluaran._sum.amount ?? 0);
+
+    beban = pilahBeban(
+      perKategori.map((row) => ({
+        category: row.category,
+        amount: Number(row._sum.amount ?? 0),
+        jumlah: row._count,
+      })),
+    );
   }
 
+  // --- HPP: modal barang dari invoice yang LUNAS bulan berjalan (PRD 4.G.3) ---
+  // Hanya ada bila modul Inventory aktif; penjualan item SERVICE memang tidak
+  // punya harga pokok barang (PRD 4.G.6).
+  // Basisnya sengaja sama dengan pendapatanBulanIni di atas: stok sudah dipotong
+  // sejak draft, jadi HPP yang mengikuti movement OUT akan membuat rugi phantom.
+  const hppBarang: HasilHpp = inventoryAktif
+    ? await hppInvoiceLunas(tenantId, batasBulanIni)
+    : HPP_NOL;
+
   // --- Estimasi zakat penghasilan (fitur PRO) ---
-  const labaBersih = round2(pendapatanBulanIni - pengeluaranBulanIni);
+  // Dasar zakat adalah LABA, bukan arus kas: toko yang bulan ini menghabiskan kas
+  // untuk menimbun stok belum tentu untung — tapi juga belum tentu rugi.
+  // HPP tetap dikurangi pada SEMUA paket (PRD 4.G.5): yang dikunci hanya
+  // laporannya, bukan kebenarannya.
+  const labaBersih = hitungLaba(pendapatanBulanIni, beban, hppBarang.hpp);
   const hasilZakat = hitungZakat(labaBersih, NISAB_PENGHASILAN);
   const estimasiZakat = plan === "PRO" ? hasilZakat.estimasi : null;
 
@@ -208,9 +265,16 @@ export async function getOwnerSummary(
     jumlahInvoiceLunasBulanIni,
     jumlahInvoice,
 
-    pengeluaranBulanIni,
-    // labaBersih dihitung tepat sebagai pendapatan bulan ini dikurangi pengeluaran.
-    arusKasBulanIni: labaBersih,
+    pengeluaranBulanIni: beban.total,
+    bebanOperasionalBulanIni: beban.operasional,
+    pembelianStokBulanIni: beban.pembelian,
+    // Arus kas = seluruh kas keluar; laba = hanya beban usaha (PRD 4.G.1).
+    arusKasBulanIni: hitungArusKas(pendapatanBulanIni, beban),
+    labaBersihBulanIni: labaBersih,
+    hppBulanIni: hppBarang.hpp,
+    unitModalBelumTercatat: hppBarang.unitTanpaModal,
+    labaKotorBulanIni: labaKotor(pendapatanBulanIni, hppBarang.hpp),
+    laporanHppAktif: ambilBatasFitur(plan, "HPP"),
     estimasiZakat,
     mencapaiNisabZakat: hasilZakat.mencapaiNisab,
     nisabZakat: NISAB_PENGHASILAN,

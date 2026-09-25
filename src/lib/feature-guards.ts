@@ -46,11 +46,16 @@ export async function checkLimit(
 
   const plan = tenant.plan;
 
-  // --- Batas berbasis fitur (batch, zakat otomatis, modul program) ---
+  // --- Batas berbasis fitur (batch, zakat otomatis, modul program, laporan HPP) ---
   // Cabang ini wajib menyebut semua LimitFiturKey. Tanpa "PROGRAM" di sini, nilai
   // itu lolos ke cabang jumlah di bawah dan berakhir di `else` — program akan
   // dihitung sebagai jumlah pengguna, bukan sebagai fitur aktif/tidak.
-  if (type === "BATCH" || type === "ZAKAT" || type === "PROGRAM") {
+  if (
+    type === "BATCH" ||
+    type === "ZAKAT" ||
+    type === "PROGRAM" ||
+    type === "HPP"
+  ) {
     if (ambilBatasFitur(plan, type)) {
       return { allowed: true, plan, used: null, limit: null };
     }

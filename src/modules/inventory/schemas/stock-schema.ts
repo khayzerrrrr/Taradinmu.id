@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PRICE_PATTERN } from "../utils";
 
 // Validasi input batch & pergerakan stok.
 
@@ -56,6 +57,23 @@ export const stockInSchema = z.object({
     ])
     .optional(),
   quantity: quantitySchema,
+  // Harga modal per unit (PRD 4.G.2). KOSONG ("") berarti "belum dicatat", bukan
+  // nol: mengisi 0 akan membuat laba terlihat membengkak palsu saat terjual.
+  // String kosong dinormalkan menjadi null di Server Action — sama seperti
+  // batchNumber/expiredDate di bawah.
+  costPrice: z
+    .union([
+      z.literal(""),
+      z
+        .string()
+        .trim()
+        .regex(PRICE_PATTERN, "Harga modal tidak valid (contoh: 12500 atau 12500.50)."),
+    ])
+    .optional(),
+  // Pemasok tempat barang dibeli. Kosong = tanpa pemasok (mis. stok awal).
+  supplierId: z
+    .union([z.literal(""), z.string().trim().min(1, "Pemasok tidak valid.")])
+    .optional(),
   expiredDate: z
     .union([
       z.literal(""),

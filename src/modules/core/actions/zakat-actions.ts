@@ -2,6 +2,8 @@
 
 import { pesanErrorUmum, pesanValidasi } from "@/lib/action";
 import { checkLimit } from "@/lib/feature-guards";
+import { hppInvoiceLunas } from "@/lib/hpp-query";
+import { hitungLaba, pilahBeban } from "@/lib/laba";
 import { awalBulan, labelPeriode, periodeDari } from "@/lib/periode";
 import { prisma } from "@/lib/prisma";
 import { getCurrentTenant } from "@/lib/tenant";
@@ -44,32 +46,47 @@ async function aksesZakat(): Promise<AksesZakat> {
   return { ok: true, tenantId: tenant.id };
 }
 
-// Pendapatan (invoice PAID) & pengeluaran bulan berjalan.
+// Pendapatan (invoice PAID) & kas keluar bulan berjalan, dipilah per kategori.
+// Pembelian stok (PURCHASE) TIDAK ikut mengurangi dasar zakat: barang yang masih
+// jadi aset bukan rugi. Lihat PRD 4.G.1 — alasannya sama dengan dashboard.
 async function ringkasanBulanIni(tenantId: string) {
   const batasBulanIni = awalBulan();
-  const [pendapatan, pengeluaran] = await Promise.all([
+  const [pendapatan, perKategori, hppBarang] = await Promise.all([
     prisma.invoice.aggregate({
       where: { tenantId, status: "PAID", paidAt: { gte: batasBulanIni } },
       _sum: { totalAmount: true },
       _count: true,
     }),
-    prisma.expense.aggregate({
+    prisma.expense.groupBy({
+      by: ["category"],
       where: { tenantId, expenseDate: { gte: batasBulanIni } },
       _sum: { amount: true },
       _count: true,
     }),
+    // Modal barang yang sudah terjual: bagian ketiga dasar zakat (PRD 4.G.1),
+    // dan sumber angka yang sama dengan kartu Laba Bersih di dashboard.
+    hppInvoiceLunas(tenantId, batasBulanIni),
   ]);
+
+  const beban = pilahBeban(
+    perKategori.map((row) => ({
+      category: row.category,
+      amount: Number(row._sum.amount ?? 0),
+      jumlah: row._count,
+    })),
+  );
 
   return {
     pendapatan: Number(pendapatan._sum.totalAmount ?? 0),
     jumlahInvoice: pendapatan._count,
-    pengeluaran: Number(pengeluaran._sum.amount ?? 0),
-    jumlahPengeluaran: pengeluaran._count,
+    beban,
+    hpp: hppBarang.hpp,
+    unitModalBelumTercatat: hppBarang.unitTanpaModal,
   };
 }
 
-// ZAKAT PENGHASILAN — otomatis: total invoice PAID dikurangi total pengeluaran
-// pada bulan berjalan.
+// ZAKAT PENGHASILAN — otomatis: invoice PAID dikurangi BEBAN USAHA bulan berjalan.
+// Pembelian stok tidak dikurangkan (PRD 4.G.1).
 export async function calculateZakatPenghasilan(): Promise<
   ActionResponse<ZakatPenghasilan>
 > {
@@ -78,7 +95,7 @@ export async function calculateZakatPenghasilan(): Promise<
 
   try {
     const r = await ringkasanBulanIni(akses.tenantId);
-    const labaBersih = round2(r.pendapatan - r.pengeluaran);
+    const labaBersih = hitungLaba(r.pendapatan, r.beban, r.hpp);
     const hasil = hitungZakat(labaBersih, NISAB_PENGHASILAN);
 
     return {
@@ -87,7 +104,11 @@ export async function calculateZakatPenghasilan(): Promise<
       data: {
         periode: labelPeriode(),
         pendapatan: r.pendapatan,
-        pengeluaran: r.pengeluaran,
+        bebanOperasional: r.beban.operasional,
+        pembelianStok: r.beban.pembelian,
+        pengeluaranKas: r.beban.total,
+        hpp: r.hpp,
+        unitModalBelumTercatat: r.unitModalBelumTercatat,
         labaBersih,
         nisab: NISAB_PENGHASILAN,
         rate: ZAKAT_RATE,
@@ -95,7 +116,7 @@ export async function calculateZakatPenghasilan(): Promise<
         mencapaiNisab: hasil.mencapaiNisab,
         terutang: hasil.terutang,
         jumlahInvoice: r.jumlahInvoice,
-        jumlahPengeluaran: r.jumlahPengeluaran,
+        jumlahPengeluaran: r.beban.jumlah,
       },
     };
   } catch (error) {
@@ -178,7 +199,10 @@ export async function tandaiZakatDibayar(
     if (parsed.data.type === "INCOME") {
       const r = await ringkasanBulanIni(akses.tenantId);
       totalAssets = r.pendapatan;
-      totalLiabilities = r.pengeluaran;
+      // Yang dikurangkan adalah beban usaha + HPP barang terjual, bukan seluruh
+      // kas keluar — riwayat zakat harus menyimpan dasar yang sama persis dengan
+      // angka yang dilihat pengguna (PRD 4.G.1).
+      totalLiabilities = round2(r.beban.operasional + r.hpp);
       nisab = NISAB_PENGHASILAN;
     } else {
       totalAssets = round2(parsed.data.aset);

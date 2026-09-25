@@ -4,13 +4,23 @@ import type { PlanType } from "@/generated/prisma/client";
 // File murni data (tanpa dependensi server) agar aman dipakai client & server.
 
 /** Jenis batas yang bisa diperiksa lewat checkLimit(). */
-export type LimitKey = "INVOICE" | "PRODUCT" | "USERS" | "BATCH" | "ZAKAT" | "PROGRAM";
+export type LimitKey =
+  | "INVOICE"
+  | "PRODUCT"
+  | "USERS"
+  | "BATCH"
+  | "ZAKAT"
+  | "PROGRAM"
+  | "HPP";
 
 /** Batas berbasis jumlah (dihitung dari data tenant). */
 export type LimitJumlahKey = Extract<LimitKey, "INVOICE" | "PRODUCT" | "USERS">;
 
 /** Batas berbasis fitur (aktif/tidak untuk paket). */
-export type LimitFiturKey = Extract<LimitKey, "BATCH" | "ZAKAT" | "PROGRAM">;
+export type LimitFiturKey = Extract<
+  LimitKey,
+  "BATCH" | "ZAKAT" | "PROGRAM" | "HPP"
+>;
 
 export type PlanLimits = {
   /**
@@ -28,6 +38,12 @@ export type PlanLimits = {
   autoZakat: boolean;
   /** Modul Program — pusat biaya & tagih per industri (PRD 4.F). */
   program: boolean;
+  /**
+   * Laporan HPP & margin (PRD 4.G.5). Yang dibatasi hanya LAPORANNYA: pemisahan
+   * arus kas vs laba dan pengurangan HPP di angka laba berlaku untuk semua
+   * paket, karena itu koreksi angka yang salah — bukan fitur baru.
+   */
+  hpp: boolean;
 };
 
 export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
@@ -39,6 +55,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     batch: false,
     autoZakat: false,
     program: false,
+    hpp: false,
   },
   PRO: {
     invoice: null,
@@ -47,6 +64,7 @@ export const PLAN_LIMITS: Record<PlanType, PlanLimits> = {
     batch: true,
     autoZakat: true,
     program: true,
+    hpp: true,
   },
 };
 
@@ -58,6 +76,7 @@ export const LIMIT_LABELS: Record<LimitKey, string> = {
   BATCH: "fitur batch (nomor batch & kedaluwarsa)",
   ZAKAT: "zakat otomatis",
   PROGRAM: "modul Program",
+  HPP: "laporan HPP & margin",
 };
 
 /**
@@ -90,7 +109,7 @@ export function ambilBatasJumlah(
   return limits.users;
 }
 
-/** Status fitur untuk BATCH/ZAKAT/PROGRAM. */
+/** Status fitur untuk BATCH/ZAKAT/PROGRAM/HPP. */
 export function ambilBatasFitur(
   plan: PlanType,
   key: LimitFiturKey,
@@ -98,5 +117,6 @@ export function ambilBatasFitur(
   const limits = ambilPlanLimits(plan);
   if (key === "BATCH") return limits.batch;
   if (key === "ZAKAT") return limits.autoZakat;
+  if (key === "HPP") return limits.hpp;
   return limits.program;
 }

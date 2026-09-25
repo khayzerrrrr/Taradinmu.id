@@ -2,14 +2,17 @@ import Link from "next/link";
 import {
   AlertTriangle,
   Boxes,
+  Calculator,
   Coins,
   HeartHandshake,
   Lock,
   PackageX,
+  Percent,
   TrendingUp,
   Wallet,
 } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
+import { LockedFeature } from "@/components/shared/locked-feature";
 import { MetricCard } from "@/components/shared/metric-card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -31,8 +34,8 @@ type Props = {
 export function OwnerDashboard({ ringkasan, basePath }: Props) {
   return (
     <div className="flex flex-col gap-6">
-      {/* Metrik utama: pendapatan, arus kas, piutang, zakat, stok menipis. */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      {/* Metrik utama: pendapatan, laba, arus kas, piutang, zakat, stok menipis. */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <MetricCard
           label="Total Pendapatan"
           value={
@@ -58,11 +61,31 @@ export function OwnerDashboard({ ringkasan, basePath }: Props) {
           }
           hint={
             ringkasan.accountingAktif
-              ? `Masuk ${formatRupiah(ringkasan.pendapatanBulanIni)} − keluar ${formatRupiah(ringkasan.pengeluaranBulanIni)}`
+              ? `Masuk ${formatRupiah(ringkasan.pendapatanBulanIni)} − keluar ${formatRupiah(ringkasan.pengeluaranBulanIni)}${
+                  ringkasan.pembelianStokBulanIni > 0
+                    ? ` (beli stok ${formatRupiah(ringkasan.pembelianStokBulanIni)})`
+                    : ""
+                }`
               : "Modul Akuntansi belum aktif"
           }
           icon={Coins}
           style={{ animationDelay: "40ms" }}
+        />
+
+        <MetricCard
+          label="Laba Bersih Bulan Ini"
+          value={formatRupiah(ringkasan.labaBersihBulanIni)}
+          hint={`Pendapatan ${formatRupiah(
+            ringkasan.pendapatanBulanIni,
+          )} − beban usaha ${formatRupiah(
+            ringkasan.bebanOperasionalBulanIni,
+          )} − HPP ${formatRupiah(ringkasan.hppBulanIni)}${
+            ringkasan.unitModalBelumTercatat > 0
+              ? ` · ${ringkasan.unitModalBelumTercatat} unit tanpa modal`
+              : ""
+          }`}
+          icon={Calculator}
+          style={{ animationDelay: "80ms" }}
         />
 
         <MetricCard
@@ -74,7 +97,7 @@ export function OwnerDashboard({ ringkasan, basePath }: Props) {
               : "Modul Billing belum aktif"
           }
           icon={Wallet}
-          style={{ animationDelay: "80ms" }}
+          style={{ animationDelay: "120ms" }}
         />
 
         <MetricCard
@@ -90,7 +113,7 @@ export function OwnerDashboard({ ringkasan, basePath }: Props) {
               : "Modul Inventory belum aktif"
           }
           icon={PackageX}
-          style={{ animationDelay: "120ms" }}
+          style={{ animationDelay: "160ms" }}
         />
 
         <MetricCard
@@ -103,15 +126,40 @@ export function OwnerDashboard({ ringkasan, basePath }: Props) {
           hint={
             ringkasan.estimasiZakat === null
               ? "Fitur PRO: zakat otomatis"
-              : `2,5% dari laba bersih bulan ini${
+              : `2,5% dari laba bersih ${formatRupiah(
+                  ringkasan.labaBersihBulanIni,
+                )}${
                   ringkasan.mencapaiNisabZakat
                     ? " · mencapai nisab"
                     : ` · di bawah nisab ${formatRupiah(ringkasan.nisabZakat)}`
                 }`
           }
           icon={HeartHandshake}
-          style={{ animationDelay: "160ms" }}
+          style={{ animationDelay: "200ms" }}
         />
+
+        {/* Laporan HPP = satu-satunya bagian yang dikunci PRO (PRD 4.G.5).
+            Angka Laba Bersih di atas tetap benar pada semua paket; yang dibatasi
+            hanyalah rincian margin-nya. */}
+        <LockedFeature
+          isLocked={!ringkasan.laporanHppAktif}
+          fitur="laporan HPP & margin"
+          deskripsi="Lihat berapa modal yang terpakai untuk setiap rupiah pendapatan bulan ini."
+        >
+          <MetricCard
+            label="Margin Kotor Bulan Ini"
+            value={formatRupiah(ringkasan.labaKotorBulanIni)}
+            hint={
+              ringkasan.inventoryAktif
+                ? `Pendapatan ${formatRupiah(
+                    ringkasan.pendapatanBulanIni,
+                  )} − HPP ${formatRupiah(ringkasan.hppBulanIni)}`
+                : "Modul Inventory belum aktif"
+            }
+            icon={Percent}
+            style={{ animationDelay: "240ms" }}
+          />
+        </LockedFeature>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

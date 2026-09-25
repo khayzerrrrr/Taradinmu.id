@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatTanggal } from "@/lib/format";
+import { formatRupiah, formatTanggal } from "@/lib/format";
 import { getVariantBatches } from "../actions/stock-actions";
 import type { BatchItem } from "../types";
 
@@ -85,6 +85,8 @@ export function BatchListDialog({ variantId, label = "Lihat batch" }: Props) {
                   <TableHead>#</TableHead>
                   <TableHead>Nomor Batch</TableHead>
                   <TableHead className="text-right">Stok</TableHead>
+                  <TableHead className="text-right">Modal/unit</TableHead>
+                  <TableHead>Pemasok</TableHead>
                   <TableHead>Kedaluwarsa</TableHead>
                 </TableRow>
               </TableHeader>
@@ -99,6 +101,22 @@ export function BatchListDialog({ variantId, label = "Lihat batch" }: Props) {
                     </TableCell>
                     <TableCell className="text-right">
                       {batch.quantity}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {batch.costPrice ? (
+                        formatRupiah(batch.costPrice)
+                      ) : (
+                        // Bukan Rp0: batch tanpa catatan modal membuat HPP unit
+                        // ini tidak terhitung (PRD 4.G.2 & 4.G.6).
+                        <span className="text-xs text-muted-foreground">
+                          belum diisi
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {batch.supplierName ?? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       {batch.expiredDate ? (
