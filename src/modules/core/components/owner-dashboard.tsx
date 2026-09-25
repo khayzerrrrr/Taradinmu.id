@@ -4,6 +4,7 @@ import {
   Boxes,
   Calculator,
   Coins,
+  Crown,
   HeartHandshake,
   Lock,
   PackageX,
@@ -14,7 +15,9 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { LockedFeature } from "@/components/shared/locked-feature";
 import { MetricCard } from "@/components/shared/metric-card";
+import { UpgradeModal } from "@/components/shared/upgrade-modal";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -24,6 +27,7 @@ import {
 } from "@/components/ui/card";
 import type { RingkasanOwner } from "@/lib/dashboard-summary";
 import { formatRupiah, formatTanggal } from "@/lib/format";
+import { LIMIT_LABELS } from "@/lib/plan-limits";
 
 type Props = {
   ringkasan: RingkasanOwner;
@@ -116,24 +120,23 @@ export function OwnerDashboard({ ringkasan, basePath }: Props) {
           style={{ animationDelay: "160ms" }}
         />
 
+        {/* Angkanya tampil pada semua paket (PRD 4.D): zakat dihitung dari data
+            milik tenant sendiri. Yang PRO hanya penarikan otomatis & pencatatan
+            riwayat — ditegakkan di Server Action, bukan dengan menihilkan angka. */}
         <MetricCard
           label="Estimasi Zakat"
-          value={
-            ringkasan.estimasiZakat === null
-              ? "—"
-              : formatRupiah(ringkasan.estimasiZakat)
-          }
-          hint={
-            ringkasan.estimasiZakat === null
-              ? "Fitur PRO: zakat otomatis"
-              : `2,5% dari laba bersih ${formatRupiah(
-                  ringkasan.labaBersihBulanIni,
-                )}${
-                  ringkasan.mencapaiNisabZakat
-                    ? " · mencapai nisab"
-                    : ` · di bawah nisab ${formatRupiah(ringkasan.nisabZakat)}`
-                }`
-          }
+          value={formatRupiah(ringkasan.estimasiZakat)}
+          hint={`2,5% dari laba bersih ${formatRupiah(
+            ringkasan.labaBersihBulanIni,
+          )}${
+            ringkasan.mencapaiNisabZakat
+              ? " · mencapai nisab"
+              : ` · di bawah nisab ${formatRupiah(ringkasan.nisabZakat)}`
+          }${
+            ringkasan.zakatOtomatisAktif
+              ? ""
+              : " · tarik & catat otomatis: PRO"
+          }`}
           icon={HeartHandshake}
           style={{ animationDelay: "200ms" }}
         />
@@ -144,6 +147,7 @@ export function OwnerDashboard({ ringkasan, basePath }: Props) {
         <LockedFeature
           isLocked={!ringkasan.laporanHppAktif}
           fitur="laporan HPP & margin"
+          kunci="HPP"
           deskripsi="Lihat berapa modal yang terpakai untuk setiap rupiah pendapatan bulan ini."
         >
           <MetricCard
@@ -161,6 +165,51 @@ export function OwnerDashboard({ ringkasan, basePath }: Props) {
           />
         </LockedFeature>
       </div>
+
+      {/* Kuota yang hampir habis (PRD 4.D.3): tampil mulai 80% terpakai, supaya
+          batas tidak menjumpai pemilik usaha saat ia sedang membuat invoice di
+          kasir. Di bawah ambang itu strip ini tidak ada sama sekali. */}
+      {ringkasan.kuotaMenipis.length > 0 ? (
+        <Card className="border-warning/30 bg-warning-subtle">
+          <CardContent className="flex flex-col gap-3 pt-6">
+            {ringkasan.kuotaMenipis.map((kuota) => {
+              const persen = Math.min(
+                100,
+                Math.round((kuota.terpakai / kuota.batas) * 100),
+              );
+              return (
+                <div
+                  key={kuota.key}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1"
+                >
+                  <span className="text-sm font-medium">
+                    {kuota.terpakai} dari {kuota.batas} {kuota.label} terpakai
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-warning/25"
+                  >
+                    <span
+                      className="block h-full rounded-full bg-warning"
+                      style={{ width: `${persen}%` }}
+                    />
+                  </span>
+                  <span className="sr-only">{persen}% kuota terpakai</span>
+                  <UpgradeModal
+                    fitur={`${LIMIT_LABELS[kuota.key]} tanpa batas`}
+                    kunci={kuota.key}
+                  >
+                    <Button size="sm" variant="outline">
+                      <Crown aria-hidden="true" />
+                      Naik ke PRO
+                    </Button>
+                  </UpgradeModal>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card>

@@ -25,7 +25,7 @@ export function ProgramLocked({ tenantName, sebab, sebutan }: Props) {
         title={`Modul ${sebutan} khusus paket PRO`}
         description={`Kelola ${sebutan} ${tenantName} — target dana, peserta, dan pengeluaran per kegiatan — tersedia setelah upgrade ke PRO.`}
         aksi={
-          <UpgradeModal fitur={`modul ${sebutan}`}>
+          <UpgradeModal fitur={`modul ${sebutan}`} kunci="PROGRAM">
             <Button>
               <Crown />
               Upgrade ke PRO

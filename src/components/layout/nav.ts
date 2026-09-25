@@ -34,9 +34,12 @@ export type NavItem = {
   terkunci?: boolean;
   /**
    * Fitur PRO yang belum tersedia pada paket FREE. Baris tetap bisa dibuka,
-   * dan ikon gembok di sisi kanan membuka modal upgrade.
+   * dan ikon gembok di sisi kanan membuka modal upgrade. Nilainya adalah kunci
+   * gating: modal menampilkan manfaat yang sesuai dengan menu yang diklik, jadi
+   * BOOLEAN `true` tidak lagi cukup. NavList meneruskannya ke UpgradeModal, dan
+   * TypeScript menolak nilai yang bukan kunci asli di sana.
    */
-  kunciPro?: boolean;
+  kunciPro?: "BATCH" | "ZAKAT" | "PROGRAM" | "HPP" | "BRANDING" | "AI";
 };
 
 export type NavSection = {

@@ -126,7 +126,7 @@ export function AiAssistantChat({ terkunciPro }: Props) {
   // --- Paket FREE: gembok + ajakan upgrade (PRD 4.E) -------------------------
   if (terkunciPro) {
     return (
-      <UpgradeModal fitur="Asisten AI">
+      <UpgradeModal fitur="Asisten AI" kunci="AI">
         <button
           type="button"
           aria-label="Asisten AI khusus paket PRO — buka opsi upgrade"

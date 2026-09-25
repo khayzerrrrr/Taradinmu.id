@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Lock } from "lucide-react";
-import { UpgradeModal } from "./upgrade-modal";
+import { UpgradeModal, type KunciPro } from "./upgrade-modal";
 
 type Props = {
   /** Bila true, konten diburamkan dan ditutup overlay gembok. */
@@ -10,6 +10,8 @@ type Props = {
   children: ReactNode;
   /** Nama fitur untuk konteks pesan upgrade. */
   fitur?: string;
+  /** Kunci gating, untuk daftar manfaat yang sesuai di modal. */
+  kunci?: KunciPro;
   judul?: string;
   deskripsi?: string;
 };
@@ -26,6 +28,7 @@ export function LockedFeature({
   isLocked,
   children,
   fitur,
+  kunci,
   judul,
   deskripsi,
 }: Props) {
@@ -41,7 +44,7 @@ export function LockedFeature({
       </div>
 
       {/* Seluruh area overlay adalah pemicu modal, jadi klik di mana pun bekerja. */}
-      <UpgradeModal fitur={fitur}>
+      <UpgradeModal fitur={fitur} kunci={kunci}>
         <button
           type="button"
           aria-label={`${fitur ?? "Fitur ini"} khusus paket PRO — buka opsi upgrade`}

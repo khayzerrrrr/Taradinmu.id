@@ -3,9 +3,12 @@ import { describe, it } from "node:test";
 import {
   ambilBatasFitur,
   ambilBatasJumlah,
+  AMBANG_KUOTA_DASHBOARD,
+  HARGA_PRO_BULAN,
   labelBatasJumlah,
   LIMIT_LABELS,
   PLAN_LIMITS,
+  kuotaMendesak,
   type LimitFiturKey,
   type LimitKey,
 } from "./plan-limits";
@@ -60,7 +63,7 @@ describe("batas fitur", () => {
 
   it("setiap batas punya label untuk pesan upgrade", () => {
     // checkLimit merakit pesannya dari LIMIT_LABELS[type]; kunci tanpa label
-    // menghasilkan pesan "Paket FREE tidak termasuk undefined" di UI.
+    // menghasilkan pesan "undefined tersedia pada paket PRO" di UI.
     const kunci: readonly LimitKey[] = [
       "INVOICE",
       "PRODUCT",
@@ -80,5 +83,45 @@ describe("batas fitur", () => {
   it("hanya PRO yang tanpa batas jumlah", () => {
     assert.equal(PLAN_LIMITS.PRO.invoice, null);
     assert.equal(PLAN_LIMITS.FREE.batch, false);
+  });
+});
+
+describe("harga PRO", () => {
+  it("satu-satunya angka harga yang dipakai ajakan upgrade", () => {
+    // PRD 4.D: harga menyebut satu angka di semua tempat. Kalau angka ini
+    // berubah, copy di modal & pesan WhatsApp ikut berubah sendiri.
+    assert.equal(HARGA_PRO_BULAN, 149_000);
+  });
+});
+
+describe("meter kuota dashboard", () => {
+  it("baru muncul pada 80% terpakai", () => {
+    assert.equal(AMBANG_KUOTA_DASHBOARD, 0.8);
+
+    // 39/50 = 78% — di bawah ambang, dashboard bersih dari spanduk.
+    assert.equal(kuotaMendesak("INVOICE", "FREE", 39), null);
+    const kuota = kuotaMendesak("INVOICE", "FREE", 40);
+    assert.ok(kuota);
+    assert.equal(kuota?.batas, 50);
+    assert.equal(kuota?.terpakai, 40);
+    // Label memakai bentuk berperiode agar kuotanya tidak terbaca selamanya.
+    assert.equal(kuota?.label, "invoice per bulan");
+  });
+
+  it("PRO tidak pernah mendapat meter", () => {
+    assert.equal(kuotaMendesak("INVOICE", "PRO", 999), null);
+    assert.equal(kuotaMendesak("PRODUCT", "PRO", 999), null);
+  });
+
+  it("pengguna tidak diukur di dashboard", () => {
+    // FREE punya 1 pengguna (Owner) sejak hari pertama: 1/1 = 100% akan jadi
+    // banner permanen yang tidak menawarkan apa-apa. Pemanggil tidak mengirim
+    // USERS sama sekali — ini dikunci oleh tes struktural dashboard-summary.
+    assert.equal(kuotaMendesak("USERS", "FREE", 1)?.batas, 1);
+  });
+
+  it("terpakai nol tidak memicu meter", () => {
+    // Modul belum aktif -> pemanggil mengirim 0; tidak ada yang perlu dijual.
+    assert.equal(kuotaMendesak("PRODUCT", "FREE", 0), null);
   });
 });

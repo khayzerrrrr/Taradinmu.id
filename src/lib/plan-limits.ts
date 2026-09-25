@@ -80,6 +80,15 @@ export const LIMIT_LABELS: Record<LimitKey, string> = {
 };
 
 /**
+ * Harga PRO per bulan (PRD 4.D). Sumber tunggal: setiap ajakan upgrade membaca
+ * konstanta ini, supaya tidak pernah ada dua modal yang menyebut harga berbeda.
+ * Pembulatannya memakai `formatRupiah` di berkas UI, bukan di sini — berkas ini
+ * sengaja murni data tanpa dependensi.
+ * Aktivasinya masih manual lewat WhatsApp admin: belum ada payment gateway.
+ */
+export const HARGA_PRO_BULAN = 149_000;
+
+/**
  * Keterangan periode untuk batas berbasis jumlah. Invoice dihitung per bulan
  * (PRD 4.D), sedangkan produk & pengguna dihitung total — jadi keduanya sengaja
  * dibedakan supaya pesan batas tidak menyesatkan.
@@ -119,4 +128,34 @@ export function ambilBatasFitur(
   if (key === "ZAKAT") return limits.autoZakat;
   if (key === "HPP") return limits.hpp;
   return limits.program;
+}
+
+/**
+ * Kuota yang perlu diperhatikan di dashboard (PRD 4.D.3). Batas yang datang
+ * tiba-tiba terasa seperti jebakan, jadi kemajuan kuota mulai ditampilkan sebelum
+ * tersenggol. Ambangnya sengaja tinggi: dashboard warung jangan sampai berubah
+ * menjadi spanduk penjualan.
+ */
+export const AMBANG_KUOTA_DASHBOARD = 0.8;
+
+export type KuotaMendesak = {
+  key: LimitJumlahKey;
+  label: string;
+  terpakai: number;
+  batas: number;
+};
+
+/**
+ * `null` bila batasnya tidak berlaku (PRO), datanya belum mencapai ambang, atau
+ * modulnya tidak aktif (pemanggil mengirim terpakai = 0 untuk kasus itu).
+ */
+export function kuotaMendesak(
+  key: LimitJumlahKey,
+  plan: PlanType,
+  terpakai: number,
+): KuotaMendesak | null {
+  const batas = ambilBatasJumlah(plan, key);
+  if (batas === null || batas <= 0) return null;
+  if (terpakai / batas < AMBANG_KUOTA_DASHBOARD) return null;
+  return { key, label: labelBatasJumlah(key), terpakai, batas };
 }

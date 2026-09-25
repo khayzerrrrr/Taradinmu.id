@@ -2,7 +2,11 @@ import type { PlanType } from "@/generated/prisma/client";
 import { HPP_NOL, labaKotor, type HasilHpp } from "@/lib/hpp";
 import { hppInvoiceLunas } from "@/lib/hpp-query";
 import { BEBAN_NOL, hitungArusKas, hitungLaba, pilahBeban } from "@/lib/laba";
-import { ambilBatasFitur } from "@/lib/plan-limits";
+import {
+  ambilBatasFitur,
+  kuotaMendesak,
+  type KuotaMendesak,
+} from "@/lib/plan-limits";
 import { awalBulan } from "@/lib/periode";
 import { prisma } from "@/lib/prisma";
 import {
@@ -90,8 +94,16 @@ export type RingkasanOwner = {
   labaKotorBulanIni: number;
   /** Laporan HPP & margin tersedia pada paket ini (PRD 4.G.5). */
   laporanHppAktif: boolean;
-  /** Estimasi zakat penghasilan bulan ini; null bila fitur PRO belum aktif. */
-  estimasiZakat: number | null;
+  /** Estimasi zakat penghasilan bulan ini (2,5% × laba bersih). */
+  estimasiZakat: number;
+  /**
+   * Zakat otomatis (menarik data + mencatat riwayat) tersedia pada paket ini.
+   * Angkanya sendiri tampil di SEMUA paket (PRD 4.D): menghitung estimasi dari
+   * data milik tenant bukan kemampuan bayar, dan menyembunyikannya hanya
+   * membuat dashboard FREE berbeda dari halaman Zakat yang sudah menampilkan
+   * angka yang sama. Yang tetap PRO adalah penarikan otomatis & pencatatannya.
+   */
+  zakatOtomatisAktif: boolean;
   /** Laba bersih bulan ini sudah mencapai nisab? */
   mencapaiNisabZakat: boolean;
   /** Nisab zakat penghasilan bulanan, untuk keterangan kartu. */
@@ -101,6 +113,14 @@ export type RingkasanOwner = {
   jumlahVarian: number;
   stokMenipis: StokMenipisItem[];
   hampirKedaluwarsa: HampirKedaluwarsaItem[];
+
+  /**
+   * Kuota berbasis jumlah yang hampir tersenggol (PRD 4.D.3): hanya terisi pada
+   * paket FREE dan hanya bila terpakai >= ambang. Penguna sengaja tidak ikut —
+   * batas FREE adalah 1 sehingga meternya akan menyala permanen; ajakan
+   * upgrade-nya sudah ada di tombol "Tambah Pengguna".
+   */
+  kuotaMenipis: KuotaMendesak[];
 
   ambangStokMenipis: number;
   ambangHampirKedaluwarsaHari: number;
@@ -124,9 +144,12 @@ export async function getOwnerSummary(
   let totalPendapatan = 0;
   let jumlahInvoiceLunasBulanIni = 0;
   let jumlahInvoice = 0;
+  // Dipakai untuk meter kuota: batas FREE dihitung dari invoice yang DIBUAT bulan
+  // ini (aturan yang sama dengan checkLimit("INVOICE")), bukan yang lunas.
+  let jumlahInvoiceBulanIni = 0;
 
   if (billingAktif) {
-    const [belumBayar, lunasBulanIni, semuaLunas, totalInvoice] =
+    const [belumBayar, lunasBulanIni, semuaLunas, totalInvoice, dibuatBulanIni] =
       await Promise.all([
         prisma.invoice.aggregate({
           where: { tenantId, status: "SENT" },
@@ -143,6 +166,9 @@ export async function getOwnerSummary(
           _sum: { totalAmount: true },
         }),
         prisma.invoice.count({ where: { tenantId } }),
+        prisma.invoice.count({
+          where: { tenantId, createdAt: { gte: batasBulanIni } },
+        }),
       ]);
 
     piutang = Number(belumBayar._sum.totalAmount ?? 0);
@@ -151,6 +177,7 @@ export async function getOwnerSummary(
     totalPendapatan = Number(semuaLunas._sum.totalAmount ?? 0);
     jumlahInvoiceLunasBulanIni = lunasBulanIni._count;
     jumlahInvoice = totalInvoice;
+    jumlahInvoiceBulanIni = dibuatBulanIni;
   }
 
   // --- Akuntansi: kas keluar bulan berjalan, dipilah per kategori ---
@@ -183,14 +210,17 @@ export async function getOwnerSummary(
     ? await hppInvoiceLunas(tenantId, batasBulanIni)
     : HPP_NOL;
 
-  // --- Estimasi zakat penghasilan (fitur PRO) ---
+  // --- Estimasi zakat penghasilan ---
   // Dasar zakat adalah LABA, bukan arus kas: toko yang bulan ini menghabiskan kas
   // untuk menimbun stok belum tentu untung — tapi juga belum tentu rugi.
   // HPP tetap dikurangi pada SEMUA paket (PRD 4.G.5): yang dikunci hanya
   // laporannya, bukan kebenarannya.
   const labaBersih = hitungLaba(pendapatanBulanIni, beban, hppBarang.hpp);
   const hasilZakat = hitungZakat(labaBersih, NISAB_PENGHASILAN);
-  const estimasiZakat = plan === "PRO" ? hasilZakat.estimasi : null;
+  // Angkanya dihitung pada semua paket (PRD 4.D): FREE boleh melihat berapa
+  // zakatnya bulan ini; yang PRO adalah menarik datanya otomatis ke riwayat dan
+  // menandai lunas — ditegakkan di zakat-actions, bukan dengan menihilkan angka.
+  const zakatOtomatisAktif = plan === "PRO";
 
   // --- Inventory ---
   let jumlahProduk = 0;
@@ -253,6 +283,19 @@ export async function getOwnerSummary(
     hampirKedaluwarsa.sort((a, b) => a.expiredDate.localeCompare(b.expiredDate));
   }
 
+  // --- Kuota paket (PRD 4.D.3) ---
+  // Dua batas yang paling sering tersenggol tanpa terasa. Dibangun di sini supaya
+  // ambang & batas paket hanya dipakai satu aturan yang sama dengan checkLimit.
+  const kuotaMenipis: KuotaMendesak[] = [];
+  if (billingAktif) {
+    const kuota = kuotaMendesak("INVOICE", plan, jumlahInvoiceBulanIni);
+    if (kuota) kuotaMenipis.push(kuota);
+  }
+  if (inventoryAktif) {
+    const kuota = kuotaMendesak("PRODUCT", plan, jumlahProduk);
+    if (kuota) kuotaMenipis.push(kuota);
+  }
+
   return {
     billingAktif,
     inventoryAktif,
@@ -275,7 +318,8 @@ export async function getOwnerSummary(
     unitModalBelumTercatat: hppBarang.unitTanpaModal,
     labaKotorBulanIni: labaKotor(pendapatanBulanIni, hppBarang.hpp),
     laporanHppAktif: ambilBatasFitur(plan, "HPP"),
-    estimasiZakat,
+    estimasiZakat: hasilZakat.estimasi,
+    zakatOtomatisAktif,
     mencapaiNisabZakat: hasilZakat.mencapaiNisab,
     nisabZakat: NISAB_PENGHASILAN,
 
@@ -283,6 +327,7 @@ export async function getOwnerSummary(
     jumlahVarian,
     stokMenipis: stokMenipis.slice(0, BATAS_DAFTAR),
     hampirKedaluwarsa: hampirKedaluwarsa.slice(0, BATAS_DAFTAR),
+    kuotaMenipis,
 
     ambangStokMenipis: LOW_STOCK_THRESHOLD,
     ambangHampirKedaluwarsaHari: EXPIRING_SOON_DAYS,

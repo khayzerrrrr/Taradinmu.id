@@ -16,12 +16,6 @@ type Props = {
   riwayat: ZakatHistoryItem[];
   nisabPerdagangan: number;
   rate: number;
-  /**
-   * Zakat penghasilan otomatis adalah fitur PRO. Untuk FREE bagian ini tidak
-   * dicetak sama sekali — bukan sekadar disembunyikan — supaya isi laporan tidak
-   * membocorkan fitur berbayar lewat hasil cetak (PRD 4.D).
-   */
-  bolehZakatOtomatis: boolean;
 };
 
 function Tabel({ judul, baris }: { judul: string; baris: Baris[] }) {
@@ -52,7 +46,6 @@ export function ZakatReport({
   riwayat,
   nisabPerdagangan,
   rate,
-  bolehZakatOtomatis,
 }: Props) {
   const perniagaanTerakhir =
     riwayat.find((item) => item.type === "TRADE") ?? null;
@@ -102,8 +95,7 @@ export function ZakatReport({
     );
   }
 
-  const belumAdaData =
-    (!bolehZakatOtomatis || !penghasilan) && !perniagaanTerakhir;
+  const belumAdaData = !penghasilan && !perniagaanTerakhir;
 
   return (
     <div className="cetak-laporan bg-white text-black">
@@ -126,8 +118,10 @@ export function ZakatReport({
         </p>
       ) : null}
 
-      {bolehZakatOtomatis && penghasilan ? (
-        <Tabel judul="Zakat Penghasilan (Otomatis)" baris={barisPenghasilan} />
+      {/* Angkanya dicetak pada semua paket (PRD 4.D): yang PRO adalah menarik &
+          mencatatnya otomatis ke riwayat, bukan melihat hasilnya. */}
+      {penghasilan ? (
+        <Tabel judul="Zakat Penghasilan" baris={barisPenghasilan} />
       ) : null}
 
       {perniagaanTerakhir ? (

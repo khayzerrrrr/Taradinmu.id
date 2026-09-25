@@ -104,7 +104,7 @@ function Baris({ item, aktif, onNavigate }: {
   return (
     <div className="flex items-center gap-1">
       {tautan}
-      <UpgradeModal fitur={item.label}>
+      <UpgradeModal fitur={item.label} kunci={item.kunciPro}>
         <button
           type="button"
           aria-label={`${item.label} — fitur PRO, buka opsi upgrade`}

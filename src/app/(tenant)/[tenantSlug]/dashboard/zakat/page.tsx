@@ -73,15 +73,13 @@ export default async function ZakatPage({
         />
       </div>
 
-      {/* Laporan siap cetak: tersembunyi di layar, hanya tampil saat dicetak.
-          Bagian zakat otomatis tidak ikut dicetak untuk paket FREE (PRD 4.D). */}
+      {/* Laporan siap cetak: tersembunyi di layar, hanya tampil saat dicetak. */}
       <ZakatReport
         tenantName={tenant.name}
         penghasilan={penghasilan}
         riwayat={riwayat}
         nisabPerdagangan={NISAB_PERDAGANGAN}
         rate={ZAKAT_RATE}
-        bolehZakatOtomatis={tenant.plan === "PRO"}
       />
     </>
   );

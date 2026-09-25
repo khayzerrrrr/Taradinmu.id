@@ -2,7 +2,6 @@
 
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { LockedFeature } from "@/components/shared/locked-feature";
 import {
   Tabs,
   TabsContent,
@@ -17,7 +16,10 @@ import { ZakatPerniagaanPanel } from "./zakat-perniagaan-panel";
 type Props = {
   penghasilan: ZakatPenghasilan | null;
   pesanPenghasilan?: string;
-  /** Paket FREE: tab Zakat Penghasilan (Otomatis) dikunci. */
+  /**
+   * Paket FREE: angkanya tetap tampil (PRD 4.D), hanya penarikan otomatis ke
+   * riwayat & tombol "Tandai Sudah Dibayar" yang dikunci PRO.
+   */
   terkunciPro: boolean;
   /** Nisab zakat perniagaan (dihitung di server dari harga emas). */
   nisabPerdagangan: number;
@@ -65,16 +67,11 @@ export function ZakatTabs({
         </div>
 
         <TabsContent value="penghasilan" className="pt-4">
-          <LockedFeature
-            isLocked={terkunciPro}
-            fitur="Zakat Penghasilan (Otomatis)"
-            deskripsi="Zakat penghasilan dihitung otomatis dari invoice lunas dan pengeluaran bulan ini. Tersedia pada paket PRO — zakat perniagaan tetap bisa dihitung manual di tab sebelah."
-          >
-            <ZakatPenghasilanPanel
-              data={penghasilan}
-              pesan={pesanPenghasilan}
-            />
-          </LockedFeature>
+          <ZakatPenghasilanPanel
+            data={penghasilan}
+            pesan={pesanPenghasilan}
+            terkunciPro={terkunciPro}
+          />
         </TabsContent>
 
         <TabsContent value="perniagaan" className="pt-4">

@@ -81,7 +81,7 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
       // (mis. /dashboard/settings/users), sehingga dua menu tampak aktif.
       exact: true,
       // Branding/white-label hanya untuk PRO: FREE melihat gembok upgrade.
-      kunciPro: tenant.plan === "FREE",
+      kunciPro: tenant.plan === "FREE" ? "BRANDING" : undefined,
     },
   ];
 
@@ -200,7 +200,7 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
             icon: "programs",
             // PRO saja (PRD 4.F.6): paket FREE melihat gembok + modal upgrade,
             // dan Server Action-nya tetap menolak — bukan hanya menunya.
-            kunciPro: tenant.plan === "FREE",
+            kunciPro: tenant.plan === "FREE" ? "PROGRAM" : undefined,
           },
         ],
         programAktif,

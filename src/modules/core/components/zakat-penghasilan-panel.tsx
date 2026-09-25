@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MetricCard } from "@/components/shared/metric-card";
+import { LockedFeature } from "@/components/shared/locked-feature";
 import { formatRupiah } from "@/lib/format";
 import { tandaiZakatDibayar } from "../actions/zakat-actions";
 import type { ZakatPenghasilan } from "../types";
@@ -15,9 +16,18 @@ import type { ZakatPenghasilan } from "../types";
 type Props = {
   data: ZakatPenghasilan | null;
   pesan?: string;
+  /**
+   * Paket FREE: semua angka di atas tetap terbaca; yang dikunci hanyalah aksi
+   * mencatat ke riwayat (PRD 4.D — kunci kemampuan, bukan kebenaran).
+   */
+  terkunciPro?: boolean;
 };
 
-export function ZakatPenghasilanPanel({ data, pesan }: Props) {
+export function ZakatPenghasilanPanel({
+  data,
+  pesan,
+  terkunciPro = false,
+}: Props) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
 
@@ -121,15 +131,23 @@ export function ZakatPenghasilanPanel({ data, pesan }: Props) {
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              size="lg"
-              disabled={submitting}
-              onClick={() => void bayar()}
+            <LockedFeature
+              isLocked={terkunciPro}
+              fitur="Zakat Penghasilan (Otomatis)"
+              kunci="ZAKAT"
+              judul="Zakat otomatis & riwayat: khusus PRO"
+              deskripsi="Angkanya sudah Anda lihat di atas. Yang PRO: data ditarik sendiri dari invoice lunas setiap kali, dan pembayarannya tercatat sebagai riwayat per periode yang siap dicetak."
             >
-              <BadgeCheck />
-              {submitting ? "Menyimpan..." : "Tandai Sudah Dibayar"}
-            </Button>
+              <Button
+                type="button"
+                size="lg"
+                disabled={submitting}
+                onClick={() => void bayar()}
+              >
+                <BadgeCheck />
+                {submitting ? "Menyimpan..." : "Tandai Sudah Dibayar"}
+              </Button>
+            </LockedFeature>
             <span className="text-xs text-muted-foreground">
               Menyimpan riwayat ke tabel ZakatCalculation.
             </span>

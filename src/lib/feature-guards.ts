@@ -3,10 +3,13 @@ import { awalBulan } from "@/lib/periode";
 import {
   ambilBatasFitur,
   ambilBatasJumlah,
+  HARGA_PRO_BULAN,
   labelBatasJumlah,
   LIMIT_LABELS,
+  type LimitJumlahKey,
   type LimitKey,
 } from "@/lib/plan-limits";
+import { formatRupiah } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 
 // Penjaga batas paket. Server-only (menyentuh database).
@@ -29,6 +32,43 @@ export type LimitCheck =
       code: "UPGRADE_REQUIRED";
       message: string;
     } & DasarLimit);
+
+// Batas berbasis fitur dan berbasis jumlah memakai satu pola pesan: sebut apa
+// yang OPEN setelah upgrade, bukan hanya bahwa aksesnya ditutup (PRD 4.D.3).
+// Angka used/limit tetap ada agar UI bisa memakainya untuk hitungan.
+
+/** Manfaat yang terbuka per kunci, untuk pesan penolakan server. */
+const MANFAAT_LIMIT: Record<LimitKey, string> = {
+  INVOICE:
+    "invoice tanpa batas 50 per bulan, nomor tetap berurut, dan piutang terlacak untuk semua pelanggan",
+  PRODUCT:
+    "katalog lebih dari 100 item beserta varian, SKU, dan stok per varian",
+  USERS:
+    "tambah kasir/admin dengan akun sendiri supaya toko tetap jalan tanpa Anda berdiri di kasir",
+  BATCH:
+    "nomor batch & tanggal kedaluwarsa per pembelian, plus pengeluaran barang mengikuti FEFO",
+  ZAKAT:
+    "zakat ditarik otomatis dari invoice lunas dan riwayat pembayarannya tersimpan per periode",
+  PROGRAM:
+    "laporan biaya, tagihan, dan laba per kloter/proyek/tahun ajaran",
+  HPP: "margin kotor dan laporan HPP per invoice",
+};
+
+/** Kalimat penutup yang sama untuk semua kunci. Harga dari plan-limits, bukan diketik ulang. */
+const AJAKAN_PRO = `Upgrade ke PRO (${formatRupiah(
+  HARGA_PRO_BULAN,
+)} per bulan) untuk membukanya.`;
+
+// Pesan untuk batas berbasis jumlah: kuota saat ini disebut lebih dulu.
+function pesanBatasJumlah(
+  type: LimitJumlahKey,
+  limit: number,
+  used: number,
+): string {
+  return `Kuota paket Anda sudah terpakai ${used} dari ${limit} ${labelBatasJumlah(
+    type,
+  )}. Yang terbuka di PRO: ${MANFAAT_LIMIT[type]}. ${AJAKAN_PRO}`;
+}
 
 // Periksa apakah tenant masih boleh memakai sebuah fitur/data.
 export async function checkLimit(
@@ -65,7 +105,9 @@ export async function checkLimit(
       used: null,
       limit: null,
       code: "UPGRADE_REQUIRED",
-      message: `Paket ${plan} tidak termasuk ${LIMIT_LABELS[type]}. Upgrade ke PRO untuk mengaktifkannya.`,
+      message: `${LIMIT_LABELS[type]} tersedia pada paket PRO. Yang terbuka: ${
+        MANFAAT_LIMIT[type]
+      }. ${AJAKAN_PRO}`,
     };
   }
 
@@ -94,6 +136,6 @@ export async function checkLimit(
     used,
     limit,
     code: "UPGRADE_REQUIRED",
-    message: `Batas paket ${plan} tercapai: maksimal ${limit} ${labelBatasJumlah(type)}. Saat ini ${used}. Upgrade ke PRO untuk menambah tanpa batas.`,
+    message: pesanBatasJumlah(type, limit, used),
   };
 }

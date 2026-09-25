@@ -403,31 +403,113 @@ TaradinMu menyediakan dua mode perhitungan zakat untuk mengakomodasi kebutuhan s
 
 Untuk mendorong konversi, kita terapkan batasan penggunaan pada paket FREE.
 
+**Harga PRO: Rp 149.000 per bulan.** Angka ini ditulis di SATU tempat di kode
+(`HARGA_PRO_BULAN` pada `src/lib/plan-limits.ts`, berkas murni data) dan dibaca oleh
+setiap ajakan upgrade — tidak boleh ada salinan literal "Rp 149.000" di komponen
+lain, karena harga yang berbeda di dua modal adalah cara tercepat kehilangan
+kepercayaan. Aktivasinya masih manual lewat WhatsApp admin (belum ada payment
+gateway); perubahan harga = satu baris di berkas itu + entri ini.
+
+**Aturan penentu seluruh gating: kunci kemampuan, jangan kunci kebenaran.**
+Angka yang sudah dihitung dari data milik tenant sendiri tampil pada semua paket
+(laba bersih, arus kas, HPP yang mengurangi laba, estimasi zakat). Yang menjadi
+milik PRO adalah kemampuan tambahan: menarik & mencatat otomatis, rincian margin
+per dokumen, multi-pengguna, batch/kedaluwarsa, dan kustomisasi merek. Alasan
+mengunci angka yang benar tidak ada: tenant FREE yang angkanya salah tidak akan
+pernah upgrade — ia akan pindah aplikasi.
+
 #### 1. Batasan Paket FREE (Starter)
 - **Pengguna (Users):** Maksimal 1 User (Owner saja).
 - **Invoice/Billing:** Maksimal 50 Invoice per bulan.
 - **Inventory/Produk:** Maksimal 100 Item Produk (Tanpa fitur Batch/Expired Date).
-- **Zakat:** Hanya Kalkulator Manual (Input angka sendiri) — tab "Zakat Perniagaan"; Zakat Penghasilan otomatis terkunci.
+- **Zakat:** Kalkulator manual bebas (tab "Zakat Perniagaan", termasuk mencatat
+  pembayaran). **Zakat Penghasilan: angkanya terlihat** (estimasi + dasar
+  perhitungannya di dashboard dan halaman zakat); yang terkunci adalah menarik
+  datanya otomatis ke riwayat dan menandai lunas — lihat 4.D.3.
 - **URL:** Hanya Path standar (`taradinmu.id/nama-toko`).
 - **Branding:** Wajib menggunakan Logo & Tema Default TaradinMu.
 - **Laporan:** Hanya Laporan Dasar (Laba Rugi Sederhana). Pemisahan pembelian stok
   dari laba tetap berlaku (4.G.5); yang tidak ada hanya rincian HPP & margin.
 
+
 #### 2. Fitur Eksklusif PRO (TaradinMu Pro)
 - **Pengguna:** Unlimited (Bisa tambah Admin, Staff, Akuntan).
 - **Invoice/Billing:** Unlimited + Fitur Cicilan & Pembayaran Bertahap (untuk Travel/Kontraktor).
 - **Inventory:** Unlimited + Fitur Batch, Expired Date, FEFO, dan Multi-Gudang.
-- **Zakat:** **Otomatis** (Tarik data real-time dari Invoice & Pengeluaran).
+- **Zakat:** **Otomatis** (Tarik data real-time dari Invoice & Pengeluaran) + riwayat pencatatan per periode.
 - **URL:** Subdomain kustom (`nama-toko.taradinmu.id`).
 - **Branding:** White-label (Ganti Logo, Warna Tema, Favicon).
 - **Laporan:** Laporan Lengkap (Neraca, Arus Kas, Pajak) + kartu Margin Kotor dan
   baris HPP per invoice (4.G.5).
+
+##### 2a. Yang BELUM dibangun — jangan dijual dulu
+Daftar di atas adalah **rencana** paket PRO, bukan daftar yang bisa dibaca
+calon pelanggan hari ini. Menyebut yang belum ada di modal upgrade, halaman
+registrasi, atau materi promosi menagih janji yang belum bisa ditebus — dan untuk
+produk yang sudah dipakai tenant sungguhan, satu janji kosong lebih mahal daripada
+satu fitur kurang. Status per 2026-09-26:
+
+| Janji PRO | Status |
+|---|---|
+| Pengguna unlimited | **ADA** (batas jumlah ditegakkan di `checkLimit("USERS")`) |
+| Invoice & produk unlimited | **ADA** |
+| Batch + tanggal kedaluwarsa | **ADA** |
+| Zakat otomatis + riwayat | **ADA** |
+| Modul Program (4.F) | **ADA** |
+| Laporan HPP / margin per invoice (4.G) | **ADA** |
+| Warna & logo kustom | **ADA** |
+| Cicilan / pembayaran bertahap | **BELUM** (Tahap 3) |
+| Multi-gudang | **BELUM** (fase J) |
+| Neraca & Arus Kas penuh per periode | **BELUM** (Tahap 4; dashboard baru menampilkan kartu) |
+| Subdomain kustom | **BELUM** (semua tenant memakai path `/nama-toko`) |
+| Favicon kustom | **BELUM** (fase J) |
+| AI Assistant | **SEBAGIAN** — chat ada & terkunci PRO, tetapi `src/app/api/chat/route.ts` secara eksplisit memberitahu model bahwa data tenant belum terhubung. Menjualnya sebagai "asisten yang terintegrasi dengan database Anda" belum jujur (ROADMAP fase M). |
+
+Yang boleh ditawarkan modal upgrade hanyalah baris **ADA** di tabel ini.
 
 #### 3. UI/UX "Upgrade Prompt" (Anti-Frustrasi)
 - Jika user FREE mencoba mengakses fitur PRO, JANGAN langsung tolak dengan error merah.
 - Tampilkan **Modal/Overlay Elegan** dengan efek *blur* di latar belakang.
 - **Isi Modal:** Icon Kunci (Lucide), Judul "Fitur Premium", Deskripsi singkat manfaat fitur tersebut, dan Tombol CTA besar "Aktifkan TaradinMu Pro" (Warna Amber/Emas) + Tombol kecil "Nanti Saja".
 - Pada tombol/menu di Sidebar yang terkunci, berikan **Icon Gembok (Lock)** kecil dengan warna abu-abu.
+- **Wajib menyebut harga.** Modal tanpa harga memaksa orang membuka WhatsApp
+  hanya untuk bertanya, dan kebanyakan tidak akan repot-repot. Tulis
+  `Rp 149.000/bulan` dari `HARGA_PRO_BULAN`, bukan angka yang diketik ulang.
+- **Manfaat yang didaftarkan mengikuti fitur yang baru saja diklik**, bukan daftar
+  generik yang sama untuk semua gembok. Orang yang mengklik gembok "tanggal
+  kedaluwarsa" ingin mendengar soal obat kadaluarsa, bukan soal modul Program —
+  ajakan yang tidak nyambung dengan rasa sakitnya terbaca sebagai iklan dan
+  ditutup. Bentuknya: 2–4 baris manfaat untuk kunci fitur (`BATCH`, `ZAKAT`,
+  `PROGRAM`, `HPP`) dan untuk batas jumlah (`USERS`, `INVOICE`, `PRODUCT`);
+  pemanggil tanpa kunci spesifik tetap mendapat daftar umum.
+- **Pesan batas (server) menjual, bukan melarang.** `checkLimit()` dipakai dua
+  tempat (tolak tulis + pratinjau UI), jadi pesannya harus menyebut angka
+  `used`/`limit` **dan** apa yang terbuka setelah upgrade — misalnya kuota
+  pengguna: bukan "maksimal 1 pengguna" saja, tapi "tambah kasir/admin supaya
+  toko tetap jalan tanpa Anda".
+- **Kuota terlihat sebelum menabrak tembok.** Batas yang datang tiba-tiba terasa
+  seperti jebakan; batas yang terlihat sejak awal terasa seperti undangan naik.
+  Selain meter di halaman Billing, dashboard menampilkan kemajuan kuota
+  (invoice/produk/pengguna) **mulai 80% terpakai**, lengkap dengan CTA upgrade.
+  Di bawah ambang itu tidak ada apa-apa — dashboard warung jangan berubah menjadi
+  spanduk penjualan.
+
+
+#### 4. Yang sengaja TIDAK diubah
+- **Batas jumlah FREE tetap 50 invoice/bulan dan 100 produk.** Mengencangkannya
+  akan mempercepat konversi di atas kertas tapi membunuh adopsi: toko yang belum
+  selesai memindahkan katalognya tidak akan pernah sampai ke momen "saya butuh
+  PRO". Retensi produk ini justru ada di dalamnya — semakin dalam histori stok,
+  invoice, dan pemasok seseorang, semakin mahal pindah ke aplikasi lain.
+  Pendorong upgrade yang dikehendaki adalah **kursi staf, batch/kedaluwarsa, dan
+  zakat otomatis** (ketiganya muncul tepat saat toko mulai tumbuh), bukan kuota.
+- **Impor CSV (Tahap 4) untuk SEMUA paket.** Memindahkan data dari buku/Excel ke
+  sini adalah biaya masuk, bukan kemampuan bayar. Menggemboknya membuat orang
+  tidak pernah masuk, jadi tidak pernah punya alasan upgrade. Yang tetap PRO:
+  **ekspor** dan laporan per periode penuh.
+- **Modul Pemasok tidak dibatasi paket** (4.G.4): master data tempat barang
+  dibeli berguna bahkan untuk toko 20 item, dan membatainya hanya membuat
+  pencatatan stok awal lebih berantakan.
 
 ### 4.E. FITUR AI AGENT (EKSKLUSIF TARADINMU PRO)
 Fitur "TaradinMu AI Assistant" adalah chatbot cerdas yang terintegrasi langsung dengan database tenant untuk membantu operasional bisnis.
