@@ -5,6 +5,13 @@ import { Check, Crown, MessageCircle } from "lucide-react";
 import { tautanWa } from "@/lib/contact";
 import { formatRupiah } from "@/lib/format";
 import { HARGA_PRO_BULAN } from "@/lib/plan-limits";
+import {
+  SUMBER_BAKU,
+  type KunciMinat,
+  type SumberMinat,
+  type TahapMinat,
+} from "@/lib/upgrade-interest";
+import { catatMinatUpgrade } from "@/modules/core/actions/upgrade-actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,17 +32,13 @@ const HARGA = `${formatRupiah(HARGA_PRO_BULAN)} per bulan`;
  * yang baru saja diklik orang itu. Kuncinya sengaja dibatasi pada fitur yang
  * SUDAH ada — PRD 4.D.2a melarang modal menjual cicilan, multi-gudang, atau
  * Neraca yang belum dibangun.
+ *
+ * Satu kosakata dengan pencatatan minat: `KunciPro` adalah `KunciMinat`, jadi
+ * gembok yang tercatat di dashboard Super Admin pasti punya daftar manfaatnya di
+ * sini. `Record<KunciPro, ...>` di bawah membuat kunci baru tanpa manfaat menjadi
+ * error kompilasi, bukan modal yang diam-diam jatuh ke daftar umum.
  */
-export type KunciPro =
-  | "BATCH"
-  | "ZAKAT"
-  | "PROGRAM"
-  | "HPP"
-  | "USERS"
-  | "INVOICE"
-  | "PRODUCT"
-  | "BRANDING"
-  | "AI";
+export type KunciPro = KunciMinat;
 
 export const MANFAAT_KUNCI: Record<KunciPro, readonly string[]> = {
   BATCH: [
@@ -82,26 +85,46 @@ export const MANFAAT_KUNCI: Record<KunciPro, readonly string[]> = {
     "Asisten chat di dalam aplikasi, khusus paket PRO",
     "Penjelasan alur kerja & fitur tanpa keluar dari halaman",
   ],
+  // Ajakan yang tidak menyebut satu fitur: halaman "Paket Saya" dan gembok yang
+  // tidak punya kunci sendiri. Daftar ini dulunya diam-diam dipakai setiap pemicu
+  // yang lupa mengirim `kunci` — sekarang harus disebut terang-terangan.
+  UMUM: [
+    "Invoice, produk, dan pengguna tanpa batas",
+    "Batch + tanggal kedaluwarsa (FEFO)",
+    "Zakat penghasilan otomatis + riwayat per periode",
+    "Program: kloter, proyek & tahun ajaran",
+    "Laporan margin & HPP per invoice",
+    "Branding kustom (logo & warna)",
+  ],
 };
-
-/** Daftar umum untuk pemicu yang tidak menyebut kunci spesifik. */
-const MANFAAT_UMUM: readonly string[] = [
-  "Invoice, produk, dan pengguna tanpa batas",
-  "Batch + tanggal kedaluwarsa (FEFO)",
-  "Zakat penghasilan otomatis + riwayat per periode",
-  "Program: kloter, proyek & tahun ajaran",
-  "Laporan margin & HPP per invoice",
-  "Branding kustom (logo & warna)",
-];
 
 type Props = {
   /** Elemen pemicu; modal terbuka saat diklik. */
   children: ReactNode;
+  /** Kunci gating; menentukan daftar manfaat yang ditampilkan. */
+  kunci: KunciPro;
   /** Nama fitur yang dikunci, untuk konteks pesan ke admin. */
   fitur?: string;
-  /** Kunci gating; menentukan daftar manfaat yang ditampilkan. */
-  kunci?: KunciPro;
+  /**
+   * Permukaan UI tempat gemboknya berada, untuk pencatatan minat (PRD 4.D.5).
+   * Dari daftar tertutup `SUMBER_MINAT` — bukan teks bebas, supaya tabel minat
+   * tidak pernah menampung data tenant.
+   */
+  sumber?: SumberMinat;
 };
+
+/**
+ * Catat satu peristiwa minat. `void` + `.catch()` disengaja: pencatatan ini
+ * tidak boleh mengubah apa pun yang dilihat pengguna, dan kegagalan Server
+ * Action tidak boleh muncul sebagai error konsol di tengah modal upgrade.
+ */
+function catat(
+  kunci: KunciMinat,
+  sumber: SumberMinat,
+  tahap: TahapMinat,
+): void {
+  void catatMinatUpgrade({ kunci, sumber, tahap }).catch(() => undefined);
+}
 
 /**
  * Modal ajakan upgrade (PRD Bagian 4.D). Sengaja dibuat sebagai "godaan" —
@@ -109,15 +132,20 @@ type Props = {
  * satu tombol ke WhatsApp admin — bukan pesan error yang membuat pengguna
  * frustrasi.
  */
-export function UpgradeModal({ children, fitur, kunci }: Props) {
-  const manfaat = kunci ? MANFAAT_KUNCI[kunci] : MANFAAT_UMUM;
+export function UpgradeModal({ children, kunci, fitur, sumber }: Props) {
+  const manfaat = MANFAAT_KUNCI[kunci];
+  const sumberMinat = sumber ?? SUMBER_BAKU;
   const pesan = `Assalamualaikum, saya ingin mengaktifkan TaradinMu PRO (${HARGA})${
     fitur ? ` untuk fitur ${fitur}` : ""
   }. Bagaimana proses pembayarannya?`;
   const waUrl = tautanWa(pesan);
 
   return (
-    <Dialog>
+    <Dialog
+      onOpenChange={(terbuka) => {
+        if (terbuka) catat(kunci, sumberMinat, "BUKA");
+      }}
+    >
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent
         className="sm:max-w-md"
@@ -151,7 +179,12 @@ export function UpgradeModal({ children, fitur, kunci }: Props) {
 
         <DialogFooter className="flex-col gap-2 sm:flex-col">
           <Button asChild size="lg" className="w-full">
-            <a href={waUrl} target="_blank" rel="noopener noreferrer">
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => catat(kunci, sumberMinat, "CTA")}
+            >
               <MessageCircle />
               Aktifkan TaradinMu Pro
             </a>

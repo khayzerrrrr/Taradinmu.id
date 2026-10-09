@@ -135,7 +135,11 @@ export default async function BillingPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <UpgradeModal fitur="Invoice tanpa batas" kunci="INVOICE">
+            <UpgradeModal
+              fitur="Invoice tanpa batas"
+              kunci="INVOICE"
+              sumber="HALAMAN_INVOICE"
+            >
               <Button size="lg">
                 <Crown />
                 Buka Invoice Tanpa Batas

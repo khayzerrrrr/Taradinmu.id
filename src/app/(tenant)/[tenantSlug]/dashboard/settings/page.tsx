@@ -47,6 +47,7 @@ export default async function TenantSettingsPage() {
         isLocked={!tenant.isPro}
         fitur="Branding (logo & warna)"
         kunci="BRANDING"
+        sumber="PENGATURAN_TAMPILAN"
         deskripsi="Ganti logo dan warna dashboard tersedia pada paket PRO. Informasi toko di bawah tetap bisa dilihat."
       >
         <BrandingForm

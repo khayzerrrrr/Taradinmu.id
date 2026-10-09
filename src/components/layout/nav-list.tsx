@@ -7,6 +7,7 @@ import {
   ArrowUpFromLine,
   Boxes,
   Building2,
+  Crown,
   FolderKanban,
   HeartHandshake,
   LayoutDashboard,
@@ -19,7 +20,8 @@ import {
   Users,
   Wallet,
   type LucideIcon,
-} from "lucide-react";import { cn } from "@/lib/utils";
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import { UpgradeModal } from "@/components/shared/upgrade-modal";
 import type { NavIcon, NavItem, NavSection } from "@/components/layout/nav";
 import { itemAktif } from "@/components/layout/nav";
@@ -36,6 +38,7 @@ const IKON: Record<NavIcon, LucideIcon> = {
   expenses: Wallet,
   zakat: HeartHandshake,
   programs: FolderKanban,
+  paket: Crown,
   settings: Store,
   users: UserCog,
   tenants: Building2,
@@ -101,10 +104,14 @@ function Baris({ item, aktif, onNavigate }: {
   if (!item.kunciPro) return tautan;
 
   // Fitur PRO pada paket FREE: gembok kecil di sisi kanan membuka modal upgrade.
+  // `kunci` diambil lewat variabel, bukan `item.kunciPro`, supaya TypeScript
+  // yakin nilainya ada — modal menuntut kunci eksplisit sejak salinan umum tidak
+  // lagi jadi nilai bawaan.
+  const kunci = item.kunciPro;
   return (
     <div className="flex items-center gap-1">
       {tautan}
-      <UpgradeModal fitur={item.label} kunci={item.kunciPro}>
+      <UpgradeModal fitur={item.label} kunci={kunci} sumber="NAVIGASI">
         <button
           type="button"
           aria-label={`${item.label} — fitur PRO, buka opsi upgrade`}

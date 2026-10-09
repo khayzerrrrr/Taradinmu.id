@@ -2,6 +2,7 @@ import { cache } from "react";
 import { headers } from "next/headers";
 import type { NextRequest } from "next/server";
 import type { BusinessType, PlanType } from "@/generated/prisma/client";
+import { planEfektif } from "@/lib/plan-limits";
 import { isReservedSlug } from "@/shared/constants";
 
 // ---------------------------------------------------------------------------
@@ -36,13 +37,34 @@ export type TenantIndex = {
   slug: string;
   subdomain: string | null;
   plan: PlanType;
+  /** Batas masa berlaku PRO (PRD 4.D.4); null = tanpa tanggal berakhir. */
+  planExpiresAt: Date | null;
+  /** Kode ISO 4217, mis. "IDR" (Fase 0.2). Menentukan format nominal. */
+  currency: string;
+  /** Nama zona IANA, mis. "Asia/Jakarta" (Fase 0.3). Menentukan "hari penyewa". */
+  timezone: string;
   businessType: BusinessType;
   enabledModules: string[];
   primaryColor: string | null;
   customLogoUrl: string | null;
 };
 
-export type TenantContext = TenantIndex & { isPro: boolean };
+/**
+ * Tenant untuk komponen halaman, plus dua turunan yang tidak boleh dihitung
+ * sendiri oleh pemanggil:
+ *
+ * - `plan` sudah merupakan paket yang BERLAKU sekarang. Masa PRO yang lewat
+ *   tanggal membuatnya FREE di tempat, dan karena hampir semua halaman membaca
+ *   angka ini lewat `getCurrentTenant()`, tidak ada satu pun permukaan UI yang
+ *   bisa diam-diam menawarkan fitur yang sudah tidak dibayar.
+ * - `planTerkontrak` menyimpan nilai di database — paket yang benar-benar
+ *   dibeli. Halaman "Paket Saya" membutuhkannya untuk menjelaskan bahwa yang
+ *   terlihat FREE adalah masa berlaku yang habis, bukan paket lain.
+ */
+export type TenantContext = TenantIndex & {
+  planTerkontrak: PlanType;
+  isPro: boolean;
+};
 
 const EXTENSION_PATTERN = /\.[a-z0-9]+$/i;
 
@@ -117,6 +139,10 @@ const tenantSelect = {
   slug: true,
   subdomain: true,
   plan: true,
+  planExpiresAt: true,
+  // Fase 0.3: dipakai untuk menghitung "hari penyewa", bukan hari server.
+  currency: true,
+  timezone: true,
   businessType: true,
   enabledModules: true,
   primaryColor: true,
@@ -163,5 +189,16 @@ export const getCurrentTenant = cache(async (): Promise<TenantContext | null> =>
   const tenant = await getTenantBySlug(slug);
   if (!tenant) return null;
 
-  return { ...tenant, isPro: tenant.plan === "PRO" };
+  const berlaku = planEfektif(
+    tenant.plan,
+    tenant.planExpiresAt,
+    new Date(),
+    tenant.timezone,
+  );
+  return {
+    ...tenant,
+    plan: berlaku,
+    planTerkontrak: tenant.plan,
+    isPro: berlaku === "PRO",
+  };
 });

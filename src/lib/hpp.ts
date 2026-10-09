@@ -127,3 +127,106 @@ export function hppDariMovementOut(
     movements.filter((movement) => !adalahReferensiBatal(movement.reference)),
   );
 }
+
+// --- Kelengkapan modal (Fase 0.1) ---
+//
+// Lubang yang ditutup di sini bukan "HPP salah sedikit" tapi "HPP nol tanpa
+// tanda": tenant yang stoknya tidak pernah melewati Stok Masuk tidak punya satu
+// baris StockMovement pun, jadi HPP = 0 DAN unitTanpaModal = 0. Kedua angka itu
+// nol berarti "tidak ada barang terjual" yang sahwatertukar dengan "barang
+// terjual tapi modalnya belum pernah dicatat" yang SALAH. Dilihat pada tenant
+// demo: 3 invoice lunas, 0 movement, batch costPrice=NULL — kartu Laba Bersih
+// terlihat bersih padahal modalnya nol sungguhan.
+//
+// 왜 harus dibaca di satu tempat: dashboard, zakat, dan laporan memakai aturan
+// ini, jadi mereka tidak mungkin berbeda pendapat tentang apakah angkanya
+// sudah layak dipercaya.
+
+/** Alasan kenapa angka HPP belum layak dipercaya sebagai angka utuh. */
+export type AlasanKelengkapanModal =
+  /** Tidak ada barang terjual bulan ini — HPP 0 di sini memang benar. */
+  | "TIDAK_ADA_BARANG_TERJUAL"
+  /** Ada barang terjual tapi nol movement — modal belum pernah dicatat. */
+  | "TIDAK_ADA_MOVEMENT"
+  /** Movement ada, tapi sebagian batch tak punya harga modal. */
+  | "MODAL_BELUM_TERCATAT"
+  /** HPP boleh dipakai utuh. */
+  | "LENGKAP";
+
+export type KelengkapanModal = {
+  /** Unit barang (kind GOODS) terjual pada periode itu. */
+  unitTerjual: number;
+  /** Movement OUT yang benar-benar ditemukan untuk unit itu. */
+  movementDitemukan: number;
+  /** Unit keluar yang batch-nya tak punya harga modal. */
+  unitTanpaModal: number;
+  /** Batch di rak (quantity > 0) yang costPrice-nya kosong. */
+  batchDiRakTanpaModal: number;
+  /** true hanya bila HPP boleh dipercaya sebagai angka utuh. */
+  lengkap: boolean;
+  /** Alasan singkat — untuk ditampilkan ke pengguna, bukan untuk log. */
+  alasan: AlasanKelengkapanModal;
+};
+
+/**
+ * Menentukan apakah angka HPP sudah layak dipercaya.
+ *
+ * Murni tanpa Prisma supaya bisa diuji tanpa database.
+ *
+ * Urutan pemeriksaan disengaja. `TIDAK_ADA_MOVEMENT` diperiksa SEBELUM
+ * `batchDiRakTanpaModal`, bukan sesudahnya: batch kosongnya modal bukan bukti
+ * apa pun tentang penjualan bulan ini, jadi tidak boleh menutupi fakta bahwa
+ * tidak ada satu pun movement yang ditemukan. Kalau urukannya dibalik, kasus
+ * yang paling salah justru akan terbaca "lengkap".
+ */
+export function nilaiKelengkapanModal(input: {
+  unitTerjual: number;
+  movementDitemukan: number;
+  unitTanpaModal: number;
+  batchDiRakTanpaModal: number;
+}): KelengkapanModal {
+  const dasar = {
+    unitTerjual: input.unitTerjual,
+    movementDitemukan: input.movementDitemukan,
+    unitTanpaModal: input.unitTanpaModal,
+    batchDiRakTanpaModal: input.batchDiRakTanpaModal,
+  };
+
+  // Tidak ada yang terjual bulan ini: HPP 0 adalah jawaban yang benar, bukan
+  // tanda ada yang salah. Tidak ada yang perlu diperingatkan.
+  if (input.unitTerjual <= 0) {
+    return { ...dasar, lengkap: true, alasan: "TIDAK_ADA_BARANG_TERJUAL" };
+  }
+
+  // Ada barang terjual tapi nol movement: ini lubang Fase 0.1. HPP 0 di sini
+  // berarti "tidak diketahui", bukan "gratis".
+  if (input.movementDitemukan <= 0) {
+    return { ...dasar, lengkap: false, alasan: "TIDAK_ADA_MOVEMENT" };
+  }
+
+  if (input.unitTanpaModal > 0) {
+    return { ...dasar, lengkap: false, alasan: "MODAL_BELUM_TERCATAT" };
+  }
+
+  // `batchDiRakTanpaModal` sengaja TIDAK masuk penentu `lengkap`. Barang yang
+  // belum terjual tidak memengaruhi HPP bulan ini; ia hanya memberi tahu lebih
+  // awal lewat hitungan tersebut. Menaikannya jadi alasan "belum lengkap" akan
+  // membuat setiap toko yang punya batch baru mendapat peringatan yang tidak
+  // perlu.
+  return { ...dasar, lengkap: true, alasan: "LENGKAP" };
+}
+
+/**
+ * Nilai untuk tenant yang modul Inventory-nya tidak aktif.
+ *
+ * Modul mati bukan berarti datanya salah, jadi tidak diperingatkan — sama
+ * dengan "tidak ada barang terjual".
+ */
+export const KELENGKAPAN_MODAL_NONAKTIF: KelengkapanModal = {
+  unitTerjual: 0,
+  movementDitemukan: 0,
+  unitTanpaModal: 0,
+  batchDiRakTanpaModal: 0,
+  lengkap: true,
+  alasan: "TIDAK_ADA_BARANG_TERJUAL",
+};

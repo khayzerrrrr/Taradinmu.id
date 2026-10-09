@@ -1,6 +1,7 @@
 "use server";
 
 import { pesanErrorUmum, pesanValidasi } from "@/lib/action";
+import { checkLimit } from "@/lib/feature-guards";
 import { simpanLogo, validasiLogo } from "@/lib/logo-storage";
 import { prisma } from "@/lib/prisma";
 import { getCurrentTenant } from "@/lib/tenant";
@@ -8,8 +9,17 @@ import { assertTenantOwner } from "@/lib/tenant-access";
 import type { ActionResponse } from "@/shared/types";
 import { updateBrandingSchema } from "../schemas/branding-schema";
 
-const PESAN_KHUSUS_PRO =
-  "Fitur white-label (logo & warna kustom) hanya tersedia untuk plan PRO.";
+// White-label (logo & warna kustom) khusus PRO. Keputatannya diambil dari
+// checkLimit("BRANDING") — bukan string lokal — supaya pesan penolakannya menyebut
+// manfaat dan harga seperti kunci lain, dan supaya aturan paket hanya hidup di
+// PLAN_LIMITS (PRD 4.D).
+async function tolakanBranding(
+  tenantId: string,
+): Promise<ActionResponse<never> | null> {
+  const batas = await checkLimit(tenantId, "BRANDING");
+  if (batas.allowed) return null;
+  return { success: false, message: batas.message, code: batas.code };
+}
 
 // Simpan warna utama dan/atau logo kustom (khusus plan PRO + role OWNER).
 export async function updateTenantBranding(formData: FormData): Promise<
@@ -23,9 +33,8 @@ export async function updateTenantBranding(formData: FormData): Promise<
   const guard = await assertTenantOwner(tenant.id);
   if (!guard.ok) return { success: false, message: guard.message };
 
-  if (!tenant.isPro) {
-    return { success: false, message: PESAN_KHUSUS_PRO };
-  }
+  const ditolak = await tolakanBranding(tenant.id);
+  if (ditolak) return ditolak;
 
   const parsed = updateBrandingSchema.safeParse({
     primaryColor: formData.get("primaryColor"),
@@ -79,9 +88,8 @@ export async function removeTenantLogo(): Promise<
   const guard = await assertTenantOwner(tenant.id);
   if (!guard.ok) return { success: false, message: guard.message };
 
-  if (!tenant.isPro) {
-    return { success: false, message: PESAN_KHUSUS_PRO };
-  }
+  const ditolak = await tolakanBranding(tenant.id);
+  if (ditolak) return ditolak;
 
   if (!tenant.customLogoUrl) {
     return { success: false, message: "Tenant ini belum memakai logo kustom." };

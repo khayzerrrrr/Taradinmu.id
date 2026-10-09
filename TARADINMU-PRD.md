@@ -464,6 +464,9 @@ satu fitur kurang. Status per 2026-09-26:
 | Subdomain kustom | **BELUM** (semua tenant memakai path `/nama-toko`) |
 | Favicon kustom | **BELUM** (fase J) |
 | AI Assistant | **SEBAGIAN** — chat ada & terkunci PRO, tetapi `src/app/api/chat/route.ts` secara eksplisit memberitahu model bahwa data tenant belum terhubung. Menjualnya sebagai "asisten yang terintegrasi dengan database Anda" belum jujur (ROADMAP fase M). |
+| Masa berlaku paket + riwayat perubahan | **ADA** (4.D.4) |
+| Perpanjangan otomatis / pembayaran di dalam aplikasi | **BELUM** — belum ada payment gateway; aktivasi & perpanjangan tetap manual lewat WhatsApp admin (4.D.4) |
+| Uji coba PRO 14 hari | **BELUM** — keputusan produk (kuota, mulai dari mana, apa yang terjadi saat jatuh), bukan pekerjaan kode |
 
 Yang boleh ditawarkan modal upgrade hanyalah baris **ADA** di tabel ini.
 
@@ -493,9 +496,97 @@ Yang boleh ditawarkan modal upgrade hanyalah baris **ADA** di tabel ini.
   (invoice/produk/pengguna) **mulai 80% terpakai**, lengkap dengan CTA upgrade.
   Di bawah ambang itu tidak ada apa-apa — dashboard warung jangan berubah menjadi
   spanduk penjualan.
+- **Ada satu tempat yang menjawab "paket saya apa dan sisa berapa?".** Dashboard
+  hanya muncul saat mendekati batas; orang yang ingin melihat angka lengkapnya
+  butuh halaman sendiri: **`/[tenantSlug]/dashboard/paket`** ("Paket & penggunaan";
+  kuota dari 4.D.3, masa berlaku dari 4.D.4). Isinya kuota
+  terpakai/batas untuk semua kunci jumlah (termasuk pengguna,
+  yang sengaja tidak diukur di dashboard), daftar kunci fitur dengan status
+  terbuka/terkunci, masa berlaku paket, dan tombol upgrade. Halaman ini dibaca
+  tenant, bukan menagih tenant: kuota di bawah ambang tetap tampil sebagai angka
+  biasa tanpa CTA.
+- **Setiap klik gembok tercatat** (4.D.5) supaya keputusan "paket mana yang layak
+  digembok" bisa dijawab dengan data, bukan perasaan.
 
 
-#### 4. Yang sengaja TIDAK diubah
+#### 4. Masa berlaku & riwayat paket
+
+Aktivasi PRO masih manual lewat WhatsApp admin, jadi pertanyaan "sejak kapan toko
+ini PRO, atas pembayaran yang mana, dan kapan seharusnya berhenti" tidak boleh
+tergantung ingatan. Bentuknya di kode:
+
+- **Satu kolom tanggal, boleh kosong.** `Tenant.planExpiresAt` (nullable) hanya
+  punya arti untuk paket berbayar — ditolak diam-diam menjadi `null` bila paket
+  FREE (`paketBisaKedaluwarsa()` di `plan-limits.ts`). Kosong = **tidak ada batas
+  waktu**: PRO yang diaktifkan tanpa tanggal melayani terus seperti sebelumnya.
+  Karena kolomnya nullable dan bernilai default kosong, men-deploy perubahan ini
+  **tidak mengubah satu pun paket tenant yang sudah berjalan**.
+- **Kedaluwarsa dihitung saat dibaca, bukan oleh cron.** `planEfektif(plan,
+  planExpiresAt)` (murni, di `plan-limits.ts`) dipanggil di DUA titik sah —
+  `getCurrentTenant()` dan `checkLimit()` — sehingga semua konsumen `tenant.plan`
+  otomatis ikut efektif tanpa mengubah berkasnya. Tidak ada pekerjaan latar
+  yang bisa telat jalan, dan tidak ada tenant yang tetap PRO berhari-hari karena
+  scheduler mati.
+- **Hari terakhir masih penuh, dan "hari" yang dimaksud adalah harinya penyewa.**
+  `planExpiresAt` disimpan tengah malam UTC (tanggal yang diketik admin adalah
+  tanggal yang tampil), tapi baru dianggap lewat setelah hari itu berakhir
+  **menurut WIB** — zona usaha yang dilayani platform ini, UTC+7 dan tidak punya
+  musim panas. Jadi "berlaku sampai 31 Okt" melayani sampai 1 Nov 00:00 WIB, dan
+  hitungan "sisa N hari" tidak pernah bertambah satu tiap pagi hanya karena
+  servernya berjalan di UTC.
+- **Yang lama tetap tercatat.** `tenant.plan` adalah paket **terkontrak**; hasil
+  `planEfektif()` adalah paket yang sedang berlaku. UI menampilkan keduanya lewat
+  `planTerkontrak`, sehingga halaman paket bisa menulis "PRO kedaluwarsa 4 hari
+  lalu" alih-alih berpura-pura tenant itu tidak pernah PRO.
+- **Setiap perubahan paket meninggalkan jejak.** Tabel `PlanChange`
+  (`dari → ke`, `expiresAt`, `olehUserId`, `catatan`, `createdAt`) ditulis pada
+  setiap perubahan paket oleh Super Admin — termasuk saat tenant dibuat sudah
+  berbayar. Sifatnya **append-only**: tidak ada jalur edit/hapus di kode
+  (dijaga tes struktural), karena riwayat yang bisa ditulis ulang bukan lagi
+  bukti. Kolom `catatan` sengaja ada untuk nomor transaksi pembayaran.
+- **Turun paket tidak menghapus data.** `updateTenantPlanAndModules` hanya
+  mengubah `plan` dan `planExpiresAt`; invoice, produk, dan stok tetap utuh dan
+  langsung kembali terbaca kalau tenant naik lagi. Ini bukan detail teknis:
+  tenant yang takut datanya hilang saat tidak memperpanjang tidak akan pernah
+  mencoba PRO.
+- **Satu kalimat, satu komponen.** Kapan paket berakhir dirangkai di
+  `susunMasaBerlaku()` (`plan-status.ts`) dan dirender `MasaBerlakuPaketNotice`
+  — dipakai tabel Super Admin dan halaman "Paket & penggunaan" agar kedua
+  permukaan tidak pernah bisa berbeda bunyi. Menjadi menonjol pada ≤7 hari
+  tersisa (`AMBANG_MASA_BERLAKU_MENDESAK`); tombolnya berubah dari "Naik ke PRO"
+  menjadi "Perpanjang PRO" setelah lewat. Sengaja **tidak** ada banner di
+  dashboard: yang baru lewat dihentikan di halaman Paket dan di muka gemboknya
+  masing-masing, bukan dikejar di setiap layar (4.D.2 "kunci kemampuan, jangan
+  kunci kebenaran"). Di dashboard tenant hanya melihat badge FREE — kapan
+  pemberitahuan itu perlu lebih vokal adalah keputusan nada, bukan teknis.
+- **Tanggal mustahil ditolak, tidak dibelokkan.** `<input type="date">` bisa
+  menghasilkan `2026-02-31` yang diam-diam berubah jadi 3 Maret;
+  `tanggalMasaBerlaku()` menolak nilai yang tidak kembali menjadi string yang
+  sama setelah parsing.
+
+#### 5. Telemetri klik gembok
+
+"Fitur mana yang layak digembok" hari ini dijawab dengan perasaan. `UpgradeInterest`
+mencatat dua peristiwa per modal upgrade: **BUKA** (gembok diklik) dan **CTA**
+(tombol WhatsApp di dalamnya diklik), per tenant, dengan tiga kolom berhuruf
+kecil dari **daftar tertutup** di `src/lib/upgrade-interest.ts` (`KUNCI_MINAT`,
+`SUMBER_MINAT`, `TAHAP_MINAT`):
+
+- **Bukan teks bebas.** Yang masuk database hanya nama kunci gembok dan nama
+  permukaan UI, sehingga tabel ini tidak pernah bisa menampung data usaha
+  pelanggan, dan agregatnya bermakna ("gembok batch dibuka 12 kali bulan ini").
+  Nilai di luar daftar ditolak, sumber yang salah sebut menjadi `TIDAK_DIKETAHUI`.
+- **Tidak pernah menghalangi penjualannya sendiri.** Pencatatan dijalankan
+  *fire-and-forget* (`void action().catch()`); gagal catat tidak boleh membuat
+  modal upgrade gagal terbuka.
+- **Dibaca Super Admin, bukan dipakai menagih.** Tabel tenant merangkum buka/CTA
+  dan tiga gembok teratas per tenant dalam 30 hari (`JENDELA_MINAT_HARI`) untuk
+  menentukan prioritas: gembok yang sering dibuka tapi jarang menutup berarti
+  pesannya salah, gembok yang tidak pernah dibuka berarti tidak ada yang peduli.
+- **Mencatat minat bukan menjual janji.** Data ini tidak menambah fitur baru ke
+  daftar 4.D.2; yang boleh dipromosikan tetap hanya baris **ADA** pada 2a.
+
+#### 6. Yang sengaja TIDAK diubah
 - **Batas jumlah FREE tetap 50 invoice/bulan dan 100 produk.** Mengencangkannya
   akan mempercepat konversi di atas kertas tapi membunuh adopsi: toko yang belum
   selesai memindahkan katalognya tidak akan pernah sampai ke momen "saya butuh

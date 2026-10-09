@@ -164,8 +164,9 @@ bisa diwakili satu mesin: cicilan (Tahap 3), alur status pesanan, dan invoice B2
 ### P4 — Fondasi produksi (tidak ada di PRD, tapi wajib untuk rilis)
 
 - ~~**0 tes otomatis**~~ **Selesai**: `npm run test` memakai Node test runner lewat `tsx`
-  (keduanya sudah tersedia) — **194 tes** untuk logika murni (perhitungan zakat, kontras
-  merek, ringkasan stok, batas paket & meter kuota, batas bulan, transisi invoice, siklus hidup &
+  (keduanya sudah tersedia) — **267 tes / 72 suite** untuk logika murni (perhitungan zakat, kontras
+  merek, ringkasan stok, batas paket & meter kuota, status paket & masa berlakunya, isian tanggal
+  Super Admin, daftar tertutup telemetri upgrade, batas bulan, transisi invoice, siklus hidup &
   tanggal program, pemisahan laba vs arus kas, HPP & rata-rata tertimbang harga modal,
   rencana alokasi FEFO, penyamaran nilai rahasia di log), ditambah
   **isolasi tenant** dan **penjaga struktur Server Action** (lihat fase Q). Tanpa
@@ -270,6 +271,12 @@ Setiap entri sudah melewati gerbang wajib (§1 butir 4):
 | X | **HPP & pemasok** (PRD 4.G — menutup cacat uang yang belum pernah dicatat sebagai lubang): satu agregat `expense` tanpa penyaring kategori dipakai sebagai "laba" di dashboard **dan** sebagai dasar zakat penghasilan, jadi setiap rupiah pembelian stok (`PURCHASE`) dua kali menurunkan laba — padahal PRD 4.D.2 sejak awal menulis "Laba Rugi **Operasional**". Yang dibangun: (1) `src/lib/laba.ts` memilah beban usaha vs pembelian stok, `src/lib/hpp.ts` + `src/lib/hpp-query.ts` menghitung HPP dari `StockMovement.unitCost`, `src/lib/stock-allocation.ts` menyimpan potret modal saat FEFO memotong (keputusan pemilihannya dipecah jadi `rencanaAlokasiFefo()` murni agar bisa diuji tanpa DB); (2) entitas `Supplier` sungguhan + `InventoryBatch.costPrice`/`supplierId` + `StockMovement.unitCost` lewat migrasi tulisan tangan `20260924120000_tambah_hpp_dan_pemasok` (`onDelete: SetNull`, menghapus pemasok tidak menghapus batch); (3) halaman `/dashboard/inventory/suppliers` (daftar + form + hapus, tulis khusus OWNER/ADMIN lewat pembungkus baru `aksesTenantTulis()`), kolom modal/pemasok di Stok Masuk & dialog batch; (4) kartu **Laba Bersih** (semua paket — ini koreksi angka) dan **Margin Kotor** (PRO, `LockedFeature`), baris HPP + laba kotor di dialog detail invoice yang angkanya **tidak dikirim** pada paket FREE (`checkLimit(tenantId, "HPP")` di `getInvoiceDetail`); (5) pembatalan invoice DRAFT otomatis membalikkan HPP karena `#BATAL` dikecualikan dari perhitungan. | tsc/lint/**177 tes**/build hijau; 45 tes baru (`laba` 13, `hpp` 22, `stock-allocation` 9, matriks paket +1 — sebelumnya jalur FEFO ini **nol** tes padahal ia memotong uang); `migrate status` bersih + `migrate diff` menghasilkan "empty migration"; `nav-hrefs.test.ts` menjaga menu Pemasok baru (href punya halaman, induk tetap `exact`), `server-action-guards.test.ts` mencatat `aksesTenantTulis()` sebagai gerbang lokal. **Satu jebakan ditemukan sendiri:** menyaring `#BATAL` lewat Prisma `not: { endsWith }` akan ikut membuang `reference: null` (stok keluar manual) sehingga HPP tampak lebih kecil — penyaringan itu kini fungsi murni ber-tes. **Diverifikasi di browser** (build produksi `next start`, tenant uji khusus yang dihapus lagi): CRUD pemasok, Stok Masuk 20 unit @ Rp 60.000 (pemasok tersimpan di batch), invoice 5 unit memotong stok dan menulis `unitCost` 60.000 pada movement OUT, dialog batch menampilkan kolom Modal/unit + Pemasok, dashboard menunjukkan HPP Rp 300.000 / laba Rp 75.000 / zakat 2,5% × Rp 75.000, kartu Margin terkunci di FREE dan terbuka di PRO, dialog detail invoice **tidak** mengirim angka HPP pada FREE. **Verifikasi ini menemukan bug yang lolos keempat gerbang:** HPP periode dihitung dari `movement.createdAt` sedangkan pendapatan dihitung dari invoice PAID — satu invoice draft langsung menjadi rugi phantom sebesar seluruh modalnya (dashboard menunjukkan "Laba Bersih −Rp 300.000" sementara "Total Pendapatan Rp 0"). Perbaikannya: `hppPeriode()` → `hppInvoiceLunas()` (saring `reference` lewat nomor invoice lunas; stok keluar manual tanpa dokumen keluar dari HPP, dicatat di PRD 4.G.3 dan tetap tercatat di sisa Tahap 2), + 3 tes penjaga basis (`hpp.test.ts`) yang membaca sumber `hpp-query.ts`/`dashboard-summary.ts`/`zakat-actions.ts` dari disk agar aturan tidak bisa kembali diam-diam |
 
 | Y | **Kejujuran gating** (PRD 4.D ditulis ulang — tidak ada fitur baru; yang diperbaiki adalah **apa yang boleh dijanjikan**): aturan penentunya "kunci kemampuan, jangan kunci kebenaran". (1) harga PRO jadi satu konstanta `HARGA_PRO_BULAN` di `plan-limits.ts` — modal & pesan server membacanya, tidak ada lagi angka yang diketik ulang; (2) `UpgradeModal` menerima `kunci` (`KunciPro`) dan menampilkan 2–3 manfaat **yang sesuai fitur yang baru diklik** (`MANFAAT_KUNCI`), dipakai di 8 titik termasuk gembok sidebar (`NavItem.kunciPro` kini berupa kunci, bukan `boolean`, dan keabsahannya dijaga tsc di `nav-list.tsx`); (3) **estimasi zakat penghasilan kini tampil pada paket FREE** — sebelumnya `dashboard-summary.ts` mengembalikan `null` untuk FREE sementara Server Action justru mengirim objek `penghasilan` lengkap yang sudah diburamkan, jadi yang disembunyikan adalah angka yang dihitung dari data milik tenant itu sendiri; yang tetap terkunci hanya **aksinya** (tarik otomatis + tandai lunas, dijaga `checkLimit(…, "ZAKAT")` di `zakat-actions.ts:189`), dan `ZakatReport` tidak lagi membungkus seluruh tabnya dengan gembok; (4) **meter kuota** ≥80% di dashboard (`kuotaMendesak()` murni + `ringkasan.kuotaMenipis`, hanya INVOICE & PRODUCT — USERS sengaja tidak, karena 1/1 akan jadi banner permanen), di bawah ambang tidak ada apa pun; (5) pesan `checkLimit()` ditulis ulang menjadi menjual ("yang terbuka di PRO: …", tetap memuat `used`/`limit`), bukan "Batas paket FREE tercapai"; (6) PRD 4.D.2a kini menandai tiap janji PRO **ADA/BELUM/SEBAGIAN** dan daftar manfaat dilarang menyebut yang BELUM (cicilan, multi-gudang, Neraca, subdomain, favicon; AI = SEBAGIAN karena `api/chat` belum terhubung ke data tenant). | tsc/lint/**194 tes**/build hijau; 17 tes baru: 5 murni (`kuotaMendesak` ambang 80%, PRO tanpa meter, harga satu sumber) di `plan-limits.test.ts` + 12 penjaga struktur di `src/lib/freemium-honesty.test.ts` yang memindai disk: tidak ada berkas `src/` yang memuat "Rp 149"/"149.000", tiap `<UpgradeModal` wajib menyebut `kunci`, daftar manfaat tidak memuat janji yang belum dibangun, `estimasiZakat` tidak boleh bercabang `plan`, `zakat-tabs.tsx` tidak boleh memuat `LockedFeature`, dan dashboard harus benar-benar merender `kuotaMenipis`. **Dua jebakan pada tesnya sendiri ditutup lebih dulu:** `isiManfaat()` bisa memotong ke string kosong sehingga seluruh tesnya "hijau tanpa memeriksa apa pun" — ada kontrol positif (`fefo` harus terbaca); dan `PRODUCT`/`BRANDING`/`AI` punya tepat 2 baris manfaat, jadi ambang "≥2" adalah batas bawah yang sebenarnya, bukan angka acak. **Diverifikasi di browser** (`next start` build terbaru, tenant FREE `toko-berkah`; 37 invoice sementara dibuat untuk menyentuh ambang lalu dihapus lagi): kartu Estimasi Zakat menampilkan angkanya + "tarik & catat otomatis: PRO", tab Zakat memperlihatkan Pendapatan/Beban/Laba dengan **satu** tombol ber-gembok, modal Margin menyebut `Rp 149.000 per bulan` + 3 manfaat HPP, meter kuota muncul tepat di 40/50 ("40 dari 50 invoice per bulan terpakai" + `Naik ke PRO` → modal manfaat INVOICE) dan **hilang** lagi setelah kuota turun, tanpa satu pun pesan console. **Jebakan #8 terulang persis**: dev server lama (port 3100) masih memegang client Prisma pra-migrasi sehingga dashboard FREE melempar `Unknown field 'unitCost'` — bukan bug perubahan ini; verifikasi harus memakai build baru, dan restart dev server adalah pekerjaan pemiliknya. **Dideploy 2026-09-26** ke `taradinmu.skulv.online` pada commit `d256dd9` (runbook DEPLOY.md §2 persis: `pg_dump` baru 40K → pull `1e17943`→`d256dd9` → `prisma generate` → **build sebelum stop** → `pm2 stop` → `migrate deploy` → start). Deploy ini sekaligus **membawa fase X ke produksi** untuk pertama kalinya: migrasi `20260924120000_tambah_hpp_dan_pemasok` tercatat `finished_at 2026-09-25 18:53:14 UTC` (ledger 9 migrasi), kolom `StockMovement.unitCost` dan tabel `Supplier` terbukti ada lewat `psql` (`Supplier` masih 0 baris). **Konsekuensi yang perlu diketahui pemilik produk:** sejak jam itu laba bersih & dasar zakat tenant nyata tidak lagi memotong pembelian stok sebagai beban, jadi angka Laba Bersih bulan berjalan di dashboard mereka **naik** dibanding kemarin — itu koreksinya, bukan regresi. Verifikasi pasca-deploy: `/login` 200, `/` 200, `/<slug>/dashboard` 307 ke login tanpa sesi, `pm2 list` online `restarts=0`, nol `PrismaClientValidationError` dan nol baris `"level":"error"` di log |
+| Z | **Telemetri klik gembok** (PRD 4.D.5 — pertanyaan "gembok mana yang benar-benar diminati" selama ini dijawab dengan perasaan): model `UpgradeInterest` (`tenantId`, `kunci`, `sumber`, `tahap`, `createdAt`; dua index) lewat migrasi tulisan tangan `20260926060000_tambah_minat_upgrade`, plus **daftar tertutup** di `src/lib/upgrade-interest.ts` (`KUNCI_MINAT` / `SUMBER_MINAT` / `TAHAP_MINAT` + `normalisasi*`: kunci di luar daftar ditolak, sumber yang salah sebut menjadi `TIDAK_DIKETAHUI` — jadi tabelnya tidak pernah bisa menampung teks bebas / data usaha tenant). `UpgradeModal` mencatat **BUKA** saat dibuka dan **CTA** saat tombol WhatsApp diklik secara *fire-and-forget* (`void … .catch()`), `LockedFeature` dan gembok sidebar menerima prop `sumber` (NAVIGASI, PRATINJAU_FITUR, HALAMAN_*, PENGATURAN_TAMPILAN, ASISTEN_AI). Aksi `catatMinatUpgrade` memakai `upgrade-schema.ts` + rate limiter baru `BATAS_MINAT` (30/jam); angka sengaja longgar karena membuka-menutup modal berulang kali memang minat. Sisi Super Admin: `getAllTenants` merangkum 30 hari (`rangkumMinat`) dan `tenant-table.tsx` menampilkan kolom buka/CTA + tiga gembok teratas. | tsc/lint/build hijau; **19 tes** (4 suite) di `upgrade-interest.test.ts`: 4 di antaranya penjaga struktural yang membaca disk (modal mencatat **kedua** peristiwa, Server Action-nya dipagari gerbang izin **dan** limiter, setiap `SUMBER_MINAT` punya permukaan UI sungguhan, dan tidak ada kolom teks bebas di skema). Satu tes mengunci keputusan produk: **kunci yang dicatat semuanya boleh dijual hari ini** — daftar minat disilangkan ke 4.D.2a supaya telemetri tidak bisa diam-diam mempromosikan yang BELUM. Peringkat gembok dihitung hanya dari BUKA karena CTA selalu menyusul pembukaan (memasukkannya membuat satu klik bernilai dua); urutan dipecah alphabetis saat jumlah sama agar daftar tidak "bergerak sendiri". **Diverifikasi di browser pada fase AE:** kolom MINAT PRO di tabel Super Admin membaca "2 dibuka · 1 klik WhatsApp" + tiga gembok teratas, dan angkanya dicocokkan dengan isi mentah `UpgradeInterest` lewat skrip baca-saja (3 baris: `BATCH/BUKA/HALAMAN_PAKET`, `BATCH/CTA/HALAMAN_PAKET`, `PROGRAM/BUKA/NAVIGASI`) |
+| AA | **Satu kosakata gating untuk BRANDING & AI** — dua-satu-satunya tempat yang masih memutuskan sendiri apakah sesuatu PRO: `branding-actions.ts` menyimpan teks penolakannya sendiri ("…hanya tersedia untuk plan PRO") dan `api/chat/route.ts` membandingkan `tenant?.plan === "PRO"` sambil mengimpor `prisma` hanya untuk itu. Keduanya kini memanggil `checkLimit(tenantId, "BRANDING"/"AI")` sehingga pesannya ikut menjual (manfaat + `HARGA_PRO_BULAN`, `code: "UPGRADE_REQUIRED"`), dan `(tenant)/layout.tsx` bertanya ke `ambilBatasFitur(plan, …)` alih-alih mencocokkan string plan untuk gembok menu Branding/Program dan `AiAssistantChat`. `LockedFeature.kunci` dipindah menjadi **wajib** (bukan `?:`) agar tsc menolak pemicu modal tanpa kunci; `nav-list.tsx` mengambil kunci ke variabel lokal supaya penyempitan tipe terbukti. | tsc/lint/build hijau; **2 tes** dalam `describe("satu kosakata gating")` di `freemium-honesty.test.ts` (berkasnya kini 28 tes / 8 suite): berkas penegakan (`**/actions/**`, `app/api/**`) **dilarang** membandingkan string paket sendiri — dipisahkan dari yang boleh (membaca `isPro`/`planEfektif`) — dan `branding-actions.ts`/`api/chat/route.ts` harus benar-benar melewati `checkLimit`. **Tes ini dipakai sebagai rem, bukan dihindari:** satu-satunya pembanding plan literal yang tersisa di berkas aksi (`plan === "PRO"` di `tenant-actions.ts`) tidak dilewati diam-diam, melainkan dipindahkan ke kosakata gating (`paketBisaKedaluwarsa()` di `plan-limits.ts`) pada fase AD |
+| AB | **Kuota produk terlihat** (PRD 4.D.3): halaman `/dashboard/inventory` sebelumnya membiarkan orang membuka form, menyimpan, lalu ditolak server — satu-satunya kunci jumlah yang belum punya pratinjau. Kini tombol "Tambah Produk" diganti `UpgradeModal` (`kunci="PRODUCT"`, `sumber="HALAMAN_PRODUK"`) saat kuota penuh, dengan kalimat yang menjelaskan apa yang **tidak** diambil ("item yang ada tetap bisa dijual seperti biasa — yang tertutup hanya penambahan item baru"), dan angka `x dari 100 item terpakai` baru muncul pada ≥80% (`AMBANG_KUOTA_DASHBOARD`, konstanta yang sama dengan meter dashboard — bukan angka kedua). `checkLimit(tenant.id, "PRODUCT")` dipakai bersama: sumber angkanya satu, cabang tampilannya dua. | tsc/lint/build hijau; penjaga `meter kuota → halaman produk memakai pola yang sama dengan halaman invoice` membaca kedua berkas dari disk dan menolak halaman produk yang menyaring kuota dengan `prisma.product.count()` sendiri. Sekaligus merapikan tautan FREE di footer sidebar (`app-sidebar.tsx`) yang mengarah ke `/dashboard/settings` — tujuan yang lebih benar baru dibangun pada fase AC |
+| AC | **Halaman "Paket & Penggunaan"** (menu sidebar-nya bernama "Paket Saya", di `/[tenantSlug]/dashboard/paket`, PRD 4.D.3): dashboard hanya menampilkan kuota saat ≥80%, jadi orang yang ingin tahu angka lengkapnya tidak punya tempat. Isinya semua kunci jumlah (termasuk USERS, yang sengaja tidak diukur di dashboard karena 1/1 akan jadi banner permanen), daftar kunci fitur dengan status terbuka/terkunci, dan satu tombol upgrade. Perangkumnya berkas murni baru `src/lib/plan-status.ts` (`susunStatusPaket` → baris kuota + baris fitur, `jumlahFiturTerkunci`, `ringkasBatas`) yang membaca angkanya dari `checkLimit` dan gayanya dari aturan meter yang sudah ada (`menipis` = persis ketika `kuotaMendesak()` menyala), sehingga halaman ini tidak bisa berbeda pendapat dengan dashboard. Menu sidebar (Crown, `exact`, **tanpa** `kunciPro` — mengukur pemakaian sendiri bukan fitur berbayar) + entri `SEGMEN_LABEL.paket` supaya remah punya halaman; footer sidebar kini menunjuk ke sini. | tsc/lint/build hijau; `src/lib/plan-status.test.ts` **15 tes / 4 suite** (10 milik halaman ini — baris kuota, baris fitur, ringkasan kalimat; 5 lainnya masa berlaku, lihat fase AD) + **4 tes** dalam `describe("halaman Paket Saya")` di `freemium-honesty.test.ts`: angkanya wajib dari `checkLimit` (bukan `count()` rakitan sendiri), daftar fiturnya **selebar `plan-limits`** (menambah kunci baru tanpa menampilkannya memerahkan tes), setiap tawaran menyebut `sumber` pemicunya, dan menu/tautan benar-benar menunjuk ke halaman ini. `nav-hrefs.test.ts` ikut menjaga: href baru punya `page.tsx` dan berlabel |
+| AD | **Masa berlaku & riwayat paket** (PRD 4.D.4 — jawaban atas "sejak kapan PRO, atas pembayaran apa, dan kapan berhenti", yang selama ini hanya ada di log obrolan WhatsApp): `Tenant.planExpiresAt` (nullable) + tabel **append-only** `PlanChange` (`dari → ke`, `expiresAt`, `olehUserId` `SetNull`, `catatan`, `createdAt`) lewat migrasi tulisan tangan `20260926100000_tambah_masa_berlaku_paket` — murni aditif, tidak ada `DROP`, tidak ada kolom `NOT NULL` baru, jadi **kelima tenant PRO yang berjalan hari ini tidak berubah statusnya saat deploy**. Kedaluwarsa **dinilai saat dibaca, bukan oleh cron**: `planEfektif()` (murni) dipanggil di dua titik sah saja — `getCurrentTenant()` dan `checkLimit()` — sehingga 26 berkas pemanggil `getCurrentTenant()` (terukur `grep -rl`) otomatis ikut tanpa satu pun berkasnya diubah, dan tidak ada scheduler yang bisa telat jalan. **Hari terakhir masih penuh** (dibandingkan ke akhir hari **menurut zona penyewa**, bukan awal hari — zonasinya baru ditetapkan pada fase AE); kosanya `tenant.plan` = paket terkontrak, `planEfektif` = yang berlaku, sehingga UI bisa menulis "PRO kedaluwarsa 4 hari lalu" alih-alih berpura-pura tenant tidak pernah PRO. Dialog tenant (buat & ubah) dapat kolom "Berlaku sampai" (`<input type="date">`, terkunci untuk FREE) + catatan; riwayat 3 perubahan terakhir tampil di dialog ubah. Satu kalimat masa berlaku dirangkai `susunMasaBerlaku()` dan dirender komponen bersama `MasaBerlakuPaketNotice` — dipakai tabel Super Admin **dan** halaman Paket, jadi dua permukaan tidak bisa berbeda bunyi; menonjol pada ≤7 hari (`AMBANG_MASA_BERLAKU_MENDESAK`) dan tombolnya berubah "Naik ke PRO" → "Perpanjang PRO" setelah lewat. `tanggalMasaBerlaku()` menolak tanggal yang tidak ada di kalender (`2026-02-31` tidak dibelokkan jadi 3 Maret), dan menurunkan paket **tidak menghapus apa pun** — hanya `plan` + `planExpiresAt` yang berubah, sehingga mencoba PRO tidak berisiko | tsc/lint/**264 tes / 72 suite**/build hijau; **11 tes** `tenant-schema.test.ts` (kosong ≠ hari ini; tengah malam UTC; `2026-02-31` ditolak; pergi-pulang format tidak menggeser hari), **+5** `describe("masa berlaku paket")` di `plan-limits.test.ts` (hari terakhir masih penuh; jarak dari hari kalender, bukan selisih jam), **+4** `describe("riwayat paket")` di berkas yang sama (perpanjangan PRO→PRO juga peristiwa — jadi keputusan "kapan riwayat ditulis" dipindah dari Server Action ke kosakata `riwayatPerluDitulis()` dan hanya diuji di sana), dan **+5** di `plan-status.test.ts` (kalimatnya; dan "kedaluwarsa" tidak boleh berbeda pendapat dengan `planEfektif` pada offset −10…+10), **+8** penjaga di `describe("masa berlaku & riwayat paket")` (`freemium-honesty.test.ts` 28 tes / 8 suite): hanya dua titik yang boleh menilai tanggal, setiap perubahan paket menulis riwayat, riwayat append-only dan kolomnya lengkap, menurunkan paket tidak memanggil `delete`, kedua dialog punya `type="date"`, halaman paket membaca `planTerkontrak`, dan migrasinya aditif. `migrate status` bersih + `migrate diff` = *"This is an empty migration"*; diverifikasi di browser pada fase AE — dan di sanalah **hitungan harinya ternyata salah zona** dan dikoreksi |
+| AE | **Gerbang akhir backlog freemium (Z–AE): verifikasi browser + koreksi zona yang ditemukannya.** Dijalankan pada `next start` build produksi (port 3104) dengan tenant uji `toko-verif-ad` + dua akun sementara, semuanya dihapus lagi setelahnya. Yang dibuktikan di layar, bukan hanya di kode: (1) PRO **tanpa** tanggal (`berkah-haramain`) — sel PAKET hanya menulis "PRO", tidak ada notice, akses tetap PRO, jadi deploy fase AD benar-benar tidak mengubah penyewa yang berjalan; (2) **perpanjangan** PRO→PRO ke tanggal baru — baris `PlanChange` kedua tercatat (`PRO→PRO`, `expiresAt` 30 Nov, oleh Super Admin, nomor transaksi di `catatan`) dan riwayat di dialog "Kelola Tenant" membacanya terbaru-duluan; (3) **tanggal lewat** (20 Sep) — tabel Super Admin menulis "PRO · kedaluwarsa 20 Sep 2026 · sudah lewat 6 hari" sementara kolom `plan` tetap PRO, dashboard + sidebar tenant yang login sungguhan berjalan sebagai FREE, modul Program bergembok dengan CTA upgrade, dan halaman Paket mengulang kalimat yang sama + "Perpanjang PRO — Rp 149.000/bulan"; nol pesan console di semuanya. Yang **tidak** dibuktikan di browser: "menurunkan paket tidak menghapus data" — tenant uji sengaja dibuat kosong, jadi yang memegang janji itu tetap penjaga struktural di `freemium-honesty.test.ts`. **Temuan yang memperbaiki kode:** angka "sisa N hari" dihitung dari **hari UTC**, padahal seluruh penyewanya di WIB — terukur pada mesin Asia/Jakarta pukul 04:01 WIB (25 Sep 21:01 UTC): baris yang sama menulis "DIBUAT 26 Sep 2026" dan "sisa **10** hari" untuk tanggal yang benar adalah 9, jadi setiap 07:00–13:59 WIB penyewa dan admin membaca satu hari terlalu banyak (di server UTC: setiap pagi). Kini `plan-limits.ts` punya `ZONA_PAKET_MS`/`hariPenyewa()` — hari paket adalah hari WIB (UTC+7, tidak punya musim panas) dan hari terakhir dilayani sampai 00:00 WIB hari berikutnya; tanggal input admin tetap hari UTC yang ia ketik, sehingga yang dipindahkan hanya "hari ini". | tsc/lint/**267 tes / 72 suite**/build hijau (nol kegagalan), `migrate status` 11 migrasi + `migrate diff` = *"This is an empty migration"*; **+3 tes** untuk koreksi zonasinya (2 di `plan-limits.test.ts`: sisa hari dari hari penyewa & hari terakhir sampai habis harinya; 1 di `plan-status.test.ts`: kalimat "berakhir hari ini" pada pagi WIB). **Dibuktikan bisa merah:** `ZONA_PAKET_MS = 0` — yaitu aturan sebelum koreksi — memerahkan tepat ketiga tes itu (34/37 sisanya tetap hijau), lalu dikembalikan. Setelah perbaikan, layar yang sama membaca "sisa 9 hari" di sebelah "26 Sep 2026". |
 
 Konflik gating batch (K7) juga diselesaikan di fase D: `isBatchTrackingEnabled()` kini hanya menerima `plan` dan mendelegasikan ke `plan-limits.ts`, sehingga tidak ada lagi dua aturan yang bertabrakan.
 
@@ -278,7 +285,7 @@ Konflik gating batch (K7) juga diselesaikan di fase D: `isBatchTrackingEnabled()
 | Fase | Pekerjaan | Catatan penting |
 |---|---|---|
 | Tahap 3 | **Pembayaran bertahap** (P2 #6) | Model pembayaran (DP/cicilan/termin) + pengakuan pendapatan per pembayaran; menyentuh `updateInvoiceStatus` dan `dashboard-summary.ts`. Juga membuka kebutuhan kontraktor |
-| Sisa Tahap 2 | **Yang sengaja ditinggal** (PRD 4.G.6) | Valuasi stok otomatis untuk zakat perniagaan (`costPrice` sudah membuka jalannya); perbaikan massal harga modal batch lama (obyeknya impor stok Tahap 4); laporan Laba/Rugi penuh per periode (bukan hanya kartu dashboard). **Satu lubang terbukti lewat data (bukan dugaan):** tenant yang stoknya tidak pernah melewati Stok Masuk tidak punya satu baris `StockMovement` pun, jadi HPP = 0 **dan** `unitModalBelumTercatat` = 0 — kartu Laba Bersih tampak bersih padahal modalnya belum pernah dicatat (dilihat pada tenant demo: 3 invoice lunas, 0 movement, batch `costPrice=NULL`). Yang dibutuhkan adalah penanda "stok awal belum ada modalnya" di dashboard, bukan diam-diam. |
+| Sisa Tahap 2 | **Yang sengaja ditinggal** (PRD 4.G.6) | Valuasi stok otomatis untuk zakat perniagaan (`costPrice` sudah membuka jalannya); perbaikan massal harga modal batch lama (obyeknya impor stok Tahap 4); laporan Laba/Rugi penuh per periode (bukan hanya kartu dashboard). ~~Lubang "kartu Laba Bersih tampak bersih padahal modalnya belum dicatat"~~ — **sudah ditutup Fase 0.1** (lihat §6 baris `F0.1`). |
 | Tahap 4 | **Impor & ekspor CSV, lalu Laba/Rugi sederhana** (P5 #17) | Impor produk/pelanggan/piutang awal/stok awal adalah penentu adopsi; Laba/Rugi bergantung Tahap 2 |
 | J | Fitur PRO: **cicilan/bertahap**, **multi-gudang**, **favicon kustom** | Cicilan menyatu dengan Tahap 3. Multi-gudang greenfield (`Warehouse` + `warehouseId` di `InventoryBatch`, `alokasiFefoKeluar`, 4 query baca, 3 tabel, 2 form). Favicon jauh lebih kecil |
 | Kategori | **Kategori produk dari preset** (P5 #16) | Butuh kolom kategori di produk; `tenant.categories` sudah terisi tetapi belum dipakai |
@@ -288,6 +295,146 @@ Konflik gating batch (K7) juga diselesaikan di fase D: `isBatchTrackingEnabled()
 | Sandi | **Ganti kata sandi untuk pengguna yang sudah masuk** | Sampai hari ini tidak ada caranya: `updateUser` melarang menyentuh baris OWNER milik sendiri, jadi pemilik tenant FREE tidak pernah bisa mengganti sandinya secara sukarela. Fase S hanya menutup kasus *lupa* sandi. Kecil: satu form + satu action berpemanggil-sama (`getSessionUser()`, wajib cocokkan sandi lama) |
 | O | Error tracking / logging terpusat; pertimbangkan limiter berbasis Redis bila trafik naik | Limiter sekarang berbasis database — cukup untuk skala kini, tetapi menambah satu query per percobaan login |
 | POS | Keputusan produk tersendiri untuk RETAIL_FNB | POS sungguhan butuh offline, barcode, printer struk, laci uang — praktisnya produk kedua. Jangan dibangun setengah jalan |
+
+---
+
+## 6A. Arah baru: produk akuntansi global (dimulai 9 Oktober 2026)
+
+Dokumen yang mengarahkan produk ke depan: **[`PRD.md`](../PRD.md)**, **[`ARSITEKTUR.md`](../ARSITEKTUR.md)**, **[`AGENT.md`](../AGENT.md)**. Ketiganya jadi rujukan utama mulai fase ini; `TARADINMU-PRD.md` tetap berlaku untuk kode yang sudah ada.
+
+**Alasan arah berubah.** Audit terhadap kode sendiri menunjukkan tidak ada mesin akuntansi sama sekali: di `prisma/schema.prisma`, pencarian `Journal`, `LedgerAccount`, `ChartOfAccount`, `posting`, dan `doubleEntry` mengembalikan **nol** untuk semua. Semua angka dashboard berasal dari agregat `Expense` + `Invoice` + `StockMovement`. Sementara itu Accurate Online memuat 14 modul termasuk double-entry, e-Faktur, dan rekonsiliasi bank. Jarak itu tidak ditutup dengan menumpuk fitur di atas fondasi yang tidak ada — ia ditutup dengan membangun GL-nya.
+
+Catatan teknis yang ditemukan saat Fase 0 ini: `model Account` di `schema.prisma` sudah dipakai NextAuth (tabel OAuth), sehingga tabel Chart of Accounts **harus** bernama `LedgerAccount`.
+**Fase 0 — Fondasi (selesai 2026-10-09)**
+
+| ID | Pekerjaan | Status |
+|---|---|---|
+| `F0.1` | Penanda "HPP belum lengkap" di dashboard | **Selesai** |
+| `F0.2` | `Decimal(18,4)` + `Tenant.currency` + `Tenant.timezone` | **Selesai** |
+| `F0.3` | `src/lib/zona-waktu.ts`; konstanta `ZONA_PAKET_MS` diganti fungsi zona | **Selesai** |
+| `F0.4` | Landing page dibebaskan dari sebutan organisasi | **Selesai** |
+
+**Fase 1 — GL (dimulai 2026-10-09)**
+
+| ID | Pekerjaan | Status |
+|---|---|---|
+| `F1.1` | Skema `LedgerAccount` / `JournalEntry` / `Posting` / `AccountingPeriod` | **Selesai** |
+| `F1.2` | Constraint SQL yang tidak bisa dibuat Prisma (6 trigger) | **Selesai** |
+| `F1.3` | Template CoA (`src/modules/accounting/coa.ts`, 16 akun) | **Selesai** |
+| `F1.4` | Engine jurnal murni + 32 test (`engine-jurnal.ts`) | **Selesai** |
+| `F1.5` | Penanaman CoA idempoten (`tanam-coa.ts`) + hooked ke registrasi | **Selesai** |
+| `F1.6` | Siklus penuh terverifikasi di PostgreSQL asli | **Selesai** |
+| `F1.7` | `simpanJurnal` + `batalkanJurnal` dengan gerbang tenant | **Selesai** |
+| `F1.8` | Dual-write jurnal ke Invoice (pendapatan/pembayaran/HPP) + Expense | **Selesai.** Expense kini dijurnal (buat/ubah/hapus): jurnal beban + pembalik, PURCHASE ditolak sebagai beban, idempotensi jurnal aktif (bukti PostgreSQL 18/18) |
+| `F1.9` | Reconciliation report: agregat vs journal | **Selesai** |
+| `F1.10` | Perpindahan dashboard dari agregat ke journal (**breaking change**) | Belum — perlu keputusan go/no-go |
+| `F1.11` | Halaman CoA & buku besar (UI) | **Mesin laporan selesai & terbukti di PostgreSQL asli (26/26):** Laba Rugi, Neraca, Arus Kas, Percobaan Balance, Buku Besar, isolasi periode. `laporan-murni.ts` (aritmetika murni, 25 tes) + `laporan.ts` (query). **UI CoA belum** |
+| `F1.12` | Tutup periode (AccountingPeriod) via UI | Belum |
+
+### Audit data produksi (2026-10-09, EC2)
+
+Klaim "tidak ada tenant aktif" diverifikasi terhadap database produksi. Hasilnya
+**sebagian benar**, dan ini mengubah rencana migrasi:
+
+| Tenant | Akun | Invoice | Status |
+|---|---|---|---|
+| `berkah-haramain` | demo (`owner@…id`) | 5 | data seeder |
+| `toko-berkah` | demo (`owner@…id`) | 3 | data seeder |
+| `ayam-penyet-sehat` | `risoltayo@gmail.com` | 0 | **aktif, tanpa pembukuan** |
+| `bang-arsyad-nangka` | `windasarigultom@gmail.com` | 0 | **aktif, tanpa pembukuan** |
+| `doorsmer` | `luthfieng@gmail.com` | 0 | **aktif, tanpa pembukuan** |
+
+Total: 6 akun, 5 produk, 8 invoice, 2 expense, **0 StockMovement**, 0 supplier.
+
+Artinya:
+- **Tidak ada backfill pembukuan yang perlu dipikirkan.** Tiga tenant aktif
+  tidak punya satu pun invoice atau expense, jadi tidak ada data historis yang
+  harus dikonversi ke journal.
+- **Tiga akun itu nyata** dan harus tetap bisa login. Migrasi tidak boleh
+  menyentuh kredensial; hanya menambah tabel GL dan mengisi CoA-nya.
+- Yang perlu dijaga adalah 8 invoice data seeder (Rp 239.956.000), dan itu
+-- bukan uang sungguhan. Boleh dihapus saat migrasi.
+
+### Bukti Fase 1.8/1.9 (server produksi, `next start`, login sungguhan)
+
+Siklus penuh: buat batch → buat invoice SENT → FEFO keluar 10 unit → ubah ke PAID
+→ catat pengeluaran. Semua lewat `tulisJurnalInvoice` yang dipanggil dari
+`updateInvoiceStatus`.
+
+| Yang diperiksa | Hasil |
+|---|---|
+| DRAFT → SENT menulis jurnal pendapatan | 1 jurnal |
+| **Pemanggilan kedua (idempotensi)** | jurnal yang **sama** dikembalikan, total tetap **1** |
+| SENT → PAID menulis kas + HPP | 2 jurnal |
+| Pengeluaran RENT | 1 jurnal |
+| Rekonsiliasi Pendapatan | agregat 1100 = journal 1100 |
+| Rekonsiliasi Kas masuk | agregat 1100 = journal 1100 |
+| Rekonsiliasi Pengeluaran | agregat 250 = journal 250 |
+| Rekonsiliasi HPP | agregat 4000 = journal 4000 |
+| Dokumen tanpa jurnal | 0 invoice, 0 expense |
+| Total journal | debit 6450 = kredit 6450 |
+
+**Idempotensi adalah bagian yang paling mudah rusak dan paling mahal kalau
+rusak**: klik ganda pada "tandai lunas" akan membukukan penerimaan kas dua kali,
+dan karena `Posting` tidak bisa di-UPDATE, salahnya hanya bisa diperbaiki dengan
+jurnal pembalik yang menambah kekacauan.
+
+**Yang discovered saat menulis `jurnal-dari-invoice.ts`:** `subtotal` di engine
+adalah nominal **rupiah**, bukan jumlah unit. Versi pertama mengirim
+`quantity`, yang benar hanya kalau harga satuan seragam — dan invoice campuran
+(barang + jasa) justru kasus paling umum di usaha jasa. Diperbaiki ke
+`quantity × price` sebelum sempat dipakai.
+
+**Yang sudah terbukti, bukan diklaim:**
+
+- 337 tes / 82 suite hijau; `tsc`, `lint`, `build` hijau.
+- Migrasi `tbl_gl` jalannya di **PostgreSQL sungguhan** (Docker `postgres:17`),
+  bukan hanya di `prisma dev`. Alasannya ada di `AGENT.md` §2.1.
+- Sembilan pelanggaran dibuktikan **ditolak database**: jurnal tidak seimbang,
+  nominal nol, nominal negatif, akun dobel dalam satu jurnal, jurnal tanpa
+  posting, jurnal ke periode tertutup, pembatalan ganda, kode akun dobel,
+  **akun milik tenant lain**, dan posting mata uang yang beda dengan jurnalnya.
+- **Satu siklus bisnis penuh** dijalankan dari nol di PostgreSQL asli: jual
+  Rp 1.100.000, catat HPP Rp 600.000, terima pembayaran. Buku besar yang dibaca
+  dari journal menghasilkan `total debit = total kredit` (Rp 2.800.000),
+  laba kotor Rp 500.000, saldo piutang nol. (`scripts/bukti-gl-penuh.ts`)
+- **`simpanJurnal` & `batalkanJurnal` dijalankan di server produksi** (`next
+  start`) dengan login sungguhan, karena keduanya memanggil `assertTenantMember`
+  yang membaca sesi NextAuth — memanggilnya dari script biasa selalu ditolak,
+  jadi "terbukti" tidak berarti apa-apa. Hasil: posting tersimpan, pembatalan
+  menghasilkan jurnal pembalik, pembatalan kedua ditolak
+  (`SUDAH_DIBATALKAN`), dan kode akun yang sama di dua tenant tidak pernah
+  tercampur (`aman: true`).
+- Penanaman CoA **idempoten**: dipanggil dua kali, akun tetap 16.
+- Tiga mutasi engine membuat test merah — aturan "satu akun sekali" (1 test),
+  default invoice barang/jasa (2 test), aturan "jurnal harus seimbang" (1 test).
+  Test yang tidak pernah merah tidak membuktikan apa pun.
+
+**Yang ditemukan dan diperbaiki saat Fase 1 (berguna untuk sesi berikutnya):**
+
+1. `prisma dev` adalah emulator SQLite. Ia melaporkan "berhasil" untuk trigger
+   PL/pgSQL yang **tidak pernah dieksekusi**. Constraint GL baru terbukti setelah
+   dijalankan di PostgreSQL asli.
+2. Prisma self-relation satu arah hanya membuat **satu** kolom FK. Skema
+   `reversedBy`/`reversedFrom` tidak pernah menghasilkan `reversedFromId`, dan
+   trigger-nya gagal saat dijalankan. Diperbaiki: satu sisi saja (scalar
+   `reversedFromId`), yang dijawab lewat query, bukan dua kolom.
+3. Default invoice di engine sempat salah: tanpa `subtotal`, seluruh penjualan
+   masuk akun **jasa**. Test yang menangkapnya sekarang ada di
+   `engine-jurnal.test.ts` ("tanpa subtotal, seluruh invoice dianggap barang").
+4. `LedgerAccount.parentId` sengaja **tidak** diisi. Laporan mengelompokkan lewat
+   enum `AccountType`, jadi hierarki tidak perlu untuk laporan yang ada sekarang.
+
+**Fase 1 — GL adalah langkah berikutnya.** `LedgerAccount`, `JournalEntry`,
+`Posting`, `AccountingPeriod`, constraint database, template CoA, jurnal otomatis,
+reverse entry. Detail skema di `ARSITEKTUR.md` §3.
+
+⚠️ **Fase 1 adalah breaking change dan satu-satunya yang tidak bisa di-shortcut.**
+Angka dashboard wajib pindah dari agregat `Expense` ke journal. Lima tenant PROD
+perlu jalur migrasi. Keputusan yang masih terbuka: apa yang dilakukan pada data
+lama (backfill vs input ulang) — `PRD.md` §9 butir 2.
+
+**Yang TIDAK masuk rencana:** manufaktur penuh, multi-gudang, e-commerce sync, HRIS penuh, integrasi DJP langsung, 200+ laporan. Semuanya alasan dan alasannya di `PRD.md` §4.
 
 ---
 
@@ -320,7 +467,7 @@ Konflik gating batch (K7) juga diselesaikan di fase D: `isBatchTrackingEnabled()
 ```bash
 npx tsc --noEmit        # tipe
 npm run lint            # eslint
-npm run test            # 194 tes logika murni (Node test runner lewat tsx)
+npm run test            # 267 tes logika murni (Node test runner lewat tsx)
 npm run build           # wajib: sekaligus meregenerasi tipe rute baru
 npx prisma migrate status
 npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script
@@ -399,7 +546,12 @@ Sembilan jebakan yang sudah memakan waktu dan sebaiknya dihindari lagi:
    on model StockMovement` — persis seperti migrasi belum dijalankan. Jangan
    langsung mengubah kode: cek kolom di DB dan client yang ter-generate, lalu
    **restart dev server** (atau pakai `next start` hasil build, seperti yang
-   dilakukan verifikasi fase X).
+   dilakukan verifikasi fase X dan AE). Gejalanya ikut berubah tiap kali ada
+   kolom baru — `Unknown field 'unitCost'` (fase Y), lalu
+   `Unknown argument \`planExpiresAt\` ... at getAllTenants (tenant-actions.ts)`
+   (fase AE, pada tiga port sisa sesi sebelumnya yang masih melayani build lama).
+   Keduanya jebakan proses, bukan bug perubahan; `src/lib/prisma.ts` memang
+   mengimpornya sejak awal, jadi satu-satunya obatnya proses baru.
 9. **`window.print()` membekukan CDP.** Tombol "Cetak Laporan Zakat"
    (`src/modules/core/components/zakat-tabs.tsx`) memanggil print native; begitu
    dialognya terbuka, setiap perintah chrome-devtools berikutnya
@@ -476,3 +628,28 @@ fase S (§4 P0).
    diputuskan nanti: (a) belum ada verifikasi email saat pendaftaran (fase N), dan
    (b) mengganti kata sandi **tidak** mengakhiri sesi JWT yang sedang aktif, jadi
    reset karena curiga akun dibajak tidak mengusir penyusupnya.
+8. **Tagihan otomatis — tiga hal freemium yang sengaja TIDAK dikerjakan (fase Z–AE).**
+   Yang dibangun adalah *pembungkusnya* (masa berlaku, riwayat, halaman paket, telemetri
+   klik); pemutus-langkahnya masih keputusan pemilik produk:
+   - **Payment gateway.** Bukan pekerjaan kode semata: butuh akun merchant (Midtrans/Xendit
+     dll.), kunci API produksi, dan webhook yang dicocokkan — semuanya di luar kendali repo.
+     Sampai ada, aktivasi & perpanjangan PRO tetap manual lewat WhatsApp, dan kolom
+     `catatan` pada `PlanChange` adalah tempat nomor transaksi itu disimpan supaya
+     penagihan bulan berikutnya tidak perlu menebak dari log obrolan.
+   - **Uji coba PRO 14 hari.** Butuh tiga keputusan dulu: dihitung dari apa (tenant/pengguna/
+     metode bayar), apa yang terjadi saat jatuh (turun FREE otomatis — jalurnya sudah ada lewat
+     `planExpiresAt`, jadi secara teknis tinggal mengirim tanggal), dan apakah itu menambah
+     satu paket ketiga di `PLAN_LIMITS` yang selama ini dua kolom. Kode sudah siap
+     (kolomnya nullable dan FREE tidak pernah kedaluwarsa); yang belum adalah kebijakannya.
+   - **Harga tahunan / diskon berlangganan.** `HARGA_PRO_BULAN` adalah satu angka bulanan dan
+     dipakai semua ajakan upgrade; menambahkan "tahunan hemat 2 bulan" berarti menyiapkan tempat
+     kedua untuk angka itu sebelum menuliskannya di mana pun (PRD 4.D: satu harga, satu sumber).
+9. **Tempat pemberitahuan kedaluwarsa — perlu keputusan pemilik produk (dari verifikasi AE).**
+   Kalimat "kedaluwarsa … · sudah lewat N hari" + tombol "Perpanjang PRO" hari ini ada di dua
+   permukaan: halaman Paket (`/dashboard/paket`) dan tabel Super Admin. Tenant yang PRO-nya baru
+   lewat mendarat di dashboard dan hanya melihat badge FREE di sidebar; yang terbuka di sana adalah
+   gembok per fitur dengan bunyi "Upgrade ke PRO" — tidak salah, tapi tidak menyebut bahwa ia
+   baru saja berhenti berlangganan. Menambah banner di dashboard berarti menagih di muka, dan itu
+   bertentangan dengan "kunci kemampuan, jangan kunci kebenaran"; menghapusnya berarti penyewa yang
+   lupa bisa berjalan berbulan-bulan sebagai FREE tanpa sadar. Belum dikerjakan karena ini
+   keputusan nada, bukan keputusan teknis.

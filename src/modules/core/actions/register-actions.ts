@@ -9,9 +9,11 @@ import {
   pesanValidasi,
 } from "@/lib/action";
 import { getPresetConfig } from "@/lib/business-presets";
+import { catatPeringatan } from "@/lib/log";
 import { signIn } from "@/modules/core/auth";
 import { registerSchema } from "@/modules/core/schemas/register-schema";
 import { slugify } from "@/modules/core/utils";
+import { tanamCoa } from "@/modules/accounting/tanam-coa";
 import { isReservedSlug } from "@/shared/constants";
 
 export type RegisterActionState = {
@@ -67,7 +69,7 @@ export async function registerTenantWithPreset(
     const passwordHash = await hash(data.ownerPassword, 10);
 
     // Tenant + user OWNER dibuat dalam satu query bersarang (atomik).
-    await prisma.tenant.create({
+    const tenant = await prisma.tenant.create({
       data: {
         name: data.businessName,
         slug,
@@ -84,7 +86,18 @@ export async function registerTenantWithPreset(
           },
         },
       },
-      select: { id: true },
+      select: { id: true, currency: true },
+    });
+
+    // Chart of Accounts ditanam setelah tenant ada. Boleh gagal TANPA membatalkan
+    // registrasi: akun yang belum ada akan diambil tenant_factory saat dia
+    // membuka pembukuannya, dan membatalkan pendaftaran karena masalah akun
+    // akan membuat orang kehilangan data usaha yang sudah mereka ketik.
+    await tanamCoa(tenant.id, tenant.currency).catch((error: unknown) => {
+      catatPeringatan(`CoA gagal ditanam: ${pesanErrorUmum(error)}`, {
+        aksi: "tanamCoa",
+        tenantId: tenant.id,
+      });
     });
   } catch (error) {
     if (isUniqueConstraintError(error)) {

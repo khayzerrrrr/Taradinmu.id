@@ -61,7 +61,11 @@ export function UserTable({ users, meta, search, bolehTambah }: Props) {
   const tombolTambah = bolehTambah ? (
     <UserFormDialog />
   ) : (
-    <UpgradeModal fitur="Pengguna tambahan" kunci="USERS">
+    <UpgradeModal
+      fitur="Pengguna tambahan"
+      kunci="USERS"
+      sumber="HALAMAN_PENGGUNA"
+    >
       <Button>
         <UserCog />
         Tambah Pengguna

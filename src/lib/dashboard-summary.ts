@@ -1,6 +1,12 @@
 import type { PlanType } from "@/generated/prisma/client";
-import { HPP_NOL, labaKotor, type HasilHpp } from "@/lib/hpp";
-import { hppInvoiceLunas } from "@/lib/hpp-query";
+import {
+  HPP_NOL,
+  KELENGKAPAN_MODAL_NONAKTIF,
+  labaKotor,
+  type HasilHpp,
+  type KelengkapanModal,
+} from "@/lib/hpp";
+import { hppInvoiceLunas, ringkasanKelengkapanModal } from "@/lib/hpp-query";
 import { BEBAN_NOL, hitungArusKas, hitungLaba, pilahBeban } from "@/lib/laba";
 import {
   ambilBatasFitur,
@@ -90,6 +96,17 @@ export type RingkasanOwner = {
   hppBulanIni: number;
   /** Unit keluar yang batch-nya tidak punya harga modal; HPP bulan ini kurang besar. */
   unitModalBelumTercatat: number;
+  /**
+   * Apakah `hppBulanIni` boleh dibaca sebagai angka utuh (Fase 0.1).
+   *
+   * Diperisahkan dari `unitModalBelumTercocat` karena satu lubang tidak
+   * tertangkapnya: tenant yang stoknya tidak pernah melewati Stok Masuk punya
+   * nol movement SEHINGGA nol HPP dan nol `unitModalBelumTercatat` sekaligus.
+   * Tanpa penanda ini, kartu Laba Bersih terlihat bersih padahal modalnya belum
+   * pernah dicatat — dan zakat penghasilan, yang dihitung dari laba usaha, ikut
+   * mewarisi kesalahan itu.
+   */
+  kelengkapanModal: KelengkapanModal;
   /** Pendapatan bulan ini − HPP. Hanya ditampilkan pada paket PRO. */
   labaKotorBulanIni: number;
   /** Laporan HPP & margin tersedia pada paket ini (PRD 4.G.5). */
@@ -210,6 +227,12 @@ export async function getOwnerSummary(
     ? await hppInvoiceLunas(tenantId, batasBulanIni)
     : HPP_NOL;
 
+  // Penanda "HPP ini belum layak dipercaya" (Fase 0.1). Modul Inventory mati
+  // bukan berarti datanya salah, jadi tidak diperingatkan.
+  const kelengkapanModal: KelengkapanModal = inventoryAktif
+    ? await ringkasanKelengkapanModal(tenantId, batasBulanIni)
+    : KELENGKAPAN_MODAL_NONAKTIF;
+
   // --- Estimasi zakat penghasilan ---
   // Dasar zakat adalah LABA, bukan arus kas: toko yang bulan ini menghabiskan kas
   // untuk menimbun stok belum tentu untung — tapi juga belum tentu rugi.
@@ -316,6 +339,7 @@ export async function getOwnerSummary(
     labaBersihBulanIni: labaBersih,
     hppBulanIni: hppBarang.hpp,
     unitModalBelumTercatat: hppBarang.unitTanpaModal,
+    kelengkapanModal,
     labaKotorBulanIni: labaKotor(pendapatanBulanIni, hppBarang.hpp),
     laporanHppAktif: ambilBatasFitur(plan, "HPP"),
     estimasiZakat: hasilZakat.estimasi,

@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import {
   Field,
+  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -52,6 +53,7 @@ export function TenantFormDialog() {
       slug: "",
       subdomain: "",
       plan: "FREE",
+      expiresAt: "",
       enabledModules: ["INVENTORY", "BILLING"],
       ownerName: "",
       ownerEmail: "",
@@ -153,6 +155,26 @@ export function TenantFormDialog() {
                     <SelectItem value="PRO">PRO</SelectItem>
                   </SelectContent>
                 </Select>
+              </Field>
+
+              {/* Provisioning tenant PRO jarang terjadi tanpa tanggal berakhir:
+                  tanpa kolom ini admin harus membuka dialog "Kelola" juga. */}
+              <Field data-invalid={Boolean(errors.expiresAt)}>
+                <FieldLabel htmlFor="expiresAt">
+                  Berlaku sampai (opsional)
+                </FieldLabel>
+                <Input
+                  id="expiresAt"
+                  type="date"
+                  disabled={plan !== "PRO"}
+                  {...form.register("expiresAt")}
+                />
+                <FieldDescription>
+                  {plan === "PRO"
+                    ? "Kosong = tanpa tanggal berakhir."
+                    : "Tanggal berakhir hanya dipakai pada paket PRO."}
+                </FieldDescription>
+                <FieldError errors={[errors.expiresAt]} />
               </Field>
             </FieldGroup>
           </FieldSet>

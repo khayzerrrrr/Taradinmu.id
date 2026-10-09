@@ -92,6 +92,37 @@ enum ProgramStatus {
   CANCELLED // Dibatalkan (bisa dari status mana pun)
 }
 
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum JournalSource {
+  INVOICE
+  PAYMENT
+  STOCK
+  EXPENSE
+  MANUAL
+  OPENING
+  REVERSAL
+  CLOSING
+}
+
+enum PeriodStatus {
+  OPEN
+  CLOSED
+}
+
+/// Sisi jurnal. DEBIT menambah aset dan beban; KREDIT menambah liabilitas,
+/// ekuitas, dan pendapatan.
+enum PostingSide {
+  DEBIT
+  CREDIT
+}
+
 model Tenant {
   id              String   @id @default(cuid())
   name            String // Nama Usaha (e.g., "Klinik Sehat Muhammadiyah")
@@ -99,6 +130,32 @@ model Tenant {
   subdomain       String?  @unique // Untuk subdomain (e.g., "klinik-sehat" -> klinik-sehat.taradinmu.id)
 
   plan            PlanType @default(FREE)
+  /// Batas masa berlaku paket PRO (PRD 4.D.4). null = tanpa tanggal berakhir:
+  /// dipakai FREE, dan oleh PRO lama yang masanya belum dicatat Super Admin.
+  /// Setelah tanggal ini lewat, tenant berjalan sebagai FREE tanpa datanya
+  /// dihapus — dilihat dari `planEfektif()`, bukan dari kolom `plan`.
+  planExpiresAt   DateTime?
+
+  // --- Identitas lokalitas usaha (Fase 0.2, PRD §3 "Regulatory per negara") ---
+  //
+  // Dua kolom ini ada karena produk dit diarahkan ke luar Indonesia, dan
+  // keduanya tidak bisa ditebak kemudian tanpa mengubah data yang sudah ada.
+  //
+  // `currency` menentukan presisi & format nominal. Semua kolom uang widened ke
+  // Decimal(18,4) pada fase yang sama: IDR tidak butuh desimal, USD/Euro butuh
+  // dua, dan tuple beberapa pasar Timur Tengah bisa butuh tiga — Decimal(12,2)
+  // hanya menyisakan 10 digit bulat, sedangkan akumulasi nominal dalam satu
+  // tenant bisa melampauinya.
+  //
+  // `timezone` menentukan "hari" untuk seluruh perhitungan bisnis. Nilai ini
+  // bukan装饰: calculating "sisa N hari" dari hari UTC membuat penyewa di WIB
+  // membaca satu hari terlalu banyak setiap pagi (terbukti di fase AE).
+  //@Column(Char(3)) karena ISO 4217 selalu tiga huruf — VARCHAR, bukan integer.
+  currency        String   @default("IDR") @db.Char(3)
+  /// IANA timezone, mis. "Asia/Jakarta". Bukan offset: zona punya aturan DST,
+  /// sehingga offset yang disimpan akan salah setiap kali negara mengubahnya.
+  timezone        String   @default("Asia/Jakarta")
+
   businessType    BusinessType @default(OTHER) // Jenis usaha (PRD: menentukan perilaku modul)
   enabledModules  String[] // Array modul aktif: ["INVENTORY", "BILLING"]
   categories      String[] // Kategori default dari preset jenis usaha (diisi saat registrasi)
@@ -119,6 +176,11 @@ model Tenant {
   expenses        Expense[]
   zakatCalculations ZakatCalculation[]
   programs          Program[]
+  upgradeInterests  UpgradeInterest[]
+  planChanges       PlanChange[]
+  ledgerAccounts    LedgerAccount[]
+  journalEntries    JournalEntry[]
+  accountingPeriods AccountingPeriod[]
 }
 
 model User {
@@ -133,6 +195,8 @@ model User {
   role          Role      @default(STAFF)
   accounts      Account[]
   sessions      Session[]
+  /// Riwayat paket yang diubah akun ini (hanya Super Admin yang punya aksi itu).
+  planChanges   PlanChange[]
   createdAt     DateTime  @default(now())
 }
 
@@ -196,7 +260,7 @@ model ProductVariant {
   product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   sku          String   @unique
   name         String // e.g., "Paracetamol 500mg" atau "Baju Koko - L - Putih"
-  price        Decimal  @db.Decimal(12, 2)
+  price        Decimal  @db.Decimal(18, 4)
   batches      InventoryBatch[]
   invoiceItems InvoiceItem[]
 }
@@ -236,7 +300,7 @@ model InventoryBatch {
   // membuat HPP bulan lalu ikut berubah setelah pembelian berikutnya.
   // Nullable SENGAJA: batch lama tidak punya catatan harga modal, dan memaksa 0
   // menghasilkan laba yang membengkak palsu — lebih jujur ditulis "belum tahu".
-  costPrice      Decimal? @db.Decimal(12, 2)
+  costPrice      Decimal? @db.Decimal(18, 4)
   // Penghapusan pemasok tidak boleh menghapus batch: SetNull, sama seperti
   // aturan programId pada Invoice/Expense (PRD 4.F.9).
   supplierId     String?
@@ -256,7 +320,7 @@ model StockMovement {
   // Salinan costPrice batch pada saat potongan terjadi (PRD 4.G.3): dasar HPP.
   // Potret sesaat, bukan view turunan — koreksi costPrice belakangan tidak boleh
   // mengubah HPP yang sudah tercatat.
-  unitCost    Decimal? @db.Decimal(12, 2)
+  unitCost    Decimal? @db.Decimal(18, 4)
   reference   String? // e.g., "INV-001" atau "PO-002"
   notes       String?
   createdAt   DateTime @default(now())
@@ -289,8 +353,8 @@ model Invoice {
   customerId    String
   customer      Customer @relation(fields: [customerId], references: [id])
   invoiceNumber String   @unique
-  totalAmount   Decimal  @db.Decimal(12, 2)
-  taxAmount     Decimal  @db.Decimal(12, 2) @default(0)
+  totalAmount   Decimal  @db.Decimal(18, 4)
+  taxAmount     Decimal  @db.Decimal(18, 4) @default(0)
   status        InvoiceStatus @default(DRAFT)
   dueDate       DateTime
   paidAt        DateTime? // diisi saat status menjadi PAID (dasar pendapatan)
@@ -317,8 +381,8 @@ model InvoiceItem {
   variantId String
   variant   ProductVariant @relation(fields: [variantId], references: [id])
   quantity  Int
-  price     Decimal  @db.Decimal(12, 2) // harga satuan saat invoice dibuat
-  subtotal  Decimal  @db.Decimal(12, 2)
+  price     Decimal  @db.Decimal(18, 4) // harga satuan saat invoice dibuat
+  subtotal  Decimal  @db.Decimal(18, 4)
 }
 
 // --- MODUL AKUNTANSI ---
@@ -328,7 +392,7 @@ model Expense {
   tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   category      ExpenseCategory @default(OTHER)
   description   String // Keterangan pengeluaran
-  amount        Decimal         @db.Decimal(12, 2)
+  amount        Decimal         @db.Decimal(18, 4)
   expenseDate   DateTime        @default(now())
   paymentMethod String? // e.g., "CASH", "TRANSFER"
   reference     String? // Nota/bukti terkait
@@ -362,8 +426,8 @@ model Program {
   // Target dana masuk dan anggaran keluar, keduanya opsional: travel umrah
   // peduli pada target dana, kontraktor pada anggaran. Memaksa dua-duanya
   // hanya menghasilkan kolom kosong yang diisi asal.
-  targetAmount Decimal?      @db.Decimal(14, 2)
-  budgetAmount Decimal?      @db.Decimal(14, 2)
+  targetAmount Decimal?      @db.Decimal(18, 4)
+  budgetAmount Decimal?      @db.Decimal(18, 4)
 
   participants ProgramParticipant[]
   invoices     Invoice[]
@@ -403,12 +467,12 @@ model ZakatCalculation {
   // dikelompokkan dan dicetak per bulan. Nullable demi baris lama sebelum migrasi.
   periodMonth        Int?
   periodYear         Int?
-  totalAssets        Decimal   @db.Decimal(14, 2) // Total harta/aset usaha
-  totalLiabilities   Decimal   @db.Decimal(14, 2) @default(0) // Hutang/kewajiban
-  netAssets          Decimal   @db.Decimal(14, 2) // Harta bersih (dasar zakat)
-  nisab              Decimal   @db.Decimal(14, 2) // Batas nisab saat perhitungan
+  totalAssets        Decimal   @db.Decimal(18, 4) // Total harta/aset usaha
+  totalLiabilities   Decimal   @db.Decimal(18, 4) @default(0) // Hutang/kewajiban
+  netAssets          Decimal   @db.Decimal(18, 4) // Harta bersih (dasar zakat)
+  nisab              Decimal   @db.Decimal(18, 4) // Batas nisab saat perhitungan
   rate               Decimal   @db.Decimal(5, 4) @default(0.025) // Kadar zakat (2,5%)
-  zakatDue           Decimal   @db.Decimal(14, 2) // Zakat terutang (0 bila di bawah nisab)
+  zakatDue           Decimal   @db.Decimal(18, 4) // Zakat terutang (0 bila di bawah nisab)
   isPaid             Boolean   @default(false)
   paidAt             DateTime?
   notes              String?
@@ -438,4 +502,204 @@ model RateLimit {
 
   @@unique([key, windowStart])
   @@index([windowStart])
+}
+
+// Catatan "gembok mana yang diklik" (PRD 4.D.5).
+//
+// Alasan tabel ini ada: urutan pengerjaan fitur PRO selama ini dipilih dari
+// perasaan. Yang sebenarnya terjadi di produksi tidak terukur — sebuah gembok
+// bisa saja diklik dua puluh kali minggu ini tanpa pernah tercatat di mana pun.
+// Dua peristiwa yang disimpan terpisah karena keduanya menjawab pertanyaan
+// berbeda: `tahap = BUKA` (gembok mana yang menahan orang) dan `tahap = CTA`
+// (ajakan mana yang benar-benar dibaca sampai tombol WhatsApp).
+//
+// Sengaja TIDAK menyimpan teks bebas maupun data usaha: hanya kunci fitur,
+// lokasi pemicu dari daftar statis, dan tahap. Tabel ini karena itu tidak boleh
+// dipakai untuk menyimpan apa pun yang berasal dari ketikan pengguna.
+model UpgradeInterest {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Salah satu KUNCI_MINAT di src/lib/upgrade-interest.ts (BATCH, ZAKAT, ..., UMUM).
+  kunci     String
+  /// Komponen/halaman pemicu, dari daftar statis di kode — bukan input pengguna.
+  sumber    String
+  /// "BUKA" (modal terbuka) atau "CTA" (menuju WhatsApp diklik).
+  tahap     String
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([kunci, createdAt])
+}
+
+/// Riwayat perubahan paket langganan (PRD 4.D.4).
+///
+/// Alasan tabel ini ada: aktivasi PRO dilakukan manual lewat WhatsApp, dan sampai
+/// sekarang tidak ada tempat untuk menjawab "sejak kapan toko ini PRO, atas nama
+/// pembayaran yang mana, dan siapa yang mengaktifkannya". Tanpa itu, menagih
+/// perpanjangan bulan berikutnya berarti menebak dari log obrolan.
+///
+/// Ditulis setiap kali `plan` berubah — bukan hanya saat naik ke PRO, supaya
+/// penurunan karena tempo juga meninggalkan jejak. Barisnya tidak pernah
+/// di-update: riwayat yang bisa diedit bukan riwayat.
+model PlanChange {
+  id       String   @id @default(cuid())
+  tenantId String
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dari     PlanType
+  ke       PlanType
+  /// Nilai planExpiresAt sesudah perubahan ini, agar baris riwayat bisa dibaca
+  /// tanpa perlu menggali tanggal per tanggal dari kolom tenant.
+  expiresAt DateTime?
+  /// Akun Super Admin yang melakukan perubahan. null = belum tercatat (baris
+  /// hasil impor/manual di awal) atau akun pengubah sudah dihapus.
+  olehUserId String?
+  oleh       User?    @relation(fields: [olehUserId], references: [id], onDelete: SetNull)
+  /// Catatan operator, mis. nomor transaksi. Dipangkas & dibatasi panjangnya di
+  /// `updateTenantPlanAndModules`, dan hanya Super Admin yang bisa menulisnya.
+  catatan    String?
+  createdAt  DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+}
+
+// --- MODUL AKUNTANSI: GL (Fase 1) ---
+//
+// Empat tabel di bawah adalah sumber kebenaran pembukuan. Setelah fase ini,
+// angka dashboard WAJIB dibaca dari sini, bukan dari agregat Expense/Invoice �
+// dua sumber kebenaran angka adalah cara paling pasti menghasilkan laporan yang
+// berbeda sendiri.
+//
+// Namanya `LedgerAccount`, bukan `Account`, karena `Account` sudah dipakai
+// NextAuth untuk OAuth di skema ini.
+
+// Chart of Accounts.
+//
+// `type` berupa enum tertutup, bukan string bebas: laporan mengelompokkan akun
+// ke dalam ASET/LIABILITAS/EKUITAS/PENDAPATAN/BEBAN, dan pengelompokan itu
+// hanya stabil selama daftar tipenya tidak bertambah diam-diam.
+//
+// `code` unik per tenant, bukan global: dua tenant boleh memakai kode "1-1001"
+// untuk akun yang berbeda karena masing-masing punya CoA-nya sendiri.
+model LedgerAccount {
+  id         String      @id @default(cuid())
+  tenantId   String
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Kode akun, mis. "1-1001". Unik dalam tenant.
+  code       String
+  name       String
+  type       AccountType
+  /// ISO 4217. Posting memakai mata uang akun; jurnal harus seimbang per
+  /// mata uang, jadi akun mata uang asing tidak boleh ikut dalam jurnal IDR.
+  currency   String      @default("IDR") @db.Char(3)
+  /// Induk untuk laporan berkelompok. Nullable karena akun Synthetic (mis.
+  /// total beban) tidak punya induk.
+  parentId   String?
+  parent     LedgerAccount?  @relation("AccountTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children   LedgerAccount[] @relation("AccountTree")
+  /// Akun sistem tidak boleh dihapus atau dinonaktifkan: laporan memfiksilkan
+  /// kodenya, dan menghilangkannya membuat laporan bulan lalu tidak bisa
+  /// ditelusuri kembali.
+  isActive   Boolean     @default(true)
+  isSystem   Boolean     @default(false)
+  createdAt  DateTime    @default(now())
+
+  postings   Posting[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, type])
+}
+
+/// Satu transaksi pembukuan. Append-only.
+///
+/// `businessDate` adalah tanggal AKUNTANSI � tanggal masa transaksi terjadi,
+/// bukan tanggal baris ini dibuat. Inilah yang membuat buku besar bisa dibaca
+/// ulang tanpa annoying dari tanggal input.
+model JournalEntry {
+  id           String        @id @default(cuid())
+  tenantId     String
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  businessDate DateTime
+  /// "YYYY-MM" � periode tempat jurnal ini dihitung. Disalin dari businessDate
+  /// supaya query laporan per periode tidak perlu timezone-aware di database.
+  period       String
+  postedAt     DateTime?
+  source       JournalSource
+  /// Nomor dokumen sumber (nomor invoice, "BATCH-001", dll).
+  reference    String?
+  refType      String?
+  refId        String?
+  description  String?
+  currency     String        @default("IDR") @db.Char(3)
+  /// Jurnal ini adalah pembalik dari jurnal mana. Scalar murni, BUKAN relation.
+  ///
+  /// Semula ditulis sebagai self-relation dua arah (reversedBy + reversedFrom),
+  /// lalu terbukti tidak bisa: Prisma hanya membuat SATU kolom FK untuk
+  /// self-relation satu-arah, sehingga `reversedFromId` tidak pernah ada di
+  /// database dan trigger pembatalan gagal saat dijalankan di PostgreSQL asli.
+  /// ColumnNotFound: record "new" has no field "reversedFromId".
+  ///
+  /// Scalar murni dipilih karena hanya satu sisi yang perlu disimpan: siapa yang
+  /// membatalkan siapa dapat dijawab dengan `reversedFromId` saja. Dua kolom
+  /// (reversedById DAN reversedFromId) berarti dua sumber kebenaran untuk fakta
+  /// yang sama — jenis kesalahan yang paling sering menghasilkan pembukuan yang
+  /// berbeda dengan dirinya sendiri.
+  ///
+  /// UNIQUE di bawah yang mencegah satu jurnal dibatalkan dua kali; trigger di
+  /// migrasi hanya mengulang aturan itu dengan pesan yang bisa dibaca aplikasi.
+  reversedFromId String?      @unique
+  createdById  String?
+  createdAt    DateTime      @default(now())
+
+  postings     Posting[]
+
+  @@index([tenantId, businessDate])
+  @@index([tenantId, period])
+  @@index([refType, refId])
+}
+
+/// Satu baris jurnal: akun + nominal sisi debit atau kredit.
+///
+/// WAJIB append-only: tidak ada UPDATE, tidak ada DELETE. Koreksi dilakukan lewat
+/// jurnal pembalik (reversal), bukan dengan mengubah angka yang sudah
+/// dipublikasikan ke pengguna. Mengubah sejarah alih-alih menambahkannya
+/// membuat pembukuan berhenti menjadi bukti.
+///
+/// `amount` disimpan sebagai SATU kolom dengan sisi di `side`, bukan dua kolom
+/// debit dan credit terpisah: dua kolom memaksa setiap pembaca menambahkan
+/// kalimat "yang mana yang nonzero", dan menyisakan ruang untuk baris yang
+/// terisi keduanya. Sisi yang eksplisit membuat CHECK di database sederhana
+/// dan tidak ambigu saat dibaca.
+model Posting {
+  id        String        @id @default(cuid())
+  journalId String
+  journal   JournalEntry  @relation(fields: [journalId], references: [id], onDelete: Restrict)
+  accountId String
+  account   LedgerAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  /// Nilai positif. SISI DEBIT atau KREDIT ada di `side`.
+  amount    Decimal       @db.Decimal(18, 4)
+  side      PostingSide
+  currency  String        @default("IDR") @db.Char(3)
+  createdAt DateTime      @default(now())
+
+  @@index([journalId])
+  @@index([accountId])
+  /// Satu akun satu kali per jurnal: mencegah baris dobel yang tidak terlihat
+  /// saat membaca buku besar.
+  @@unique([journalId, accountId])
+}
+
+/// Periode akuntansi. CLOSED berarti tidak ada posting baru yang boleh masuk.
+model AccountingPeriod {
+  id        String       @id @default(cuid())
+  tenantId  String
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// "YYYY-MM"
+  period    String
+  status    PeriodStatus @default(OPEN)
+  closedAt  DateTime?
+  closedById String?
+  createdAt DateTime     @default(now())
+
+  @@unique([tenantId, period])
 }

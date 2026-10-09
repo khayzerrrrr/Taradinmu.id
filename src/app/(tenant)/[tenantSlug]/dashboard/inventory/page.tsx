@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation";
+import { Crown } from "lucide-react";
 import { getPresetConfig } from "@/lib/business-presets";
+import { checkLimit } from "@/lib/feature-guards";
 import { getCurrentTenant } from "@/lib/tenant";
 import { requireTenantMember } from "@/lib/tenant-access";
 import { getProducts } from "@/modules/inventory/actions/product-actions";
@@ -7,8 +9,11 @@ import { InventoryLocked } from "@/modules/inventory/components/inventory-locked
 import { ProductTable } from "@/modules/inventory/components/product-table";
 import { listProductsSchema } from "@/modules/inventory/schemas/product-schema";
 import type { ProductListItem } from "@/modules/inventory/types";
+import { AMBANG_KUOTA_DASHBOARD } from "@/lib/plan-limits";
+import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/shared/page-header";
 import { ProductFormDialog } from "@/modules/inventory/components/product-form-dialog";
+import { UpgradeModal } from "@/components/shared/upgrade-modal";
 import { isModuleEnabled } from "@/shared/modules";
 import type { PaginationMeta } from "@/shared/types";
 
@@ -65,13 +70,49 @@ export default async function InventoryPage({
   // bisa diubah pengguna.
   const defaultKind = getPresetConfig(tenant.businessType).defaultItemKind;
 
+  // Batas paket (PRD 4.D.3): sama seperti halaman Invoice — tombol pembuatan
+  // diganti ajakan upgrade SEBELUM orang mengisi form lalu ditolak server.
+  // Angka kuotanya sendiri baru tampil saat mulai menipis, supaya katalog 3 item
+  // tidak terlihat seperti sedang diukur-ukur.
+  const kuota = await checkLimit(tenant.id, "PRODUCT");
+  const bolehBuatProduk = kuota.allowed;
+  const terpakai = kuota.used ?? 0;
+  const persenKuota = kuota.limit ? terpakai / kuota.limit : 0;
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Produk & Layanan"
         description={`Katalog barang dan jasa beserta varian (SKU & harga) untuk ${tenant.name}.`}
-        aksi={<ProductFormDialog defaultKind={defaultKind} />}
+        aksi={
+          bolehBuatProduk ? (
+            <ProductFormDialog defaultKind={defaultKind} />
+          ) : (
+            <UpgradeModal
+              fitur="Katalog tanpa batas 100 item"
+              kunci="PRODUCT"
+              sumber="HALAMAN_PRODUK"
+            >
+              <Button>
+                <Crown aria-hidden="true" />
+                Buka Katalog Tanpa Batas
+              </Button>
+            </UpgradeModal>
+          )
+        }
       />
+
+      {!bolehBuatProduk ? (
+        <p className="text-sm text-muted-foreground">
+          Katalog paket FREE dibatasi {kuota.limit} item dan Anda sudah punya{" "}
+          {terpakai}. Item yang ada tetap bisa dijual seperti biasa — yang
+          tertutup hanyalah penambahan item baru.
+        </p>
+      ) : persenKuota >= AMBANG_KUOTA_DASHBOARD ? (
+        <p className="text-sm text-muted-foreground">
+          {terpakai} dari {kuota.limit} item paket FREE terpakai.
+        </p>
+      ) : null}
 
       {!result.success ? (
         <p className="text-sm text-destructive">{result.message}</p>

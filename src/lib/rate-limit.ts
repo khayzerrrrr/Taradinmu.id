@@ -32,6 +32,12 @@ export const BATAS_LOGIN_IP: OpsiBatas = { max: 30, windowMs: 15 * 60 * 1000 };
 export const BATAS_CHAT: OpsiBatas = { max: 20, windowMs: 5 * 60 * 1000 };
 /** Permintaan tautan reset sandi — dibatasi agar tidak dipakai membanjiri email. */
 export const BATAS_RESET: OpsiBatas = { max: 3, windowMs: 15 * 60 * 1000 };
+/**
+ * Pencatatan minat upgrade (PRD 4.D.5). Angka longgar karena yang ditahan hanya
+ * penyalahgunaan yang membuat tabel tumbuh tanpa batas — orang yang membuka dan
+ * menutup modal berkali-kali memang tertarik, dan itu justru data yang diinginkan.
+ */
+export const BATAS_MINAT: OpsiBatas = { max: 30, windowMs: 60 * 60 * 1000 };
 
 const RETENSI_MS = 24 * 60 * 60 * 1000; // baris lebih tua dari ini sudah tidak berguna
 const PELUANG_BERSIH = 0.02; // 1 dari ~50 pemanggilan, agar tidak menambah query tiap request

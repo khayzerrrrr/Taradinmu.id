@@ -3,15 +3,23 @@
 import { revalidatePath } from "next/cache";
 import { hash } from "bcryptjs";
 import type { Prisma } from "@/generated/prisma/client";
+import { formatTanggal } from "@/lib/format";
+import { paketBisaKedaluwarsa, riwayatPerluDitulis } from "@/lib/plan-limits";
 import { prisma } from "@/lib/prisma";
 import { assertSuperAdmin } from "@/modules/core/auth/dal";
 import {
   createTenantSchema,
   listTenantsSchema,
   updateTenantSchema,
+  tanggalMasaBerlaku,
 } from "@/modules/core/schemas/tenant-schema";
 import type { ActionResponse, TenantListData } from "@/modules/core/types";
 import { slugify } from "@/modules/core/utils";
+import {
+  JENDELA_MINAT_HARI,
+  MINAT_KOSONG,
+  rangkumMinat,
+} from "@/lib/upgrade-interest";
 import { isReservedSlug } from "@/shared/constants";
 
 // Empat helper di bawah ini sempat dityalin secara lokal di berkas ini, sehingga
@@ -54,9 +62,47 @@ export async function getAllTenants(
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * perPage,
         take: perPage,
-        include: { _count: { select: { users: true } } },
+        include: {
+          _count: { select: { users: true } },
+          // Beberapa perubahan paket terakhir (PRD 4.D.4). Tabelnya append-only,
+          // jadi dibatasi: halaman ini menjawab "kapan terakhir diganti dan oleh
+          // siapa", bukan membentangkan seluruh sejarah.
+          planChanges: {
+            orderBy: { createdAt: "desc" },
+            take: 3,
+            select: {
+              id: true,
+              dari: true,
+              ke: true,
+              expiresAt: true,
+              catatan: true,
+              createdAt: true,
+              oleh: { select: { name: true } },
+            },
+          },
+        },
       }),
     ]);
+
+    // Klik gembok 30 hari terakhir (PRD 4.D.5). Query kedua khusus untuk halaman
+    // ini — hanya Super Admin yang membacanya, dan hanya untuk tenant di halaman
+    // yang sama, jadi jumlah barisnya dibatasi pagination.
+    const sejak = new Date(
+      Date.now() - JENDELA_MINAT_HARI * 24 * 60 * 60 * 1000,
+    );
+    const barisMinat = await prisma.upgradeInterest.groupBy({
+      by: ["tenantId", "kunci", "tahap"],
+      where: { tenantId: { in: tenants.map((tenant) => tenant.id) }, createdAt: { gte: sejak } },
+      _count: { _all: true },
+    });
+    const minatPerTenant = rangkumMinat(
+      barisMinat.map((baris) => ({
+        tenantId: baris.tenantId,
+        kunci: baris.kunci,
+        tahap: baris.tahap,
+        jumlah: baris._count._all,
+      })),
+    );
 
     return {
       success: true,
@@ -68,9 +114,22 @@ export async function getAllTenants(
           slug: tenant.slug,
           subdomain: tenant.subdomain,
           plan: tenant.plan,
+          planExpiresAt: tenant.planExpiresAt?.toISOString() ?? null,
           enabledModules: tenant.enabledModules,
           createdAt: tenant.createdAt.toISOString(),
           userCount: tenant._count.users,
+          minat: minatPerTenant.get(tenant.id) ?? MINAT_KOSONG,
+          riwayat: tenant.planChanges.map((ubah) => ({
+            id: ubah.id,
+            dari: ubah.dari,
+            ke: ubah.ke,
+            expiresAt: ubah.expiresAt?.toISOString() ?? null,
+            // Nama pengubah ikut terkirim; null bila akunnya sudah dihapus —
+            // riwayatnya sengaja bertahan (FK-nya SetNull, bukan Cascade).
+            oleh: ubah.oleh?.name ?? null,
+            catatan: ubah.catatan,
+            createdAt: ubah.createdAt.toISOString(),
+          })),
         })),
         meta: {
           page,
@@ -123,6 +182,9 @@ export async function createTenant(
   }
 
   const ownerEmail = data.ownerEmail.trim().toLowerCase();
+  // Sama seperti dialog "Kelola": tanggal hanya berarti selama PRO.
+  const berbayar = paketBisaKedaluwarsa(data.plan);
+  const berakhir = berbayar ? tanggalMasaBerlaku(data.expiresAt) : null;
 
   try {
     const passwordHash = await hash(data.ownerPassword, 10);
@@ -134,6 +196,7 @@ export async function createTenant(
         slug,
         subdomain,
         plan: data.plan,
+        planExpiresAt: berakhir,
         enabledModules: data.enabledModules,
         users: {
           create: {
@@ -143,6 +206,22 @@ export async function createTenant(
             role: "OWNER",
           },
         },
+        // Riwayat paket dimulai dari aktivasi pertama (PRD 4.D.4). Tenant FREE
+        // tidak punya apa pun yang dicatat: FREE adalah keadaan awalnya, bukan
+        // perubahan.
+        ...(berbayar
+          ? {
+              planChanges: {
+                create: {
+                  dari: "FREE" as const,
+                  ke: data.plan,
+                  expiresAt: berakhir,
+                  olehUserId: guard.userId,
+                  catatan: "Dibuat aktif bersama tenant.",
+                },
+              },
+            }
+          : {}),
       },
       select: { id: true, slug: true },
     });
@@ -168,7 +247,14 @@ export async function createTenant(
   }
 }
 
-// Memperbarui paket (plan) dan daftar modul aktif tenant.
+// Memperbarui paket (plan), masa berlakunya, dan daftar modul aktif tenant.
+//
+// Riwayat (PRD 4.D.4): setiap perubahan paket menulis satu baris PlanChange —
+// termasuk tanggal berakhir dan siapa yang mengubahnya. Barisnya ditulis dalam
+// transaksi yang sama dengan perubahan tenant, supaya tidak pernah ada paket
+// yang berubah tanpa jejak. Kalau nilainya sama persis dengan yang tersimpan
+// (admin hanya menggeser modul), tidak ada baris baru: tabel ini riwayat paket,
+// bukan log setiap kali tombol "Simpan" ditekan.
 export async function updateTenantPlanAndModules(
   input: unknown,
 ): Promise<ActionResponse<{ tenantId: string }>> {
@@ -180,18 +266,58 @@ export async function updateTenantPlanAndModules(
     return { success: false, message: pesanValidasi(parsed.error) };
   }
 
-  const { tenantId, plan, enabledModules } = parsed.data;
+  const { tenantId, plan, enabledModules, expiresAt, catatan } = parsed.data;
+
+  // FREE tidak punya masa berlaku: tanggalnya hanya berarti selama PRO, dan
+  // menurunkan paket tanpa menghapus tanggalnya akan menyisakan batas yang
+  // tidak pernah ditegakkan siapa pun.
+  const berakhir = paketBisaKedaluwarsa(plan)
+    ? tanggalMasaBerlaku(expiresAt)
+    : null;
 
   try {
-    await prisma.tenant.update({
+    const sebelum = await prisma.tenant.findUnique({
       where: { id: tenantId },
-      data: { plan, enabledModules },
+      select: { plan: true, planExpiresAt: true },
     });
+    if (!sebelum) {
+      return { success: false, message: "Tenant tidak ditemukan." };
+    }
+
+    const paketBerubah = riwayatPerluDitulis(
+      { plan: sebelum.plan, planExpiresAt: sebelum.planExpiresAt ?? null },
+      { plan, planExpiresAt: berakhir },
+    );
+
+    await prisma.$transaction([
+      prisma.tenant.update({
+        where: { id: tenantId },
+        data: { plan, planExpiresAt: berakhir, enabledModules },
+      }),
+      ...(paketBerubah
+        ? [
+            prisma.planChange.create({
+              data: {
+                tenantId,
+                dari: sebelum.plan,
+                ke: plan,
+                expiresAt: berakhir,
+                olehUserId: guard.userId,
+                catatan: catatan && catatan.length > 0 ? catatan : null,
+              },
+            }),
+          ]
+        : []),
+    ]);
 
     revalidatePath("/admin");
     return {
       success: true,
-      message: "Paket dan modul tenant berhasil diperbarui.",
+      message: paketBerubah
+        ? `Paket tenant berubah dari ${sebelum.plan} ke ${plan}${
+            berakhir ? `, berlaku sampai ${formatTanggal(berakhir)}` : ""
+          }.`
+        : "Modul tenant berhasil diperbarui.",
       data: { tenantId },
     };
   } catch (error) {

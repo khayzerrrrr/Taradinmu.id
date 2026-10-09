@@ -10,6 +10,7 @@ import {
 import { checkLimit } from "@/lib/feature-guards";
 import { labaKotor } from "@/lib/hpp";
 import { hppDokumen } from "@/lib/hpp-query";
+import { catatPeringatan } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 import { parseTanggalInput, ringkasStok } from "@/lib/stock";
 import {
@@ -18,6 +19,9 @@ import {
   StokBerubahError,
   StokTidakCukupError,
 } from "@/lib/stock-allocation";
+// Modul billing mengimpor accounting satu arah lewat berkas perantara, bukan
+// langsung: PRD 6 melarang modul saling mengimpor.
+import { tulisJurnalInvoice } from "@/modules/accounting/jurnal-dari-invoice";
 import type { ActionResponse } from "@/shared/types";
 import {
   createInvoiceSchema,
@@ -500,7 +504,19 @@ export async function updateInvoiceStatus(
   try {
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, tenantId: akses.tenantId },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        invoiceNumber: true,
+        totalAmount: true,
+        createdAt: true,
+        items: {
+          select: {
+            quantity: true,
+            variant: { select: { product: { select: { kind: true } } } },
+          },
+        },
+      },
     });
     if (!invoice) {
       return { success: false, message: "Invoice tidak ditemukan." };
@@ -517,6 +533,11 @@ export async function updateInvoiceStatus(
       };
     }
 
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: akses.tenantId },
+      select: { currency: true },
+    });
+
     await prisma.invoice.update({
       where: { id: invoice.id },
       data: {
@@ -525,6 +546,27 @@ export async function updateInvoiceStatus(
         ...(status === "PAID" ? { paidAt: new Date() } : {}),
         ...(invoice.status === "PAID" && status !== "PAID" ? { paidAt: null } : {}),
       },
+    });
+
+    // Dual-write jurnal (Fase 1.8). SEBELUM fase ini, dashboard menghitung dari
+    // agregat Invoice/Expense; sesudahnya dari journal. Dua-duanya hidup
+    // bersamaan supaya perpindahan tidak mengubah angka secara diam-diam.
+    //
+    // Kegagalan jurnal TIDAK membatalkan perubahan status: pencatatan invoice
+    // adalah operasi utama pengguna, dan penolakan pembukuan akan membuat
+    // pengguna mengulang klik pada hal yang sudah berhasil. Jurnal yang gagal
+    // dicatat sebagai peringatan dan akan ditutup oleh reconciliation report.
+    await tulisJurnalInvoice({
+      tenantId: akses.tenantId,
+      currency: tenant?.currency ?? "IDR",
+      invoiceId: invoice.id,
+      statusSebelum: invoice.status,
+      status,
+    }).catch((error: unknown) => {
+      catatPeringatan(`Jurnal invoice gagal: ${pesanErrorUmum(error)}`, {
+        aksi: "tulisJurnalInvoice",
+        tenantId: akses.tenantId,
+      });
     });
 
     return {

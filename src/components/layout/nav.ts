@@ -14,6 +14,7 @@ export type NavIcon =
   | "expenses"
   | "zakat"
   | "programs"
+  | "paket"
   | "settings"
   | "users"
   | "tenants";
@@ -72,6 +73,9 @@ export const SEGMEN_LABEL: Record<string, string> = {
   pengeluaran: "Pengeluaran",
   zakat: "Zakat",
   program: "Program",
+  // Halaman status paket (PRD 4.D.3). Bukan folder pengelompok: punya page.tsx
+  // sendiri, jadi labelnya wajib ada supaya remah lokasi tidak kehilangan nama.
+  paket: "Paket Saya",
   settings: "Pengaturan Toko",
   users: "Pengguna",
   admin: "Admin",

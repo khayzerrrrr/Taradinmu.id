@@ -20,12 +20,25 @@ import { ResetSandiAkunDialog } from "./reset-sandi-akun-dialog";
 import { TenantEditDialog } from "./tenant-edit-dialog";
 import { TenantFormDialog } from "./tenant-form-dialog";
 import type { PaginationMeta, TenantListItem } from "@/modules/core/types";
+import { JENDELA_MINAT_HARI } from "@/lib/upgrade-interest";
+import { susunMasaBerlaku } from "@/lib/plan-status";
+import { MasaBerlakuPaketNotice } from "@/components/shared/masa-berlaku-paket";
 import { formatTanggal } from "@/modules/core/utils";
 
 type Props = {
   tenants: TenantListItem[];
   meta: PaginationMeta;
 };
+
+// Tanggal berakhir datang sebagai string ISO (serialisasi untuk klien). Nilai
+// itu dikembalikan ke Date di sini supaya penilaiannya memakai fungsi yang sama
+// dengan yang dibaca penyewa di halaman paketnya — dua permukaan, satu aturan.
+function masaBerlakuTenant(tenant: TenantListItem) {
+  return susunMasaBerlaku(
+    tenant.plan,
+    tenant.planExpiresAt ? new Date(tenant.planExpiresAt) : null,
+  );
+}
 
 export function TenantTable({ tenants, meta }: Props) {
   const router = useRouter();
@@ -54,6 +67,11 @@ export function TenantTable({ tenants, meta }: Props) {
             <TableHead>Paket</TableHead>
             <TableHead>Modul Aktif</TableHead>
             <TableHead className="text-center">Pengguna</TableHead>
+            <TableHead
+              title={`Gembok yang diklik ${JENDELA_MINAT_HARI} hari terakhir (PRD 4.D.5)`}
+            >
+              Minat PRO
+            </TableHead>
             <TableHead>Dibuat</TableHead>
             <TableHead className="text-right">Aksi</TableHead>
           </TableRow>
@@ -61,7 +79,7 @@ export function TenantTable({ tenants, meta }: Props) {
         <TableBody>
           {tenants.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6}>
+              <TableCell colSpan={7}>
                 <EmptyState
                   icon={Building2}
                   title="Belum ada tenant"
@@ -85,11 +103,15 @@ export function TenantTable({ tenants, meta }: Props) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    variant={tenant.plan === "PRO" ? "default" : "secondary"}
-                  >
-                    {tenant.plan}
-                  </Badge>
+                  <div className="flex flex-col gap-1">
+                    <Badge
+                      variant={tenant.plan === "PRO" ? "default" : "secondary"}
+                      className="self-start"
+                    >
+                      {tenant.plan}
+                    </Badge>
+                    <MasaBerlakuPaketNotice masa={masaBerlakuTenant(tenant)} />
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
@@ -108,6 +130,27 @@ export function TenantTable({ tenants, meta }: Props) {
                 </TableCell>
                 <TableCell className="text-center tabular-nums">
                   {tenant.userCount}
+                </TableCell>
+                <TableCell>
+                  {tenant.minat.buka === 0 && tenant.minat.cta === 0 ? (
+                    <span className="text-xs text-muted-foreground">
+                      belum ada
+                    </span>
+                  ) : (
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-sm tabular-nums">
+                        {tenant.minat.buka} dibuka
+                        {tenant.minat.cta > 0
+                          ? ` · ${tenant.minat.cta} klik WhatsApp`
+                          : ""}
+                      </span>
+                      {tenant.minat.kunci.length > 0 ? (
+                        <span className="text-xs text-muted-foreground">
+                          {tenant.minat.kunci.join(", ")}
+                        </span>
+                      ) : null}
+                    </div>
+                  )}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {formatTanggal(tenant.createdAt)}

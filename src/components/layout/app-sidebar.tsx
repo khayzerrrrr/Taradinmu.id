@@ -76,7 +76,7 @@ export function SidebarPanel({
 
         {tenant.isPro ? null : (
           <Link
-            href={`${basePath}/dashboard/settings`}
+            href={`${basePath}/dashboard/paket`}
             onClick={onNavigate}
             className="mt-2 block rounded-md px-1 py-1 text-2xs text-sidebar-foreground/55 underline-offset-4 transition-colors hover:text-sidebar-foreground hover:underline"
           >

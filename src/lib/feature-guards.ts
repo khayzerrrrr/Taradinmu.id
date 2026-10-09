@@ -6,6 +6,8 @@ import {
   HARGA_PRO_BULAN,
   labelBatasJumlah,
   LIMIT_LABELS,
+  planEfektif,
+  type LimitFiturKey,
   type LimitJumlahKey,
   type LimitKey,
 } from "@/lib/plan-limits";
@@ -52,6 +54,11 @@ const MANFAAT_LIMIT: Record<LimitKey, string> = {
   PROGRAM:
     "laporan biaya, tagihan, dan laba per kloter/proyek/tahun ajaran",
   HPP: "margin kotor dan laporan HPP per invoice",
+  BRANDING:
+    "logo dan warna tema toko Anda di seluruh aplikasi, termasuk pada invoice yang Anda kirim",
+  // Sengaja tidak menjanjikan akses ke data tenant: PRD 4.D.2a masih menandai
+  // AI sebagai SEBAGIAN, dan pesan server tidak boleh lebih berani dari modal.
+  AI: "asisten chat khusus PRO di dalam aplikasi, untuk bertanya soal fitur dan alur kerja",
 };
 
 /** Kalimat penutup yang sama untuk semua kunci. Harga dari plan-limits, bukan diketik ulang. */
@@ -70,6 +77,26 @@ function pesanBatasJumlah(
   )}. Yang terbuka di PRO: ${MANFAAT_LIMIT[type]}. ${AJAKAN_PRO}`;
 }
 
+// Jumlah baris yang terpakai untuk batas berbasis jumlah. Dipisah dari
+// checkLimit() supaya tinggal satu tempat yang tahu tabel mana yang dihitung.
+async function terpakaiUntuk(
+  tenantId: string,
+  type: LimitJumlahKey,
+): Promise<number> {
+  switch (type) {
+    case "INVOICE":
+      // PRD 4.D: batas FREE adalah 50 invoice PER BULAN, bukan sepanjang waktu.
+      // Dibatasi pada bulan berjalan supaya kuota bulan lalu tidak ikut terpakai.
+      return prisma.invoice.count({
+        where: { tenantId, createdAt: { gte: awalBulan() } },
+      });
+    case "PRODUCT":
+      return prisma.product.count({ where: { tenantId } });
+    case "USERS":
+      return prisma.user.count({ where: { tenantId } });
+  }
+}
+
 // Periksa apakah tenant masih boleh memakai sebuah fitur/data.
 export async function checkLimit(
   tenantId: string,
@@ -77,65 +104,63 @@ export async function checkLimit(
 ): Promise<LimitCheck> {
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { plan: true },
+    select: { plan: true, planExpiresAt: true, timezone: true },
   });
   if (!tenant) {
     // Pemanggil selalu memverifikasi tenant lebih dulu, jadi ini kondisi mustahil.
     throw new Error("Tenant tidak ditemukan saat memeriksa batas paket.");
   }
 
-  const plan = tenant.plan;
+  // Yang ditegakkan adalah paket yang masih berlaku (PRD 4.D.4): masa PRO yang
+  // sudah lewat membatasi penulisan data juga, bukan hanya tampilan menunya.
+  // Satu-satunya tempat perhitungan itu dibuat adalah `planEfektif`.
+  //
+  // `timezone` ikut diteruskan (Fase 0.3): "sudah lewat atau belum" adalah
+  // pertanyaan tentang hari penyewa, bukan hari server. Tanpa ini, tenant di
+  // Riyadh akan kehilangan paketnya pada pagi yang masih menurut server UTC.
+  const plan = planEfektif(
+    tenant.plan,
+    tenant.planExpiresAt,
+    new Date(),
+    tenant.timezone,
+  );
 
-  // --- Batas berbasis fitur (batch, zakat otomatis, modul program, laporan HPP) ---
-  // Cabang ini wajib menyebut semua LimitFiturKey. Tanpa "PROGRAM" di sini, nilai
-  // itu lolos ke cabang jumlah di bawah dan berakhir di `else` — program akan
-  // dihitung sebagai jumlah pengguna, bukan sebagai fitur aktif/tidak.
-  if (
-    type === "BATCH" ||
-    type === "ZAKAT" ||
-    type === "PROGRAM" ||
-    type === "HPP"
-  ) {
-    if (ambilBatasFitur(plan, type)) {
-      return { allowed: true, plan, used: null, limit: null };
+  // --- Batas berbasis jumlah (invoice, produk, pengguna) ---
+  if (type === "INVOICE" || type === "PRODUCT" || type === "USERS") {
+    const limit = ambilBatasJumlah(plan, type);
+    const used = await terpakaiUntuk(tenantId, type);
+
+    if (limit === null || used < limit) {
+      return { allowed: true, plan, used, limit };
     }
     return {
       allowed: false,
       plan,
-      used: null,
-      limit: null,
+      used,
+      limit,
       code: "UPGRADE_REQUIRED",
-      message: `${LIMIT_LABELS[type]} tersedia pada paket PRO. Yang terbuka: ${
-        MANFAAT_LIMIT[type]
-      }. ${AJAKAN_PRO}`,
+      message: pesanBatasJumlah(type, limit, used),
     };
   }
 
-  // --- Batas berbasis jumlah (invoice, produk, pengguna) ---
-  const limit = ambilBatasJumlah(plan, type);
-  let used: number;
-  if (type === "INVOICE") {
-    // PRD 4.D: batas FREE adalah 50 invoice PER BULAN, bukan sepanjang waktu.
-    // Dibatasi pada bulan berjalan supaya kuota bulan lalu tidak ikut terpakai.
-    used = await prisma.invoice.count({
-      where: { tenantId, createdAt: { gte: awalBulan() } },
-    });
-  } else if (type === "PRODUCT") {
-    used = await prisma.product.count({ where: { tenantId } });
-  } else {
-    used = await prisma.user.count({ where: { tenantId } });
-  }
+  // --- Batas berbasis fitur ---
+  // Baris di bawah ini yang menjaga kelengkapan daftar: sisa LimitKey setelah
+  // tiga kunci jumlah di atas harus persis LimitFiturKey. Kalau ada kunci baru
+  // masuk ke salah satu daftar tanpa ditangani cabangnya, yang gagal adalah
+  // kompilasi — bukan angka yang salah dihitung diam-diam.
+  const kunciFitur: LimitFiturKey = type;
 
-  if (limit === null || used < limit) {
-    return { allowed: true, plan, used, limit };
+  if (ambilBatasFitur(plan, kunciFitur)) {
+    return { allowed: true, plan, used: null, limit: null };
   }
-
   return {
     allowed: false,
     plan,
-    used,
-    limit,
+    used: null,
+    limit: null,
     code: "UPGRADE_REQUIRED",
-    message: pesanBatasJumlah(type, limit, used),
+    message: `${LIMIT_LABELS[kunciFitur]} tersedia pada paket PRO. Yang terbuka: ${
+      MANFAAT_LIMIT[kunciFitur]
+    }. ${AJAKAN_PRO}`,
   };
 }

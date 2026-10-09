@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,8 @@ import {
 } from "@/components/ui/select";
 import {
   Field,
+  FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
   FieldLegend,
@@ -33,6 +36,7 @@ import {
 } from "@/components/ui/field";
 import { updateTenantPlanAndModules } from "@/modules/core/actions/tenant-actions";
 import {
+  tanggalIsoLokal,
   updateTenantSchema,
   type UpdateTenantInput,
 } from "@/modules/core/schemas/tenant-schema";
@@ -41,7 +45,8 @@ import {
   type ModuleKey,
   type TenantListItem,
 } from "@/modules/core/types";
-import { AVAILABLE_MODULES } from "@/modules/core/utils";
+import { AVAILABLE_MODULES, formatTanggal } from "@/modules/core/utils";
+import { formatWaktu } from "@/lib/format";
 
 type Props = {
   tenant: TenantListItem;
@@ -64,10 +69,16 @@ export function TenantEditDialog({ tenant }: Props) {
       tenantId: tenant.id,
       plan: tenant.plan,
       enabledModules: initialModules,
+      // Tanggalnya disimpan sebagai Date (UTC tengah malam) dan dikirim ke sini
+      // apa adanya: input type="date" hanya menerima YYYY-MM-DD.
+      expiresAt: tanggalIsoLokal(tenant.planExpiresAt),
+      catatan: "",
     },
   });
 
+  const { errors } = form.formState;
   const plan = useWatch({ control: form.control, name: "plan" });
+  const isFree = plan !== "PRO";
   const selectedModules =
     useWatch({ control: form.control, name: "enabledModules" }) ?? [];
 
@@ -105,25 +116,64 @@ export function TenantEditDialog({ tenant }: Props) {
         >
           <FieldSet>
             <FieldLegend variant="label">Paket Langganan</FieldLegend>
-            <Field>
-              <FieldLabel>Plan</FieldLabel>
-              <Select
-                value={plan}
-                onValueChange={(value) =>
-                  form.setValue("plan", value as "FREE" | "PRO", {
-                    shouldValidate: true,
-                  })
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="FREE">FREE</SelectItem>
-                  <SelectItem value="PRO">PRO</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
+            <FieldGroup>
+              <Field>
+                <FieldLabel>Plan</FieldLabel>
+                <Select
+                  value={plan}
+                  onValueChange={(value) =>
+                    form.setValue("plan", value as "FREE" | "PRO", {
+                      shouldValidate: true,
+                    })
+                  }
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="FREE">FREE</SelectItem>
+                    <SelectItem value="PRO">PRO</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+
+              {/* Masa berlaku (PRD 4.D.4): kolomnya hanya berarti selama PRO, jadi
+                  ia ikut tidak dapat dipakai saat paketnya FREE — bukan disembunyi-
+                  kan, supaya admin masih melihat tanggal yang tersimpan. */}
+              <Field data-invalid={Boolean(errors.expiresAt)}>
+                <FieldLabel htmlFor={`edit-expires-${tenant.id}`}>
+                  Berlaku sampai
+                </FieldLabel>
+                <Input
+                  id={`edit-expires-${tenant.id}`}
+                  type="date"
+                  disabled={isFree}
+                  {...form.register("expiresAt")}
+                />
+                <FieldDescription>
+                  {isFree
+                    ? "Tanggal berakhir hanya dipakai pada paket PRO."
+                    : "Kosong = tanpa tanggal berakhir. Setelah tanggalnya lewat, aksesnya berjalan sebagai FREE — datanya tidak dihapus."}
+                </FieldDescription>
+                <FieldError errors={[errors.expiresAt]} />
+              </Field>
+
+              <Field data-invalid={Boolean(errors.catatan)}>
+                <FieldLabel htmlFor={`edit-catatan-${tenant.id}`}>
+                  Catatan perubahan
+                </FieldLabel>
+                <Input
+                  id={`edit-catatan-${tenant.id}`}
+                  placeholder="mis. pembayaran 15 Sep via WhatsApp"
+                  {...form.register("catatan")}
+                />
+                <FieldDescription>
+                  Hanya tercatat saat paketnya benar-benar berubah, sebagai jejak
+                  siapa dan mengapa.
+                </FieldDescription>
+                <FieldError errors={[errors.catatan]} />
+              </Field>
+            </FieldGroup>
           </FieldSet>
 
           <FieldSet>
@@ -150,6 +200,36 @@ export function TenantEditDialog({ tenant }: Props) {
                 </Field>
               ))}
             </FieldGroup>
+          </FieldSet>
+
+          {/* Riwayat paket (PRD 4.D.4): hanya beberapa perubahan terakhir, dan
+              hanya dibaca. Barisnya append-only di database — tidak ada tombol
+              hapus di sini karena riwayat yang bisa dihapus bukan riwayat. */}
+          <FieldSet>
+            <FieldLegend variant="label">Riwayat Paket</FieldLegend>
+            {tenant.riwayat.length === 0 ? (
+              <FieldDescription>
+                Belum ada perubahan paket yang tercatat untuk tenant ini.
+              </FieldDescription>
+            ) : (
+              <FieldGroup className="gap-2">
+                {tenant.riwayat.map((ubah) => (
+                  <div key={ubah.id} className="flex flex-col gap-0.5">
+                    <span className="text-sm">
+                      {ubah.dari} &rarr; {ubah.ke}
+                      {ubah.expiresAt
+                        ? ` · berlaku sampai ${formatTanggal(ubah.expiresAt)}`
+                        : ""}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatWaktu(ubah.createdAt)}
+                      {ubah.oleh ? ` · oleh ${ubah.oleh}` : ""}
+                      {ubah.catatan ? ` — ${ubah.catatan}` : ""}
+                    </span>
+                  </div>
+                ))}
+              </FieldGroup>
+            )}
           </FieldSet>
 
           <DialogFooter>

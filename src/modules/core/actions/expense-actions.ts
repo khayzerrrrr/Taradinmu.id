@@ -7,11 +7,19 @@ import {
   pesanValidasi,
 } from "@/lib/action";
 import { awalBulan } from "@/lib/periode";
+import { catatPeringatan } from "@/lib/log";
 import { prisma } from "@/lib/prisma";
 import { getCurrentTenant } from "@/lib/tenant";
 import { assertTenantMember } from "@/lib/tenant-access";
 import { isModuleEnabled } from "@/shared/modules";
 import type { ActionResponse } from "@/shared/types";
+import {
+  catatJurnalPengeluaran,
+  hapusJurnalPengeluaran,
+  perbaruiJurnalPengeluaran,
+  type DataPengeluaran,
+  type KategoriPengeluaran,
+} from "@/modules/accounting/jurnal-dari-pengeluaran";
 import {
   createExpenseSchema,
   deleteExpenseSchema,
@@ -23,7 +31,7 @@ import type { ExpenseItem, ExpenseListData, ExpenseSummary } from "../types";
 // Gerbang seragam untuk semua Server Action pencatatan pengeluaran:
 // 1) konteks tenant, 2) feature flag modul ACCOUNTING, 3) keanggotaan sesi.
 type AksesKeuangan =
-  | { ok: true; tenantId: string }
+  | { ok: true; tenantId: string; currency: string }
   | { ok: false; message: string };
 
 async function aksesKeuangan(): Promise<AksesKeuangan> {
@@ -38,7 +46,63 @@ async function aksesKeuangan(): Promise<AksesKeuangan> {
   if (!guard.ok) {
     return { ok: false, message: guard.message };
   }
-  return { ok: true, tenantId: tenant.id };
+  return { ok: true, tenantId: tenant.id, currency: tenant.currency };
+}
+
+// Menulis jurnal tanpa menggagalkan operasi utama.
+//
+// Pencatatan pengeluaran adalah operasi yang pengguna minta; kegagalan pembukuan
+// tidak boleh membatalkannya, karena penolakan akan membuat pengguna mengulang
+// klik pada hal yang sudah berhasil. Jurnal yang gagal dicatat sebagai peringatan
+// dan ditutup oleh `rekonsiliasi.ts` — sama dengan kebijakan jurnal invoice.
+async function jurnalAman(
+  label: string,
+  tenantId: string,
+  jalankan: () => Promise<{ ok: boolean; alasan?: string }>,
+): Promise<void> {
+  try {
+    const hasil = await jalankan();
+    if (!hasil.ok) {
+      catatPeringatan(`${label}: ${hasil.alasan ?? "gagal tanpa alasan"}`, {
+        aksi: label,
+        tenantId,
+      });
+    }
+  } catch (error) {
+    catatPeringatan(`${label}: ${pesanErrorUmum(error)}`, {
+      aksi: label,
+      tenantId,
+    });
+  }
+}
+
+// Rakit data jurnal dari input yang sudah divalidasi.
+//
+// `reference` jatuh ke keterangan bila nota tidak diisi: nomor dokumen di jurnal
+// tidak boleh kosong, karena justru itu yang menghubungkan baris jurnal dengan
+// dokumen sumbernya saat rekonsiliasi.
+function dataJurnal(
+  akses: { tenantId: string; currency: string },
+  expenseId: string,
+  data: {
+    category: KategoriPengeluaran;
+    description: string;
+    amount: number;
+    paymentMethod?: string;
+    reference?: string;
+  },
+  tanggal: Date,
+): DataPengeluaran {
+  return {
+    tenantId: akses.tenantId,
+    currency: akses.currency,
+    expenseId,
+    reference: kosongKeNull(data.reference) ?? data.description,
+    amount: data.amount,
+    kategori: data.category,
+    paymentMethod: kosongKeNull(data.paymentMethod),
+    tanggal,
+  };
 }
 
 // "YYYY-MM-DD" -> Date pada tengah malam UTC (konsisten dengan modul lain).
@@ -211,6 +275,15 @@ export async function createExpense(
       select: { id: true },
     });
 
+    // Jurnal beban dibuat setelah baris pengeluaran tersimpan. Idempoten, jadi
+    // klik ganda tidak menggandakan beban; kegagalannya tidak membatalkan
+    // pengeluaran (lihat `jurnalAman`).
+    await jurnalAman("catatJurnalPengeluaran", akses.tenantId, () =>
+      catatJurnalPengeluaran(
+        dataJurnal(akses, expense.id, data, keTanggal(data.expenseDate)),
+      ),
+    );
+
     return {
       success: true,
       message: `Pengeluaran "${data.description}" berhasil dicatat.`,
@@ -257,6 +330,13 @@ export async function updateExpense(
       return { success: false, message: "Pengeluaran tidak ditemukan." };
     }
 
+    // Jurnal lama dibalik, jurnal baru dicatat dari nilai baru.
+    await jurnalAman("perbaruiJurnalPengeluaran", akses.tenantId, () =>
+      perbaruiJurnalPengeluaran(
+        dataJurnal(akses, data.expenseId, data, keTanggal(data.expenseDate)),
+      ),
+    );
+
     return {
       success: true,
       message: "Pengeluaran berhasil diperbarui.",
@@ -294,6 +374,16 @@ export async function deleteExpense(
     if (hasil.count === 0) {
       return { success: false, message: "Pengeluaran tidak ditemukan." };
     }
+
+    // Beban dibalik, bukan dihapus: baris pengeluaran boleh hilang, bukti
+    // pembukuannya tidak.
+    await jurnalAman("hapusJurnalPengeluaran", akses.tenantId, () =>
+      hapusJurnalPengeluaran({
+        tenantId: akses.tenantId,
+        expenseId: parsed.data.expenseId,
+        tanggal: new Date(),
+      }),
+    );
 
     return {
       success: true,

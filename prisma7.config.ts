@@ -13,5 +13,8 @@ export default defineConfig({
   },
   datasource: {
     url: process.env["DATABASE_URL"],
+    // Wajib agar `prisma migrate diff` bisa membandingkan direktori migrasi
+    // dengan skema saat ini (dipakai sebagai gerbang "tidak ada drift").
+    shadowDatabaseUrl: process.env["SHADOW_DATABASE_URL"],
   },
 });

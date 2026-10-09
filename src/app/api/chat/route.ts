@@ -1,7 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { checkLimit } from "@/lib/feature-guards";
 import { BATAS_CHAT, periksaBatas } from "@/lib/rate-limit";
 import { getSessionUser } from "@/lib/tenant-access";
 
@@ -55,19 +55,14 @@ export async function POST(req: Request): Promise<Response> {
   const user = await getSessionUser();
   if (!user) return balas("Sesi tidak ditemukan. Silakan masuk terlebih dahulu.", 401);
 
-  // Feature gating PRO (PRD 4.E). SUPER_ADMIN tetap boleh untuk keperluan uji.
-  const tenant = user.tenantId
-    ? await prisma.tenant.findUnique({
-        where: { id: user.tenantId },
-        select: { plan: true },
-      })
-    : null;
-  const bolehPakai = user.role === "SUPER_ADMIN" || tenant?.plan === "PRO";
-  if (!bolehPakai) {
-    return balas(
-      "Asisten AI hanya tersedia pada paket PRO. Silakan upgrade untuk mengaktifkannya.",
-      403,
-    );
+  // Feature gating PRO (PRD 4.E), lewat kunci yang sama dengan sisa aplikasi:
+  // checkLimit("AI"). SUPER_ADMIN tetap boleh untuk keperluan uji.
+  if (user.role !== "SUPER_ADMIN") {
+    if (!user.tenantId) {
+      return balas("Akun ini tidak terhubung ke satu pun toko.", 403);
+    }
+    const batas = await checkLimit(user.tenantId, "AI");
+    if (!batas.allowed) return balas(batas.message, 403);
   }
 
   // Batas pemakaian asisten (pengerasan produksi). Kunci per pengguna, bukan per

@@ -9,7 +9,9 @@ import {
   gabungHargaModal,
   hitungHpp,
   hppDariMovementOut,
+  KELENGKAPAN_MODAL_NONAKTIF,
   labaKotor,
+  nilaiKelengkapanModal,
 } from "./hpp";
 
 describe("adalahReferensiBatal", () => {
@@ -228,5 +230,112 @@ describe("basis pengakuan HPP periode (PRD 4.G.3)", () => {
     const badan = potongFungsi(SUMBER_HPP_QUERY, "hppDokumen");
     assert.match(badan, /reference,/);
     assert.doesNotMatch(badan, /status:\s*"PAID"/);
+  });
+});
+
+describe("kelengkapan modal (Fase 0.1)", () => {
+  it("tidak ada barang terjual: HPP 0 memang benar, jadi tidak diperingatkan", () => {
+    // Ini kasus yang boleh tenang. MenyOOALnya berlebihan di sini membuat orang
+    //、农村 Eventually mengabaikan setiap peringatan.
+    const hasil = nilaiKelengkapanModal({
+      unitTerjual: 0,
+      movementDitemukan: 0,
+      unitTanpaModal: 0,
+      batchDiRakTanpaModal: 3,
+    });
+    assert.equal(hasil.lengkap, true);
+    assert.equal(hasil.alasan, "TIDAK_ADA_BARANG_TERJUAL");
+  });
+
+  it("barang terjual tapi nol movement: inilah lubang yang ditutup", () => {
+    // Kasus nyata pada tenant demo: 3 invoice lunas, 0 movement,
+    // batch costPrice=NULL. Tanpa penanda ini, HPP = 0 DAN unitTanpaModal = 0,
+    // sehingga kartu Laba Bersih terlihat bersih padahal modalnya nol.
+    const hasil = nilaiKelengkapanModal({
+      unitTerjual: 5,
+      movementDitemukan: 0,
+      unitTanpaModal: 0,
+      batchDiRakTanpaModal: 0,
+    });
+    assert.equal(hasil.lengkap, false);
+    assert.equal(hasil.alasan, "TIDAK_ADA_MOVEMENT");
+  });
+
+  it("batch kosongnya modal tidak boleh menutupi nol movement", () => {
+    // Regression guard untuk urutan pemeriksaan. Kalau `batchDiRakTanpaModal`
+    // diperiksa lebih dulu (atau ikut dianggap "lengkap"), kasus yang paling
+    // salah justru terbaca aman.
+    const hasil = nilaiKelengkapanModal({
+      unitTerjual: 5,
+      movementDitemukan: 0,
+      unitTanpaModal: 0,
+      batchDiRakTanpaModal: 7,
+    });
+    assert.equal(hasil.lengkap, false);
+    assert.equal(hasil.alasan, "TIDAK_ADA_MOVEMENT");
+  });
+
+  it("movement ada tapi sebagian tanpa modal: dilaporkan sebagai modal belum tercatat", () => {
+    const hasil = nilaiKelengkapanModal({
+      unitTerjual: 5,
+      movementDitemukan: 2,
+      unitTanpaModal: 1,
+      batchDiRakTanpaModal: 0,
+    });
+    assert.equal(hasil.lengkap, false);
+    assert.equal(hasil.alasan, "MODAL_BELUM_TERCATAT");
+  });
+
+  it("semua angka cocok: HPP boleh dipakai utuh", () => {
+    const hasil = nilaiKelengkapanModal({
+      unitTerjual: 5,
+      movementDitemukan: 2,
+      unitTanpaModal: 0,
+      batchDiRakTanpaModal: 0,
+    });
+    assert.equal(hasil.lengkap, true);
+    assert.equal(hasil.alasan, "LENGKAP");
+  });
+
+  it("batch di rak tanpa modal tidak sendiri membuat angka tidak lengkap", () => {
+    // Barang yang belum terjual tidak memengaruhi HPP bulan ini. Ia hanya
+    // memberi tahu lebih awal, lewat `batchDiRakTanpaModal`, sebelum penjualan
+    // pertama terjadi.
+    const hasil = nilaiKelengkapanModal({
+      unitTerjual: 5,
+      movementDitemukan: 2,
+      unitTanpaModal: 0,
+      batchDiRakTanpaModal: 9,
+    });
+    assert.equal(hasil.lengkap, true);
+  });
+
+  it("modul Inventory mati bukan berarti datanya salah", () => {
+    assert.equal(KELENGKAPAN_MODAL_NONAKTIF.lengkap, true);
+    assert.equal(
+      KELENGKAPAN_MODAL_NONAKTIF.alasan,
+      "TIDAK_ADA_BARANG_TERJUAL",
+    );
+  });
+
+  it("kelengkapan dihitung dari empat angka yang dikembalikan apa adanya", () => {
+    const hasil = nilaiKelengkapanModal({
+      unitTerjual: 12,
+      movementDitemukan: 3,
+      unitTanpaModal: 4,
+      batchDiRakTanpaModal: 5,
+    });
+    assert.equal(hasil.unitTerjual, 12);
+    assert.equal(hasil.movementDitemukan, 3);
+    assert.equal(hasil.unitTanpaModal, 4);
+    assert.equal(hasil.batchDiRakTanpaModal, 5);
+  });
+
+  it("dashboard benar-benar menampilkan peringatan itu", () => {
+    // Penjaga struktural: fungsi murni boleh ada tapi tidak dipakai, maka
+    // lubang yang seharusnya ditutup tetap terbuka.
+    const sumber = bacaSumber("modules/core/components/owner-dashboard.tsx");
+    assert.match(sumber, /PeringatanModalBelumLengkap/);
+    assert.match(sumber, /kelengkapanModal/);
   });
 });

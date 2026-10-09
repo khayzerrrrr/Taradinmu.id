@@ -4,6 +4,7 @@ import type { NavItem, NavSection } from "@/components/layout/nav";
 import { AiAssistantChat } from "@/components/shared/ai-assistant-chat";
 import { resolveBranding } from "@/lib/branding";
 import { punyaItemBarang } from "@/lib/katalog-tenant";
+import { ambilBatasFitur } from "@/lib/plan-limits";
 import {
   buildTenantSubdomainUrl,
   getCurrentTenant,
@@ -81,7 +82,12 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
       // (mis. /dashboard/settings/users), sehingga dua menu tampak aktif.
       exact: true,
       // Branding/white-label hanya untuk PRO: FREE melihat gembok upgrade.
-      kunciPro: tenant.plan === "FREE" ? "BRANDING" : undefined,
+      // Ditanya ke plan-limits (sumber tunggal yang sama dengan penegakan
+      // server), bukan dibandingkan ke string plan — kalau suatu saat ada paket
+      // ketiga, menu tidak boleh salah menyimpulkan.
+      kunciPro: ambilBatasFitur(tenant.plan, "BRANDING")
+        ? undefined
+        : "BRANDING",
     },
   ];
 
@@ -143,6 +149,14 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
           exact: true,
           icon: "dashboard",
         },
+        {
+          // Status paket + sisa kuota. Terbuka untuk semua paket, jadi SENGAJA
+          // tanpa `kunciPro`: mengukur pemakaian sendiri bukan fitur berbayar,
+          // dan orang yang sedang mempertimbangkan upgrade butuh angka ini.
+          href: `${basePath}/dashboard/paket`,
+          label: "Paket Saya",
+          icon: "paket",
+        },
       ],
     },
     {
@@ -200,7 +214,9 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
             icon: "programs",
             // PRO saja (PRD 4.F.6): paket FREE melihat gembok + modal upgrade,
             // dan Server Action-nya tetap menolak — bukan hanya menunya.
-            kunciPro: tenant.plan === "FREE" ? "PROGRAM" : undefined,
+            kunciPro: ambilBatasFitur(tenant.plan, "PROGRAM")
+              ? undefined
+              : "PROGRAM",
           },
         ],
         programAktif,
@@ -245,8 +261,9 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
       }
     >
       {children}
-      {/* Asisten AI mengambang di seluruh halaman tenant (PRD Bagian 4.E). */}
-      <AiAssistantChat terkunciPro={tenant.plan === "FREE"} />
+      {/* Asisten AI mengambang di seluruh halaman tenant (PRD Bagian 4.E).
+          Gemboknya dari plan-limits yang sama dengan guard /api/chat. */}
+      <AiAssistantChat terkunciPro={!ambilBatasFitur(tenant.plan, "AI")} />
     </AppShell>
   );
 }
