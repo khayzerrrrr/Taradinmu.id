@@ -2,12 +2,10 @@ import type { PlanType } from "@/generated/prisma/client";
 import {
   HPP_NOL,
   KELENGKAPAN_MODAL_NONAKTIF,
-  labaKotor,
   type HasilHpp,
   type KelengkapanModal,
 } from "@/lib/hpp";
 import { hppInvoiceLunas, ringkasanKelengkapanModal } from "@/lib/hpp-query";
-import { BEBAN_NOL, hitungArusKas, hitungLaba, pilahBeban } from "@/lib/laba";
 import {
   ambilBatasFitur,
   kuotaMendesak,
@@ -21,13 +19,26 @@ import {
   LOW_STOCK_THRESHOLD,
   ringkasStok,
 } from "@/lib/stock";
-import { hitungZakat } from "@/lib/zakat";
+import { hitungZakat, round2 } from "@/lib/zakat";
 import { NISAB_PENGHASILAN } from "@/lib/zakat-nisab";
+import { saldoPeriode } from "@/modules/accounting/laporan";
+import { hitungRingkasanAkuntansi, type RingkasanAkuntansi } from "@/modules/accounting/laporan-murni";
 import { isModuleEnabled } from "@/shared/modules";
 
 // Ringkasan Dashboard Owner.
 // Ditaruh di src/lib (shared, boleh memakai Prisma langsung — PRD Bagian 6) supaya
 // halaman tetap tipis dan modul tidak perlu saling mengimpor.
+
+/** Ringkasan akuntansi nol: dipakai saat modul Akuntansi belum aktif. */
+const RINGKASAN_KOSONG: RingkasanAkuntansi = {
+  pendapatan: 0,
+  bebanOperasional: 0,
+  pembelianStok: 0,
+  hpp: 0,
+  arusKas: 0,
+  labaBersih: 0,
+  labaKotor: 0,
+};
 
 const BATAS_DAFTAR = 5;
 
@@ -56,7 +67,7 @@ export type RingkasanOwner = {
   /** Total tagihan invoice berstatus SENT (belum dibayar). */
   piutang: number;
   jumlahInvoiceBelumBayar: number;
-  /** Total invoice PAID yang paidAt-nya di bulan berjalan. */
+  /** Pendapatan bulan berjalan dari journal (F1.10). */
   pendapatanBulanIni: number;
   /** Total seluruh invoice PAID (sepanjang waktu). */
   totalPendapatan: number;
@@ -64,34 +75,33 @@ export type RingkasanOwner = {
   jumlahInvoice: number;
 
   /**
-   * Seluruh kas keluar bulan berjalan, termasuk pembelian stok.
+   * Beban usaha + pembelian stok bulan berjalan (dari journal).
    * 0 bila modul Akuntansi tidak aktif.
    */
   pengeluaranBulanIni: number;
-  /** Kas keluar yang menjadi beban usaha (di luar pembelian stok). */
+  /** Beban usaha bulan berjalan dari journal (akun 5- selain HPP). */
   bebanOperasionalBulanIni: number;
   /**
-   * Pembelian stok bulan berjalan (kategori PURCHASE): uang keluar, tapi
-   * barangnya masih jadi aset, jadi angka ini tidak mengurangi laba.
+   * Saldo akun Persediaan (1-1200) bulan berjalan: uang keluar, tapi barangnya
+   * masih jadi aset, jadi angka ini tidak mengurangi laba.
    */
   pembelianStokBulanIni: number;
   /**
-   * Arus kas bulan berjalan = pendapatan yang sudah diterima − SELURUH kas keluar,
-   * termasuk pembelian stok.
+   * Arus kas bulan berjalan = gerakan neto Kas (1-1001) + Bank (1-1002).
    * Ini BUKAN saldo kas: sistem tidak menyimpan saldo awal, jadi angkanya
    * menggambarkan pergerakan bulan ini saja.
    */
   arusKasBulanIni: number;
   /**
-   * Laba bersih bulan berjalan = pendapatan − beban usaha − HPP barang dari
-   * invoice yang lunas. Pembelian stok yang masih di rak sengaja tidak ikut
+   * Laba bersih bulan berjalan = pendapatan - HPP - beban usaha (semuanya dari
+   * journal, F1.10). Pembelian stok yang masih di rak sengaja tidak ikut
    * dikurangi (PRD 4.G.1); inilah dasar estimasi zakat penghasilan.
    */
   labaBersihBulanIni: number;
   /**
-   * Nilai modal barang yang keluar untuk penjualan yang sudah dibayar bulan ini
-   * (PRD 4.G.3). 0 bisa berarti "tidak ada barang terjual" ATAU "terjual tapi
-   * modalnya belum dicatat" — bedanya ada di `unitModalBelumTercatat`.
+   * HPP bulan berjalan dari journal (akun 5-1000), PRD 4.G.3. 0 bisa berarti
+   * "tidak ada barang terjual" ATAU "terjual tapi modalnya belum dicatat" -
+   * bedanya ada di `unitModalBelumTercatat`.
    */
   hppBulanIni: number;
   /** Unit keluar yang batch-nya tidak punya harga modal; HPP bulan ini kurang besar. */
@@ -157,7 +167,6 @@ export async function getOwnerSummary(
   // --- Billing ---
   let piutang = 0;
   let jumlahInvoiceBelumBayar = 0;
-  let pendapatanBulanIni = 0;
   let totalPendapatan = 0;
   let jumlahInvoiceLunasBulanIni = 0;
   let jumlahInvoice = 0;
@@ -175,7 +184,6 @@ export async function getOwnerSummary(
         }),
         prisma.invoice.aggregate({
           where: { tenantId, status: "PAID", paidAt: { gte: batasBulanIni } },
-          _sum: { totalAmount: true },
           _count: true,
         }),
         prisma.invoice.aggregate({
@@ -190,39 +198,34 @@ export async function getOwnerSummary(
 
     piutang = Number(belumBayar._sum.totalAmount ?? 0);
     jumlahInvoiceBelumBayar = belumBayar._count;
-    pendapatanBulanIni = Number(lunasBulanIni._sum.totalAmount ?? 0);
     totalPendapatan = Number(semuaLunas._sum.totalAmount ?? 0);
     jumlahInvoiceLunasBulanIni = lunasBulanIni._count;
     jumlahInvoice = totalInvoice;
     jumlahInvoiceBulanIni = dibuatBulanIni;
   }
 
-  // --- Akuntansi: kas keluar bulan berjalan, dipilah per kategori ---
-  // groupBy, bukan satu agregat: pembelian stok harus bisa dipisahkan dari beban
-  // usaha sebelum laba dihitung (PRD 4.G.1).
-  let beban = BEBAN_NOL;
+  // --- Akuntansi: SELURUH angka dari journal (F1.10) ---
+  // Sumber kebenaran angka akuntansi sudah berpindah ke `Posting` (lihat
+  // laporan.ts), jadi dashboard tidak lagi menjumlah Expense/Invoice sendiri.
+  // Konsekuensi yang disengaja: dokumen lama yang belum punya jurnal tampak 0
+  // di sini — angka yang belum dibukukan memang belum ada.
+  let r: RingkasanAkuntansi = RINGKASAN_KOSONG;
   if (accountingAktif) {
-    const perKategori = await prisma.expense.groupBy({
-      by: ["category"],
-      where: { tenantId, expenseDate: { gte: batasBulanIni } },
-      _sum: { amount: true },
-      _count: true,
-    });
-
-    beban = pilahBeban(
-      perKategori.map((row) => ({
-        category: row.category,
-        amount: Number(row._sum.amount ?? 0),
-        jumlah: row._count,
-      })),
+    // Batas bulan berjalan dihitung UTC supaya sama persis dengan laporan
+    // (jurnal disaring tanggal bisnis; selisih zona bisa memindah satu jurnal
+    // ke bulan yang salah). batasBulanIni = awal bulan dari `awalBulan`.
+    const batasBulanDepan = new Date(
+      Date.UTC(batasBulanIni.getUTCFullYear(), batasBulanIni.getUTCMonth() + 1, 1),
     );
+    const sal = await saldoPeriode(tenantId, batasBulanIni, batasBulanDepan);
+    r = hitungRingkasanAkuntansi(sal);
   }
 
   // --- HPP: modal barang dari invoice yang LUNAS bulan berjalan (PRD 4.G.3) ---
   // Hanya ada bila modul Inventory aktif; penjualan item SERVICE memang tidak
   // punya harga pokok barang (PRD 4.G.6).
-  // Basisnya sengaja sama dengan pendapatanBulanIni di atas: stok sudah dipotong
-  // sejak draft, jadi HPP yang mengikuti movement OUT akan membuat rugi phantom.
+  // Sejak F1.10 angka HPP dashboard diambil dari journal; perhitungan ini
+  // tinggal menyuplai `unitModalBelumTercatat` — penanda modal yang belum dicatat.
   const hppBarang: HasilHpp = inventoryAktif
     ? await hppInvoiceLunas(tenantId, batasBulanIni)
     : HPP_NOL;
@@ -234,11 +237,11 @@ export async function getOwnerSummary(
     : KELENGKAPAN_MODAL_NONAKTIF;
 
   // --- Estimasi zakat penghasilan ---
-  // Dasar zakat adalah LABA, bukan arus kas: toko yang bulan ini menghabiskan kas
+  // Dasar zakat adalah LABA journal, bukan arus kas: toko yang bulan ini menghabiskan kas
   // untuk menimbun stok belum tentu untung — tapi juga belum tentu rugi.
-  // HPP tetap dikurangi pada SEMUA paket (PRD 4.G.5): yang dikunci hanya
-  // laporannya, bukan kebenarannya.
-  const labaBersih = hitungLaba(pendapatanBulanIni, beban, hppBarang.hpp);
+  // Laba bersih sudah memuat HPP & beban pada SEMUA paket (PRD 4.G.5):
+  // yang dikunci hanya laporannya, bukan kebenarannya.
+  const labaBersih = r.labaBersih;
   const hasilZakat = hitungZakat(labaBersih, NISAB_PENGHASILAN);
   // Angkanya dihitung pada semua paket (PRD 4.D): FREE boleh melihat berapa
   // zakatnya bulan ini; yang PRO adalah menarik datanya otomatis ke riwayat dan
@@ -326,21 +329,22 @@ export async function getOwnerSummary(
 
     piutang,
     jumlahInvoiceBelumBayar,
-    pendapatanBulanIni,
+    pendapatanBulanIni: r.pendapatan,
     totalPendapatan,
     jumlahInvoiceLunasBulanIni,
     jumlahInvoice,
 
-    pengeluaranBulanIni: beban.total,
-    bebanOperasionalBulanIni: beban.operasional,
-    pembelianStokBulanIni: beban.pembelian,
-    // Arus kas = seluruh kas keluar; laba = hanya beban usaha (PRD 4.G.1).
-    arusKasBulanIni: hitungArusKas(pendapatanBulanIni, beban),
-    labaBersihBulanIni: labaBersih,
-    hppBulanIni: hppBarang.hpp,
+    pengeluaranBulanIni: round2(r.bebanOperasional + r.pembelianStok),
+    bebanOperasionalBulanIni: r.bebanOperasional,
+    pembelianStokBulanIni: r.pembelianStok,
+    // Arus kas = gerakan kas+bank neto bulan ini (dari journal), bukan resep
+    // "pendapatan - pengeluaran": penjualan kredit tidak menambah kas.
+    arusKasBulanIni: r.arusKas,
+    labaBersihBulanIni: r.labaBersih,
+    hppBulanIni: r.hpp,
     unitModalBelumTercatat: hppBarang.unitTanpaModal,
     kelengkapanModal,
-    labaKotorBulanIni: labaKotor(pendapatanBulanIni, hppBarang.hpp),
+    labaKotorBulanIni: r.labaKotor,
     laporanHppAktif: ambilBatasFitur(plan, "HPP"),
     estimasiZakat: hasilZakat.estimasi,
     zakatOtomatisAktif,

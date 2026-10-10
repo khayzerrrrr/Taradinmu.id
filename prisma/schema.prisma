@@ -648,6 +648,12 @@ model JournalEntry {
   /// UNIQUE di bawah yang mencegah satu jurnal dibatalkan dua kali; trigger di
   /// migrasi hanya mengulang aturan itu dengan pesan yang bisa dibaca aplikasi.
   reversedFromId String?      @unique
+  /// Jurnal ini sudah "dimatikan" oleh sebuah jurnal pembalik (reversedFromId
+  /// menunjuk ke sini). Dipakai oleh indeks parsial unik satu-aktif-per-dokumen
+  /// (migrasi `satu_jurnal_aktif_per_dokumen`): dokumen yang sudah dibatalkan
+  /// boleh diposting ulang, dan pemindahan dokumen tidak lagi berisiko: tidak
+  /// mungkin ada dua jurnal aktif untuk (refType, refId) yang sama.
+  diBalik       Boolean       @default(false)
   createdById  String?
   createdAt    DateTime      @default(now())
 

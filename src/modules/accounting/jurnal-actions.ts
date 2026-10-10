@@ -101,6 +101,17 @@ export async function simpanJurnal(
           currency,
         })),
       });
+
+      // Pembalik menandai jurnal aslinya mati DI TRANSAKSI YANG SAMA, supaya
+      // indeks parsial unik satu-aktif-per-dokumen membuka slotnya tepat saat
+      // pembaliknya lahir - tidak ada jendela di mana dokumen itu "tanpa
+      // pemilik" maupun "punya dua pemilik".
+      if (rancangan.reversedFromId) {
+        await tx.journalEntry.update({
+          where: { id: rancangan.reversedFromId },
+          data: { diBalik: true },
+        });
+      }
       return j.id;
     });
 

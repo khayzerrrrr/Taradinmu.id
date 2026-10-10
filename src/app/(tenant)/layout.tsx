@@ -200,6 +200,21 @@ export default async function TenantLayout({ children }: LayoutProps<"/">) {
             label: "Zakat",
             icon: "zakat",
           },
+          {
+            href: `${basePath}/dashboard/keuangan/coa`,
+            label: "Bagan Akun",
+            icon: "expenses",
+          },
+          {
+            href: `${basePath}/dashboard/keuangan/buku-besar`,
+            label: "Buku Besar",
+            icon: "invoices",
+          },
+          {
+            href: `${basePath}/dashboard/keuangan/periode`,
+            label: "Periode",
+            icon: "programs",
+          },
         ],
         accountingAktif,
       ),

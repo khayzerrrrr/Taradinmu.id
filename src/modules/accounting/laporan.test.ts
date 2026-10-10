@@ -7,6 +7,7 @@ import {
   hitungArusKas,
   hitungLabaRugi,
   hitungNeraca,
+  hitungRingkasanAkuntansi,
   type Saldo,
 } from "./laporan-murni";
 
@@ -312,5 +313,66 @@ describe("hitungArusKas", () => {
     const ak = hitungArusKas({ masuk: 1_000_000, keluar: 400_000 }, 0, 500_000);
     assert.equal(ak.kenaikanKas, 600_000);
     assert.equal(ak.cocokDenganSaldo, false, "selisih saldo harus terdeteksi");
+  });
+});
+
+describe("hitungRingkasanAkuntansi", () => {
+  it("saldo kosong: nol semua, bukan error", () => {
+    const r = hitungRingkasanAkuntansi(s({}));
+    assert.equal(r.pendapatan, 0);
+    assert.equal(r.hpp, 0);
+    assert.equal(r.bebanOperasional, 0);
+    assert.equal(r.pembelianStok, 0);
+    assert.equal(r.arusKas, 0);
+    assert.equal(r.labaKotor, 0);
+    assert.equal(r.labaBersih, 0);
+  });
+
+  it("satu siklus: pendapatan jurnal, HPP, beban, pembelian stok", () => {
+    // Skenario sederhana (konvensi: positif = debit, negatif = kredit):
+    //   kas +10.000.000 dari modal (3-1000)
+    //   penjualan kredit 1.100.000 -> pendapatan 4-1000 = -1.100.000
+    //   HPP 600.000            -> 5-1000 = +600.000
+    //   beban gaji 200.000     -> 5-2000 = +200.000
+    //   pembelian stok 400.000 -> 1-1200 = +400.000
+    // Ekspektasi:
+    //   pendapatan       = 1.100.000 (kredit dibalik)
+    //   hpp              =   600.000
+    //   bebanOperasional =   200.000 (5- selain 5-1000)
+    //   pembelianStok    =   400.000
+    //   arusKas          = 10.000.000 (kas + bank)
+    //   labaKotor        =   500.000 (1.100.000 - 600.000)
+    //   labaBersih       =   300.000 (500.000 - 200.000)
+    const r = hitungRingkasanAkuntansi(
+      s({
+        [KODE_AKUN.kas]: 10_000_000,
+        [KODE_AKUN.persediaan]: 400_000,
+        [KODE_AKUN.modalDisetor]: -10_000_000,
+        [KODE_AKUN.pendapatanPenjualan]: -1_100_000,
+        [KODE_AKUN.hpp]: 600_000,
+        [KODE_AKUN.bebanGaji]: 200_000,
+      }),
+    );
+    assert.equal(r.pendapatan, 1_100_000);
+    assert.equal(r.hpp, 600_000);
+    assert.equal(r.bebanOperasional, 200_000);
+    assert.equal(r.pembelianStok, 400_000);
+    assert.equal(r.arusKas, 10_000_000);
+    assert.equal(r.labaKotor, 500_000);
+    assert.equal(r.labaBersih, 300_000);
+  });
+
+  it("arusKas = kas + bank, pendapatan menjumlahkan semua akun 4-", () => {
+    // Penjualan 700.000 (4-1000) + jasa 300.000 (4-2000); kas 250.000, bank 750.000.
+    const r = hitungRingkasanAkuntansi(
+      s({
+        [KODE_AKUN.kas]: 250_000,
+        [KODE_AKUN.bank]: 750_000,
+        [KODE_AKUN.pendapatanPenjualan]: -700_000,
+        [KODE_AKUN.pendapatanJasa]: -300_000,
+      }),
+    );
+    assert.equal(r.pendapatan, 1_000_000);
+    assert.equal(r.arusKas, 1_000_000);
   });
 });

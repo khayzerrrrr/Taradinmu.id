@@ -29,9 +29,10 @@ export type KunciJurnalAktif = {
  *
  * Kunci dokumen di database TIDAK unik: setelah sebuah jurnal dibalik, jurnal
  * lama tetap menyandang kunci yang sama. Karena itu:
- *   1. semua kandidat diambil (terbaru lebih dulu),
- *   2. jurnal yang sudah punya pembalik (`reversedFromId` menunjuk ke salah satu
- *      kandidat) dikeluarkan,
+ *   1. query hanya mengambil jurnal yang belum dibalik (`diBalik = false` —
+ *      ditandai indeks parsial unik satu-aktif-per-dokumen di database),
+ *   2. jurnal yang sudah punya pembalik tetap dikeluarkan sebagai jaring
+ *      pengaman (melindungi data lama dari sebelum migrasi `diBalik`),
  *   3. kandidat pertama yang tersisa itulah yang aktif.
  *
  * `reversedFromId` unik, jadi satu jurnal dibatalkan paling banyak sekali.
@@ -41,7 +42,7 @@ export async function jurnalAktifId(
   kunci: KunciJurnalAktif,
 ): Promise<string | null> {
   const kandidat = await prisma.journalEntry.findMany({
-    where: { tenantId, ...kunci },
+    where: { tenantId, ...kunci, diBalik: false },
     select: { id: true },
     orderBy: { createdAt: "desc" },
   });

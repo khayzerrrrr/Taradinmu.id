@@ -66,6 +66,12 @@ async function simpan(tenantId: string, j: JurnalRancangan, mataUang: string) {
         return { journalId: entry.id, accountId, amount: p.nominal, side: p.sisi, currency: mataUang };
       }),
     });
+    if (j.reversedFromId) {
+      await tx.journalEntry.update({
+        where: { id: j.reversedFromId },
+        data: { diBalik: true },
+      });
+    }
     return entry.id;
   });
 }
@@ -143,7 +149,11 @@ async function main() {
     t,
     {
       businessDate: d15,
-      source: "INVOICE",
+      // Source mengikuti keputusan engine (jurnal-otomatis.ts): HPP memakai
+      // kunci source "STOCK", BUKAN "INVOICE", supaya satu dokumen boleh punya
+      // jurnal pendapatan (INVOICE) DAN jurnal HPP (STOCK) - dan sekarang
+      // fakta ini dijaga juga oleh indeks unik satu-aktif-per-dokumen.
+      source: "STOCK",
       reference: "INV-LAP-0001",
       refType: "INVOICE",
       refId: "inv-lap-1",

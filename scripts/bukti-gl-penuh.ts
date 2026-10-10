@@ -65,6 +65,12 @@ async function simpanJurnal(
         };
       }),
     });
+    if (rancangan.reversedFromId) {
+      await tx.journalEntry.update({
+        where: { id: rancangan.reversedFromId },
+        data: { diBalik: true },
+      });
+    }
     return j.id;
   });
 }

@@ -71,6 +71,9 @@ export const SEGMEN_LABEL: Record<string, string> = {
   // menghasilkan remah yang menunjuk ke 404 — persis cacat "Invoice" yang
   // dilaporkan pengguna. Lihat penjaga aturannya di nav-hrefs.test.ts.
   pengeluaran: "Pengeluaran",
+  coa: "Bagan Akun",
+  "buku-besar": "Buku Besar",
+  periode: "Periode",
   zakat: "Zakat",
   program: "Program",
   // Halaman status paket (PRD 4.D.3). Bukan folder pengelompok: punya page.tsx

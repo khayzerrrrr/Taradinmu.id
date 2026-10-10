@@ -175,3 +175,65 @@ export function hitungArusKas(
     cocokDenganSaldo: kenaikanKas === bulat(saldoAkhir - saldoAwal),
   };
 }
+
+export type RingkasanAkuntansi = {
+  pendapatan: number;
+  bebanOperasional: number;
+  pembelianStok: number;
+  hpp: number;
+  arusKas: number;
+  labaBersih: number;
+  labaKotor: number;
+};
+
+/** Jumlahkan seluruh saldo akun yang kodenya berawalan `awalan`. */
+function jumlahAwalan(sal: Saldo, awalan: string): number {
+  let total = 0;
+  for (const [kode, nilai] of sal) {
+    if (kode.startsWith(awalan)) total += nilai;
+  }
+  return total;
+}
+
+/**
+ * Ringkasan akuntansi untuk dashboard Owner (F1.10), dihitung dari SATU peta
+ * saldo periode. Murni: tidak menyentuh database, bisa diuji dengan angka yang
+ * diketahui.
+ *
+ * Definisi (konvensi repo: positif = debit, negatif = kredit):
+ * - pendapatan       = -(Σ saldo akun berkode "4-")
+ *   Pendapatan bersaldo KREDIT, jadi dibalik agar positif berarti "berapa banyak
+ *   pendapatan" — sama seperti `hitungLabaRugi`.
+ * - hpp              = Σ saldo akun "5-1000"
+ * - bebanOperasional = Σ saldo akun "5-" KECUALI "5-1000"
+ * - pembelianStok    = Σ saldo akun "1-1200" + ("1-1201" bila ada)
+ * - arusKas          = saldo "1-1001" (kas) + "1-1002" (bank): gerakan kas neto
+ *   bulan ini. Ini BUKAN saldo kas (sistem tidak menyimpan saldo awal).
+ * - labaKotor        = pendapatan - hpp
+ * - labaBersih       = pendapatan - hpp - bebanOperasional
+ *
+ * Kenapa pendapatan dibalik tetapi beban/aset TIDAK: beban dan aset bersaldo
+ * normal DEBIT, jadi nilainya yang wajar sudah positif. Hanya akun pendapatan
+ * yang sisi normalnya kredit sehingga wajib dinegatifkan.
+ *
+ * Pembelian stok sengaja dipisahkan dari beban (PRD 4.G.1): uangnya keluar, tapi
+ * barangnya masih jadi aset — ia tidak mengurangi laba.
+ */
+export function hitungRingkasanAkuntansi(sal: Saldo): RingkasanAkuntansi {
+  const pendapatan = bulat(-jumlahAwalan(sal, "4-"));
+  const hpp = bulat(ambil(sal, KODE_AKUN.hpp));
+  const bebanOperasional = bulat(jumlahAwalan(sal, "5-") - ambil(sal, KODE_AKUN.hpp));
+  const pembelianStok = bulat(ambil(sal, KODE_AKUN.persediaan) + ambil(sal, "1-1201"));
+  const arusKas = bulat(ambil(sal, KODE_AKUN.kas) + ambil(sal, KODE_AKUN.bank));
+  const labaKotor = bulat(pendapatan - hpp);
+  const labaBersih = bulat(pendapatan - hpp - bebanOperasional);
+  return {
+    pendapatan,
+    bebanOperasional,
+    pembelianStok,
+    hpp,
+    arusKas,
+    labaBersih,
+    labaKotor,
+  };
+}

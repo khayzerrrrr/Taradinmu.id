@@ -81,6 +81,12 @@ async function simpan(tenantId: string, j: JurnalRancangan, mataUang: string) {
         };
       }),
     });
+    if (j.reversedFromId) {
+      await tx.journalEntry.update({
+        where: { id: j.reversedFromId },
+        data: { diBalik: true },
+      });
+    }
     return entry.id;
   });
 }

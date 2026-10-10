@@ -64,8 +64,10 @@ export type Laporan = {
 /**
  * Saldo seluruh akun dalam satu rentang tanggal, bentuk BERSIH:
  * positif = debit, negatif = kredit.
+ *
+ * Diekspor dan dipakai juga oleh dashboard ringkasan owner (F1.10).
  */
-async function saldoPeriode(tenantId: string, dari: Date, sampai: Date): Promise<Saldo> {
+export async function saldoPeriode(tenantId: string, dari: Date, sampai: Date): Promise<Saldo> {
   const posting = await prisma.posting.findMany({
     where: { journal: { tenantId, businessDate: { gte: dari, lt: sampai } } },
     select: { side: true, amount: true, account: { select: { code: true } } },
